@@ -1,10 +1,8 @@
-# Kairos
+# Kairos - Know which AI to use right now
 
-<img src="public/logo.webp" width="128" alt="Kairos Logo">
+<center><img src="public/logo.webp" width="250" alt="Kairos Logo"></center>
 
-Know which AI to use right now. Quota-aware routing across Claude, ChatGPT, Copilot, and pay-as-you-go APIs. Thanks to Kairos!
-
-A lightweight dashboard to track your AI subscription quotas and get instant routing recommendations based on what you're about to do.
+Quota-aware routing across Claude, ChatGPT, Copilot, and pay-as-you-go APIs. A lightweight dashboard to track your AI subscription quotas and get instant routing recommendations based on what you're about to do.
 
 ## Why
 
