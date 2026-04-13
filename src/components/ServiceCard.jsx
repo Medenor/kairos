@@ -1,0 +1,119 @@
+import { getConsumedPct, getServicePressure, getStatusBadge, getBarColor } from '../utils'
+import styles from './ServiceCard.module.css'
+
+function QuotaRow({ svc, quota, value, onChange }) {
+  const cPct = getConsumedPct(quota, value)
+
+  if (quota.type === 'currency') {
+    return (
+      <div className={styles.quotaBlock}>
+        <div className={styles.creditRow}>
+          <span className={styles.quotaLabel}>{quota.label}</span>
+          <input
+            type="number"
+            min={0}
+            step={0.5}
+            value={value}
+            onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
+          />
+          <span className={styles.currencyUnit}>{quota.currency}</span>
+          {value <= 0 && <span className={styles.subnote}>— exhausted</span>}
+          {value > 0 && value < 2 && <span className={styles.subnote}>— low</span>}
+        </div>
+        <div className={styles.barRow}>
+          <div className={styles.barWrap}>
+            <div
+              className={styles.bar}
+              style={{ width: `${100 - Math.min(100, Math.round((value / 20) * 100))}%`, background: getBarColor(cPct) }}
+            />
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  const displayLabel =
+    quota.type === 'remaining_pct' ? `${value}% remaining` : `${value}% consumed`
+
+  return (
+    <div className={styles.quotaBlock}>
+      <div className={styles.sliderRow}>
+        <span className={styles.quotaLabel}>
+          {quota.label}
+          {quota.subnote && <span className={styles.subnote}> ({quota.subnote})</span>}
+        </span>
+        <input
+          type="range"
+          min={0}
+          max={100}
+          step={1}
+          value={value}
+          onChange={(e) => onChange(parseInt(e.target.value))}
+        />
+        <span className={styles.quotaVal}>{displayLabel}</span>
+      </div>
+      <div className={styles.barRow}>
+        <div className={styles.barWrap}>
+          <div
+            className={styles.bar}
+            style={{ width: `${cPct}%`, background: getBarColor(cPct) }}
+          />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+const BADGE_STYLES = {
+  ok: { background: '#EAF3DE', color: '#3B6D11' },
+  warn: { background: '#FAEEDA', color: '#854F0B' },
+  crit: { background: '#FCEBEB', color: '#A32D2D' },
+  off: { background: '#F1EFE8', color: '#5F5E5A' },
+}
+
+const RESET_LABELS = {
+  weekly: 'Weekly reset',
+  monthly: 'Monthly reset',
+  payg: 'Pay-as-you-go',
+}
+
+export default function ServiceCard({ svc, quotaState, onUpdate }) {
+  const pressure = getServicePressure(svc, { [svc.id]: quotaState })
+  const badge = getStatusBadge(pressure)
+  const costDisplay =
+    svc.cost > 0 ? `${svc.cost.toFixed(2)}${svc.costCurrency}/mo` : 'Pay-as-you-go'
+
+  return (
+    <div className={styles.card}>
+      <div className={styles.header}>
+        <div className={styles.identity}>
+          <span className={styles.dot} style={{ background: svc.color }} />
+          <span className={styles.name}>{svc.name}</span>
+          <span className={styles.meta}>{costDisplay}</span>
+        </div>
+        <span className={styles.badge} style={BADGE_STYLES[badge.level]}>
+          {badge.label}
+        </span>
+      </div>
+
+      {svc.quotas.map((q) => (
+        <QuotaRow
+          key={q.id}
+          svc={svc}
+          quota={q}
+          value={quotaState[q.id] ?? q.value}
+          onChange={(val) => onUpdate(svc.id, q.id, val)}
+        />
+      ))}
+
+      <div className={styles.footer}>
+        {RESET_LABELS[svc.resetType]} · {svc.note}
+      </div>
+      <div className={styles.flags}>
+        {svc.flags.map((f) => (
+          <span key={f} className={styles.flag}>{f}</span>
+        ))}
+      </div>
+    </div>
+  )
+}
