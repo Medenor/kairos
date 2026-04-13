@@ -1,5 +1,5 @@
 {
-  "name": "ai-quota-router",
+  "name": "kairos-ai-quota-router",
   "version": "0.1.0",
   "description": "Dashboard to track AI subscription quotas and get routing recommendations",
   "type": "module",

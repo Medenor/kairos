@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { SERVICES } from '../data/services'
 
-const STORAGE_KEY = 'ai-quota-router:state'
+const STORAGE_KEY = 'kairos-ai-quota-router:state'
 
 function buildDefaultState() {
   const s = {}

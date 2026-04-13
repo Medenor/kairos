@@ -1,5 +1,7 @@
 # Kairos
 
+<img src="public/logo.webp" width="128" alt="Kairos Logo">
+
 Know which AI to use right now. Quota-aware routing across Claude, ChatGPT, Copilot, and pay-as-you-go APIs. Thanks to Kairos!
 
 A lightweight dashboard to track your AI subscription quotas and get instant routing recommendations based on what you're about to do.
@@ -35,7 +37,7 @@ This tool tracks your quotas in one place and tells you which service to use rig
 
 ```bash
 git clone https://codeberg.org/medenor/kairos.git
-cd ai-quota-router
+cd kairos
 npm install
 npm run dev
 ```

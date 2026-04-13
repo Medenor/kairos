@@ -6,11 +6,25 @@
   margin-bottom: 2rem;
 }
 
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+.logo {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  object-fit: cover;
+}
+
 .title {
   font-size: 22px;
   font-weight: 500;
   color: var(--color-text);
-  margin-bottom: 4px;
+  margin: 0;
 }
 
 .subtitle {
