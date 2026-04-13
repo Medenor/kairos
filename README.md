@@ -91,7 +91,7 @@ Issues and PRs welcome. Keep it dependency-free as much as possible.
 ### Extensibility
 
 9. **Generic service schema** — add any service via UI (name, cost, quota type, currency, reset window) without touching the code — makes the tool truly generic
-10. **Codeberg Pages CI** — Forgejo Actions workflow to automatically deploy to Codeberg Pages on every push to `main`
+10. **Docker container** — package the app in a Docker container for easy deployment on any platform, including self-hosted servers
 
 ## License
 
