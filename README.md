@@ -34,7 +34,7 @@ This tool tracks your quotas in one place and tells you which service to use rig
 ## Getting started
 
 ```bash
-git clone https://codeberg.org/medenor/ai-quota-router.git
+git clone https://codeberg.org/medenor/kairos.git
 cd ai-quota-router
 npm install
 npm run dev
