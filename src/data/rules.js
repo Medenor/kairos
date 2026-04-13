@@ -81,7 +81,7 @@ export const RULES = {
     if (c < 75) {
       return {
         primary: 'claude',
-        reason: 'Claude available — top choice for intensive work tasks (pharma, writing, analysis).',
+        reason: 'Claude available — top choice for intensive work tasks (work, writing, analysis).',
         alts: [],
       }
     }

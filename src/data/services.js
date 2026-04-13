@@ -26,8 +26,8 @@ export const SERVICES = [
     resetType: 'weekly',
     color: '#1D9E75',
     quotas: [
-      { id: 'codex_remaining', label: 'Codex — remaining', value: 75, type: 'remaining_pct', subnote: 'Codex only' },
-      { id: 'codex_5h', label: '5h slot — remaining', value: 60, type: 'remaining_pct', subnote: 'Codex only' },
+      { id: 'codex_remaining', label: 'Weekly quota — remaining', value: 75, type: 'remaining_pct', subnote: 'Codex only' },
+      { id: 'codex_5h', label: '5h slot (current) — remaining', value: 60, type: 'remaining_pct', subnote: 'Codex only' },
     ],
     flags: ['generalist', 'token-efficient', 'chat always available'],
     note: 'Main chat always active — only Codex is rate-limited',
@@ -87,7 +87,7 @@ export const TASKS = [
   {
     id: 'work_heavy',
     name: 'Intensive work task',
-    desc: 'Writing, analysis, reports, pharma',
+    desc: 'Writing, analysis, reports, work',
   },
   {
     id: 'daily_chat',
