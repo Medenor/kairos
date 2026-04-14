@@ -24,6 +24,16 @@ function buildDefaultState() {
   return s
 }
 
+function buildDefaultEntries() {
+  const entries = []
+  SERVICES.forEach((svc) => {
+    svc.quotas.forEach((q) => {
+      entries.push({ logicalKey: `${svc.id}:${q.id}`, value: q.value })
+    })
+  })
+  return entries
+}
+
 function logicalKeyToQuota(logicalKey) {
   const [serviceId, quotaId] = String(logicalKey).split(':')
   return { serviceId, quotaId }
@@ -222,10 +232,54 @@ export function useSharedQuotaState() {
     writeTimersRef.current.set(logicalKey, timer)
   }
 
-  const resetAll = () => {
-    setState(buildDefaultState())
-    setSyncMessage('Local reset applied')
-  }
+  const resetAll = useCallback(async () => {
+    for (const timer of writeTimersRef.current.values()) {
+      clearTimeout(timer)
+    }
+    writeTimersRef.current.clear()
+
+    const defaultState = buildDefaultState()
+    setState(defaultState)
+
+    if (!workspaceId) {
+      setSyncMessage('Local reset applied')
+      return
+    }
+
+    setSyncStatus('syncing')
+    try {
+      const nextIndex = { ...recordIndexRef.current }
+      for (const entry of buildDefaultEntries()) {
+        const existing = nextIndex[entry.logicalKey]
+        let saved = null
+        if (!existing) {
+          saved = await createRecord(workspaceId, {
+            record_type: 'quota_state',
+            logical_key: entry.logicalKey,
+            payload: { value: entry.value },
+          })
+        } else {
+          saved = await updateRecord(workspaceId, existing.id, {
+            expected_version: existing.version,
+            payload: { value: entry.value },
+          })
+        }
+        nextIndex[entry.logicalKey] = saved
+      }
+      setRecordIndex(nextIndex)
+      setSyncStatus('ready')
+      setSyncMessage('Reset synced')
+    } catch (error) {
+      if (error.status === 409) {
+        setSyncStatus('conflict')
+        setSyncMessage('Conflict detected. Pulling latest changes.')
+        await refreshSync(false)
+      } else {
+        setSyncStatus('error')
+        setSyncMessage(error.message)
+      }
+    }
+  }, [workspaceId, refreshSync])
 
   return useMemo(
     () => ({
@@ -237,6 +291,6 @@ export function useSharedQuotaState() {
       syncMessage,
       workspaceId,
     }),
-    [state, syncStatus, syncMessage, workspaceId]
+    [state, updateQuota, resetAll, syncStatus, syncMessage, workspaceId]
   )
 }

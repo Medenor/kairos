@@ -20,5 +20,5 @@ fi
 $COMPOSE -f "$COMPOSE_FILE" up --build -d
 
 echo "Shared stack started."
-echo "Frontend: http://localhost:5173"
-echo "Backend health: http://localhost:8080/health"
+echo "Frontend: http://localhost:5273"
+echo "Backend health: http://localhost:8888/health"

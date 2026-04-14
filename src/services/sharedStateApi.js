@@ -1,8 +1,8 @@
 const defaultApiBase = (() => {
   if (typeof window !== 'undefined' && window.location?.hostname) {
-    return `http://${window.location.hostname}:8888/api/v1`
+    return `http://${window.location.hostname}:8080/api/v1`
   }
-  return 'http://localhost:8888/api/v1'
+  return 'http://localhost:8080/api/v1'
 })()
 
 const API_BASE = (import.meta.env.VITE_SHARED_API_BASE_URL || defaultApiBase).replace(/\/$/, '')
