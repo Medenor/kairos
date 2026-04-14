@@ -49,13 +49,13 @@
 
 ## Phase 3: User Story 1 - Shared Data Across Devices (Priority: P1) 🎯 MVP
 
-**Goal**: Users on different LAN devices can read/write the same shared state through an authenticated API
+**Goal**: Users on different LAN devices can read/write the same shared state through a LAN-trusted API
 
 **Independent Test**: Create/update a record from Device A and verify Device B retrieves the same updated record via sync/list endpoints
 
 ### Tests for User Story 1
 
-- [X] T012 [P] [US1] Add contract tests for `/auth/login`, `/workspaces/{workspaceId}/records`, and `/workspaces/{workspaceId}/sync/pull` in `backend/tests/contract/shared-state-api.contract.test.js`
+- [X] T012 [P] [US1] Add contract tests for `/workspaces/{workspaceId}/records` and `/workspaces/{workspaceId}/sync/pull` (plus optional legacy `/auth/login`) in `backend/tests/contract/shared-state-api.contract.test.js`
 - [X] T013 [P] [US1] Add integration test for cross-device record propagation in `backend/tests/integration/us1-shared-sync.test.js`
 - [X] T014 [P] [US1] Add integration test for version-conflict response (409) in `backend/tests/integration/us1-conflict-handling.test.js`
 
@@ -64,10 +64,10 @@
 - [X] T015 [P] [US1] Implement repository modules for `Workspace`, `WorkspaceMember`, and `SharedRecord` in `backend/src/db/repositories/workspace-repo.js`, `backend/src/db/repositories/workspace-member-repo.js`, and `backend/src/db/repositories/shared-record-repo.js`
 - [X] T016 [P] [US1] Implement `RecordRevision` write path in `backend/src/db/repositories/record-revision-repo.js`
 - [X] T017 [US1] Implement shared record service with optimistic concurrency rules in `backend/src/services/shared-record-service.js`
-- [X] T018 [US1] Implement auth routes `/auth/login` and `/auth/logout` in `backend/src/api/routes/auth-routes.js`
+- [X] T018 [US1] Implement compatibility routes `/auth/login` and `/auth/logout` (not required in local-trust mode) in `backend/src/api/routes/auth-routes.js`
 - [X] T019 [US1] Implement record CRUD routes and sync pull route in `backend/src/api/routes/record-routes.js` and `backend/src/api/routes/sync-routes.js`
-- [X] T020 [US1] Wire route registration and authorization guards in `backend/src/api/router.js`
-- [X] T021 [US1] Implement frontend API client for auth and record/sync operations in `src/services/sharedStateApi.js`
+- [X] T020 [US1] Wire route registration and LAN-trust access flow in `backend/src/api/router.js`
+- [X] T021 [US1] Implement frontend API client for LAN-trust record/sync operations (with optional legacy auth helpers) in `src/services/sharedStateApi.js`
 - [X] T022 [US1] Implement frontend shared-state hook replacing local-only reads/writes with backend sync in `src/hooks/useSharedQuotaState.js`
 - [X] T023 [US1] Integrate shared-state hook into app flow and service cards in `src/App.jsx` and `src/components/ServiceCard.jsx`
 - [X] T024 [US1] Add user-visible sync/conflict state UI in `src/components/SummaryBar.jsx` and `src/components/SummaryBar.module.css`
@@ -104,14 +104,14 @@
 
 ## Phase 5: User Story 3 - Controlled Local-Network Access and Recovery (Priority: P3)
 
-**Goal**: Enforce authenticated LAN-only access and provide backup/restore workflows with auditability
+**Goal**: Enforce LAN-only access and provide backup/restore workflows with auditability
 
-**Independent Test**: Unauthorized access is denied; backup snapshot can be created and restored after simulated destructive change
+**Independent Test**: Out-of-LAN access is denied; backup snapshot can be created and restored after simulated destructive change
 
 ### Tests for User Story 3
 
 - [X] T035 [P] [US3] Add contract tests for backup endpoints and restore trigger in `backend/tests/contract/backup-api.contract.test.js`
-- [X] T036 [P] [US3] Add integration test for access denial without valid session in `backend/tests/integration/us3-authz-deny.test.js`
+- [X] T036 [P] [US3] Add integration test for local-trust access semantics in `backend/tests/integration/us3-authz-deny.test.js`
 - [X] T037 [P] [US3] Add integration test for backup-create and restore workflow in `backend/tests/integration/us3-backup-restore.test.js`
 
 ### Implementation for User Story 3
@@ -148,14 +148,14 @@
 - **Phase 2 (Foundational)**: Depends on Phase 1 - blocks all user stories
 - **Phase 3 (US1)**: Depends on Phase 2 - MVP delivery
 - **Phase 4 (US2)**: Depends on Phase 2 and integrates with US1 shared models/services
-- **Phase 5 (US3)**: Depends on Phase 2 and uses established auth/data services
+- **Phase 5 (US3)**: Depends on Phase 2 and uses established LAN-control/data services
 - **Phase 6 (Polish)**: Depends on completion of selected user stories
 
 ### User Story Dependencies
 
 - **US1 (P1)**: Can start after Phase 2; no dependency on other user stories
-- **US2 (P2)**: Can start after Phase 2; requires shared-record/auth infrastructure from foundational work and integrates with US1 API client
-- **US3 (P3)**: Can start after Phase 2; uses auth/session and shared DB primitives from foundational work
+- **US2 (P2)**: Can start after Phase 2; requires shared-record infrastructure from foundational work and integrates with US1 API client
+- **US3 (P3)**: Can start after Phase 2; uses LAN-restriction and shared DB primitives from foundational work
 
 ### Within Each User Story
 

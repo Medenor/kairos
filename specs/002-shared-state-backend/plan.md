@@ -5,17 +5,17 @@
 
 ## Summary
 
-Add a LAN-scoped backend with shared persistence so quota/routing state is consistent across devices, with authenticated access, deterministic conflict handling, idempotent migration from browser-local data, and recoverable backups. The design uses a single authoritative API service with transactional storage, explicit sync semantics, and audit-friendly operational events.
+Add a LAN-scoped backend with shared persistence so quota/routing state is consistent across devices, with local-trust LAN access (no login flow), deterministic conflict handling, idempotent migration from browser-local data, and recoverable backups. The design uses a single authoritative API service with transactional storage, explicit sync semantics, and audit-friendly operational events.
 
 ## Technical Context
 
 **Language/Version**: JavaScript (ES Modules), Node.js 20 LTS for backend and frontend  
-**Primary Dependencies**: Existing React 18 + Vite 5 frontend; backend web framework (Express/Fastify class), auth/session middleware, schema validation library, SQLite driver  
+**Primary Dependencies**: Existing React 18 + Vite 5 frontend; backend web framework (Express/Fastify class), schema validation library, SQLite driver  
 **Storage**: SQLite (WAL mode) for v1 shared persistence, migration metadata, revisions, and backup manifests  
 **Testing**: Existing integration shell-script approach plus backend unit/integration tests executed via npm scripts  
 **Target Platform**: Self-hosted Linux container runtime on local network, browser clients on same LAN  
 **Project Type**: Web application (frontend + backend API service)  
-**Performance Goals**: 95% of cross-device updates visible within 5 seconds on LAN; migration success >=99% valid records; unauthorized access blocked in 100% security acceptance tests  
+**Performance Goals**: 95% of cross-device updates visible within 5 seconds on LAN; migration success >=99% valid records; out-of-LAN access blocked in 100% security acceptance tests  
 **Constraints**: Local-network-only exposure by default, no public remote access, deterministic conflict behavior, retry-safe migration, backup/restore support  
 **Scale/Scope**: Small-team/home-office LAN deployment; single backend node; multiple browser clients; state domain focused on quota/routing records
 
@@ -37,7 +37,7 @@ Add a LAN-scoped backend with shared persistence so quota/routing state is consi
 - [x] Deterministic sync and conflict behavior is captured via `expected_version` contract and conflict response schema.
 - [x] Regression coverage targets are defined for migration idempotency, sync behavior, access control, and backup recovery.
 - [x] Explainability is preserved through migration job status, conflict payloads, and security/change event entities.
-- [x] Privacy constraints remain aligned: LAN-scoped deployment, authenticated access, auditable security events.
+- [x] Privacy constraints remain aligned: LAN-scoped deployment, local-trust access model, auditable security events.
 
 ## Project Structure
 
@@ -60,7 +60,7 @@ specs/002-shared-state-backend/
 backend/
 ├── src/
 │   ├── api/
-│   ├── auth/
+│   ├── auth/                 # legacy compatibility module (not required in local-trust mode)
 │   ├── db/
 │   ├── migrations/
 │   ├── services/
@@ -79,11 +79,11 @@ tests/
 └── integration/
 ```
 
-**Structure Decision**: Keep the existing frontend in `src/` and introduce a new `backend/` service. This minimizes frontend disruption while adding a clear backend boundary for shared persistence, auth, sync, migration, and backup responsibilities.
+**Structure Decision**: Keep the existing frontend in `src/` and introduce a new `backend/` service. This minimizes frontend disruption while adding a clear backend boundary for shared persistence, LAN access control, sync, migration, and backup responsibilities.
 
 ## Complexity Tracking
 
 | Violation | Why Needed | Simpler Alternative Rejected Because |
 |-----------|------------|-------------------------------------|
-| New backend runtime dependency | Shared persistence, auth, and backups cannot be delivered with browser-only state | Browser-local storage cannot provide authoritative multi-device state |
+| New backend runtime dependency | Shared persistence, LAN access control, and backups cannot be delivered with browser-only state | Browser-local storage cannot provide authoritative multi-device state |
 | Transactional datastore addition | Conflict-safe writes, migration integrity, and recoverable backups require durable transactions | In-memory or file-only ad hoc state cannot meet consistency and recovery requirements |
