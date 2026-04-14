@@ -6,7 +6,14 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "docker:build": "scripts/docker/build-image.sh",
+    "docker:run:local": "scripts/docker/run-local.sh",
+    "docker:run:selfhosted": "scripts/docker/run-selfhosted.sh",
+    "docker:verify": "scripts/docker/verify-container.sh",
+    "docker:test:us1": "tests/integration/docker/us1-local-deploy.sh",
+    "docker:test:us2": "tests/integration/docker/us2-selfhosted-health.sh",
+    "docker:test:us3": "tests/integration/docker/us3-consistency-check.sh"
   },
   "dependencies": {
     "react": "^18.3.1",

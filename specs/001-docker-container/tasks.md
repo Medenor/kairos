@@ -17,10 +17,10 @@
 
 **Purpose**: Create baseline containerization structure and verification harness.
 
-- [ ] T001 Create container artifact directory and helper scripts in docker/ and scripts/docker/
-- [ ] T002 Create base ignore rules for image builds in .dockerignore
-- [ ] T003 [P] Add container documentation section scaffold in README.md
-- [ ] T004 [P] Add executable permissions and shebang consistency for scripts in scripts/docker/*.sh
+- [X] T001 Create container artifact directory and helper scripts in docker/ and scripts/docker/
+- [X] T002 Create base ignore rules for image builds in .dockerignore
+- [X] T003 [P] Add container documentation section scaffold in README.md
+- [X] T004 [P] Add executable permissions and shebang consistency for scripts in scripts/docker/*.sh
 
 ---
 
@@ -30,13 +30,13 @@
 
 **⚠️ CRITICAL**: No user story work starts until this phase is complete.
 
-- [ ] T005 Implement multi-stage container build in Dockerfile
-- [ ] T006 [P] Add runtime web-server configuration for static assets in docker/nginx.conf
-- [ ] T007 Define canonical image metadata and OCI labels in Dockerfile
-- [ ] T008 [P] Implement container build script with tag input support in scripts/docker/build-image.sh
-- [ ] T009 [P] Implement container run script with explicit port mapping in scripts/docker/run-local.sh
-- [ ] T010 Create foundational container verification script in scripts/docker/verify-container.sh
-- [ ] T011 Wire container helper commands into package scripts in package.json
+- [X] T005 Implement multi-stage container build in Dockerfile
+- [X] T006 [P] Add runtime web-server configuration for static assets in docker/nginx.conf
+- [X] T007 Define canonical image metadata and OCI labels in Dockerfile
+- [X] T008 [P] Implement container build script with tag input support in scripts/docker/build-image.sh
+- [X] T009 [P] Implement container run script with explicit port mapping in scripts/docker/run-local.sh
+- [X] T010 Create foundational container verification script in scripts/docker/verify-container.sh
+- [X] T011 Wire container helper commands into package scripts in package.json
 
 **Checkpoint**: Foundation complete; user stories can proceed.
 
@@ -48,12 +48,12 @@
 
 **Independent Test**: Build image from clean checkout, run container with documented command, and confirm app is reachable at mapped host port.
 
-- [ ] T012 [P] [US1] Add US1 local deployment verification script in tests/integration/docker/us1-local-deploy.sh
-- [ ] T013 [US1] Implement startup readiness endpoint routing in docker/nginx.conf
-- [ ] T014 [US1] Add actionable startup failure handling in scripts/docker/run-local.sh
-- [ ] T015 [US1] Document one-command local deployment flow in README.md
-- [ ] T016 [US1] Add manual verification steps for clean-host deployment in specs/001-docker-container/quickstart.md
-- [ ] T017 [US1] Execute and record US1 verification outcomes in specs/001-docker-container/verification/us1-results.md
+- [X] T012 [P] [US1] Add US1 local deployment verification script in tests/integration/docker/us1-local-deploy.sh
+- [X] T013 [US1] Implement startup readiness endpoint routing in docker/nginx.conf
+- [X] T014 [US1] Add actionable startup failure handling in scripts/docker/run-local.sh
+- [X] T015 [US1] Document one-command local deployment flow in README.md
+- [X] T016 [US1] Add manual verification steps for clean-host deployment in specs/001-docker-container/quickstart.md
+- [X] T017 [US1] Execute and record US1 verification outcomes in specs/001-docker-container/verification/us1-results.md
 
 **Checkpoint**: US1 is independently deployable and testable as MVP.
 
@@ -65,12 +65,12 @@
 
 **Independent Test**: Launch container in detached mode with restart policy on a self-hosted-like environment, restart container, and confirm service remains available.
 
-- [ ] T018 [P] [US2] Add self-hosted run script with restart policy in scripts/docker/run-selfhosted.sh
-- [ ] T019 [P] [US2] Add self-hosted health-check script in tests/integration/docker/us2-selfhosted-health.sh
-- [ ] T020 [US2] Document self-hosted deployment and restart procedure in README.md
-- [ ] T021 [US2] Define required and optional runtime configuration schema in specs/001-docker-container/contracts/container-runtime-contract.md
-- [ ] T022 [US2] Add configuration validation and error output in scripts/docker/run-selfhosted.sh
-- [ ] T023 [US2] Execute and record US2 restart/health validation in specs/001-docker-container/verification/us2-results.md
+- [X] T018 [P] [US2] Add self-hosted run script with restart policy in scripts/docker/run-selfhosted.sh
+- [X] T019 [P] [US2] Add self-hosted health-check script in tests/integration/docker/us2-selfhosted-health.sh
+- [X] T020 [US2] Document self-hosted deployment and restart procedure in README.md
+- [X] T021 [US2] Define required and optional runtime configuration schema in specs/001-docker-container/contracts/container-runtime-contract.md
+- [X] T022 [US2] Add configuration validation and error output in scripts/docker/run-selfhosted.sh
+- [X] T023 [US2] Execute and record US2 restart/health validation in specs/001-docker-container/verification/us2-results.md
 
 **Checkpoint**: US2 self-hosted deployment flow works independently.
 
@@ -82,12 +82,12 @@
 
 **Independent Test**: Deploy one image tag to two environments (or two environment profiles), run same verification script, and compare outcomes.
 
-- [ ] T024 [P] [US3] Add environment profile samples for dev/staging/prod in docker/env/
-- [ ] T025 [P] [US3] Add cross-environment consistency verification script in tests/integration/docker/us3-consistency-check.sh
-- [ ] T026 [US3] Implement immutable-tag enforcement checks in scripts/docker/build-image.sh
-- [ ] T027 [US3] Document multi-environment deployment matrix in specs/001-docker-container/quickstart.md
-- [ ] T028 [US3] Add rollback procedure with explicit prior tag usage in README.md
-- [ ] T029 [US3] Execute and record cross-environment validation in specs/001-docker-container/verification/us3-results.md
+- [X] T024 [P] [US3] Add environment profile samples for dev/staging/prod in docker/env/
+- [X] T025 [P] [US3] Add cross-environment consistency verification script in tests/integration/docker/us3-consistency-check.sh
+- [X] T026 [US3] Implement immutable-tag enforcement checks in scripts/docker/build-image.sh
+- [X] T027 [US3] Document multi-environment deployment matrix in specs/001-docker-container/quickstart.md
+- [X] T028 [US3] Add rollback procedure with explicit prior tag usage in README.md
+- [X] T029 [US3] Execute and record cross-environment validation in specs/001-docker-container/verification/us3-results.md
 
 **Checkpoint**: US3 confirms consistent behavior across environments.
 
@@ -97,10 +97,10 @@
 
 **Purpose**: Final hardening, docs alignment, and full quickstart validation.
 
-- [ ] T030 [P] Add verification artifact index and traceability table in specs/001-docker-container/verification/README.md
-- [ ] T031 Align quickstart and runtime contract details in specs/001-docker-container/quickstart.md and specs/001-docker-container/contracts/container-runtime-contract.md
-- [ ] T032 [P] Run full container quickstart and capture final evidence in specs/001-docker-container/verification/final-validation.md
-- [ ] T033 Update changelog entry for Docker packaging delivery in CHANGELOG.md
+- [X] T030 [P] Add verification artifact index and traceability table in specs/001-docker-container/verification/README.md
+- [X] T031 Align quickstart and runtime contract details in specs/001-docker-container/quickstart.md and specs/001-docker-container/contracts/container-runtime-contract.md
+- [X] T032 [P] Run full container quickstart and capture final evidence in specs/001-docker-container/verification/final-validation.md
+- [X] T033 Update changelog entry for Docker packaging delivery in CHANGELOG.md
 
 ---
 

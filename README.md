@@ -50,6 +50,60 @@ npm run build
 
 Output in `dist/` — deploy anywhere static (Codeberg Pages, Netlify, self-hosted).
 
+## Container deployment
+
+### Build image with immutable tag
+
+```bash
+npm run docker:build -- 0.1.0
+```
+
+### One-command local deployment (US1)
+
+```bash
+npm run docker:run:local -- 0.1.0
+```
+
+Expected result:
+- App available at `http://localhost:8080`
+- Readiness endpoint available at `http://localhost:8080/healthz`
+
+### Self-hosted deployment and restart (US2)
+
+```bash
+npm run docker:run:selfhosted -- 0.1.0
+docker restart kairos
+```
+
+Optional profile-based runtime examples:
+- `docker/env/dev.env`
+- `docker/env/staging.env`
+- `docker/env/prod.env`
+
+### Verification helpers
+
+```bash
+npm run docker:verify -- 0.1.0
+npm run docker:test:us1 -- 0.1.0
+npm run docker:test:us2 -- 0.1.0
+npm run docker:test:us3 -- 0.1.0
+```
+
+### Rollback with explicit previous tag (US3)
+
+If release `0.1.1` fails:
+
+```bash
+docker rm -f kairos
+docker run -d --name kairos --restart unless-stopped -p 80:80 kairos:0.1.0
+```
+
+Re-run health checks after rollback:
+
+```bash
+curl -fsS http://127.0.0.1/healthz
+```
+
 ## Customising your services
 
 Edit `src/data/services.js` to change costs, add quotas, or adjust default values.

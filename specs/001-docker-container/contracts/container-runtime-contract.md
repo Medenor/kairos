@@ -23,6 +23,23 @@ Define the operator-facing runtime contract for starting and validating the Kair
   - Service endpoint becomes reachable once startup completes.
   - Missing required inputs produce clear startup failure feedback.
 
+### Runtime Configuration Schema (US2)
+
+| Key | Required | Type | Allowed Values / Format | Default | Notes |
+|---|---|---|---|---|---|
+| `IMAGE_NAME` | No | string | valid container image name | `kairos` | Repository/name component |
+| `TAG` | Yes | string | immutable tag, not `latest`, chars `[A-Za-z0-9._-]` | none | Passed as script arg |
+| `HOST_PORT` | Yes | integer | `1-65535` | `80` for self-hosted, `8080` local | Host-side port binding |
+| `CONTAINER_PORT` | No | integer | `1-65535` | `80` | Container service port |
+| `CONTAINER_NAME` | No | string | container name pattern | `kairos` / `kairos-local` | Runtime container identity |
+| `RESTART_POLICY` | No | enum | `no`, `on-failure`, `unless-stopped`, `always` | `unless-stopped` | Used in self-hosted mode |
+
+Validation behavior:
+- Missing `TAG` fails fast with usage message.
+- `TAG=latest` is rejected to preserve immutable release semantics.
+- Invalid `HOST_PORT` or `RESTART_POLICY` is rejected before `docker run`.
+- Existing container name is replaced in self-hosted mode and rejected in local mode.
+
 ## Health Contract
 
 - Readiness signal:
@@ -32,6 +49,7 @@ Define the operator-facing runtime contract for starting and validating the Kair
   - Indicates continued service viability during runtime.
 - Failure semantics:
   - Health-check failures must map to actionable operator diagnostics where possible.
+  - Health endpoint URI is `/healthz` and returns HTTP `200` with `{"status":"ok"}` when ready.
 
 ## Configuration Contract
 
