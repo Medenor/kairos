@@ -7,6 +7,13 @@ HOST_PORT="${HOST_PORT:-8080}"
 CONTAINER_PORT="${CONTAINER_PORT:-80}"
 CONTAINER_NAME="${CONTAINER_NAME:-kairos-local}"
 
+case "$HOST_PORT" in
+  '' | *[!0-9]*)
+    echo "Invalid HOST_PORT: $HOST_PORT (must be a number between 1 and 65535)" >&2
+    exit 1
+    ;;
+esac
+
 if [ "$HOST_PORT" -lt 1 ] || [ "$HOST_PORT" -gt 65535 ]; then
   echo "Invalid HOST_PORT: $HOST_PORT (must be 1-65535)" >&2
   exit 1
