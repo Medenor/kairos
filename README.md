@@ -66,6 +66,17 @@ Edit `src/data/rules.js` to adjust the routing logic and thresholds.
 
 Issues and PRs welcome. Keep it dependency-free as much as possible.
 
+## Development Constitution
+
+This repository is governed by the project constitution at
+`.specify/memory/constitution.md`.
+
+When proposing changes, include:
+- user-value impact on routing or quota visibility
+- deterministic/traceable rule behavior
+- regression verification evidence for behavior changes
+- recommendation explainability updates where applicable
+
 ## Roadmap
 
 ### Core functionality
