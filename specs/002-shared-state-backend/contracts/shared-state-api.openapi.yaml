@@ -1,0 +1,397 @@
+openapi: 3.1.0
+info:
+  title: Kairos Shared State API
+  version: 0.1.0
+  description: |
+    LAN-scoped API for shared persistence across devices.
+servers:
+  - url: http://{host}:{port}/api/v1
+    variables:
+      host:
+        default: kairos.local
+      port:
+        default: "8080"
+security:
+  - SessionToken: []
+paths:
+  /auth/login:
+    post:
+      summary: Authenticate a user and issue a session token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+      responses:
+        "200":
+          description: Authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthSession"
+        "401":
+          description: Invalid credentials
+  /auth/logout:
+    post:
+      summary: Revoke current session token
+      responses:
+        "204":
+          description: Logged out
+  /workspaces/{workspaceId}/records:
+    get:
+      summary: List shared records for workspace
+      parameters:
+        - $ref: "#/components/parameters/WorkspaceId"
+        - in: query
+          name: since
+          schema:
+            type: string
+            format: date-time
+          required: false
+      responses:
+        "200":
+          description: Record list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/SharedRecord"
+                  sync_cursor:
+                    type: string
+                    format: date-time
+    post:
+      summary: Create shared record
+      parameters:
+        - $ref: "#/components/parameters/WorkspaceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRecordRequest"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SharedRecord"
+        "409":
+          description: Duplicate logical key
+  /workspaces/{workspaceId}/records/{recordId}:
+    put:
+      summary: Update shared record with optimistic concurrency
+      parameters:
+        - $ref: "#/components/parameters/WorkspaceId"
+        - $ref: "#/components/parameters/RecordId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateRecordRequest"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SharedRecord"
+        "409":
+          description: Version conflict
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConflictResponse"
+    delete:
+      summary: Soft-delete a record
+      parameters:
+        - $ref: "#/components/parameters/WorkspaceId"
+        - $ref: "#/components/parameters/RecordId"
+      responses:
+        "204":
+          description: Deleted
+  /workspaces/{workspaceId}/sync/pull:
+    get:
+      summary: Pull incremental changes for synchronization
+      parameters:
+        - $ref: "#/components/parameters/WorkspaceId"
+        - in: query
+          name: cursor
+          required: false
+          schema:
+            type: string
+            format: date-time
+      responses:
+        "200":
+          description: Sync delta
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SyncPullResponse"
+  /workspaces/{workspaceId}/migrations/local-storage:
+    post:
+      summary: Import browser-local state into shared persistence
+      parameters:
+        - $ref: "#/components/parameters/WorkspaceId"
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LocalStorageImportRequest"
+      responses:
+        "202":
+          description: Migration accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MigrationJob"
+  /workspaces/{workspaceId}/migrations/{jobId}:
+    get:
+      summary: Get migration job status
+      parameters:
+        - $ref: "#/components/parameters/WorkspaceId"
+        - in: path
+          name: jobId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Migration status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MigrationJob"
+  /workspaces/{workspaceId}/backups:
+    post:
+      summary: Trigger backup snapshot creation
+      parameters:
+        - $ref: "#/components/parameters/WorkspaceId"
+      responses:
+        "202":
+          description: Backup started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BackupSnapshot"
+    get:
+      summary: List backup snapshots
+      parameters:
+        - $ref: "#/components/parameters/WorkspaceId"
+      responses:
+        "200":
+          description: Backup list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/BackupSnapshot"
+  /workspaces/{workspaceId}/backups/{backupId}/restore:
+    post:
+      summary: Restore from a backup snapshot
+      parameters:
+        - $ref: "#/components/parameters/WorkspaceId"
+        - in: path
+          name: backupId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "202":
+          description: Restore started
+components:
+  securitySchemes:
+    SessionToken:
+      type: http
+      scheme: bearer
+      bearerFormat: opaque
+  parameters:
+    WorkspaceId:
+      in: path
+      name: workspaceId
+      required: true
+      schema:
+        type: string
+        format: uuid
+    RecordId:
+      in: path
+      name: recordId
+      required: true
+      schema:
+        type: string
+        format: uuid
+  schemas:
+    AuthSession:
+      type: object
+      required: [session_token, user]
+      properties:
+        session_token:
+          type: string
+        user:
+          type: object
+          required: [id, username, role]
+          properties:
+            id:
+              type: string
+              format: uuid
+            username:
+              type: string
+            role:
+              type: string
+              enum: [owner, member]
+    SharedRecord:
+      type: object
+      required: [id, workspace_id, record_type, logical_key, payload, version, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        workspace_id:
+          type: string
+          format: uuid
+        record_type:
+          type: string
+          enum: [quota_state, routing_config, snapshot]
+        logical_key:
+          type: string
+        payload:
+          type: object
+          additionalProperties: true
+        version:
+          type: integer
+          minimum: 1
+        updated_at:
+          type: string
+          format: date-time
+    CreateRecordRequest:
+      type: object
+      required: [record_type, logical_key, payload]
+      properties:
+        record_type:
+          type: string
+        logical_key:
+          type: string
+        payload:
+          type: object
+          additionalProperties: true
+    UpdateRecordRequest:
+      type: object
+      required: [expected_version, payload]
+      properties:
+        expected_version:
+          type: integer
+          minimum: 1
+        payload:
+          type: object
+          additionalProperties: true
+    ConflictResponse:
+      type: object
+      required: [code, message, server_record]
+      properties:
+        code:
+          type: string
+          example: VERSION_CONFLICT
+        message:
+          type: string
+        server_record:
+          $ref: "#/components/schemas/SharedRecord"
+    LocalStorageImportRequest:
+      type: object
+      required: [source_device_id, exported_at, records]
+      properties:
+        source_device_id:
+          type: string
+        exported_at:
+          type: string
+          format: date-time
+        records:
+          type: array
+          items:
+            type: object
+            required: [logical_key, record_type, payload]
+            properties:
+              logical_key:
+                type: string
+              record_type:
+                type: string
+              payload:
+                type: object
+                additionalProperties: true
+              source_fingerprint:
+                type: string
+    MigrationJob:
+      type: object
+      required: [id, status, total_records, migrated_records, skipped_records, failed_records]
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [pending, running, completed, partial, failed]
+        total_records:
+          type: integer
+        migrated_records:
+          type: integer
+        skipped_records:
+          type: integer
+        failed_records:
+          type: integer
+        error_report:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+    BackupSnapshot:
+      type: object
+      required: [id, status, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [created, failed, restored]
+        created_at:
+          type: string
+          format: date-time
+        restored_at:
+          type: string
+          format: date-time
+          nullable: true
+    SyncPullResponse:
+      type: object
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/SharedRecord"
+        next_cursor:
+          type: string
+          format: date-time
