@@ -52,6 +52,10 @@ Output in `dist/` — deploy anywhere static (Codeberg Pages, Netlify, self-host
 
 ## Container deployment
 
+Runtime notes:
+- `HOST_PORT` must be numeric and in range `1-65535` (scripts fail fast on invalid values)
+- Default ports: local `8080`, self-hosted `80`
+
 ### Build image with immutable tag
 
 ```bash
@@ -64,6 +68,11 @@ npm run docker:build -- 0.1.0
 npm run docker:run:local -- 0.1.0
 ```
 
+Optional overrides:
+```bash
+HOST_PORT=9090 CONTAINER_NAME=kairos-local npm run docker:run:local -- 0.1.0
+```
+
 Expected result:
 - App available at `http://localhost:8080`
 - Readiness endpoint available at `http://localhost:8080/healthz`
@@ -73,6 +82,11 @@ Expected result:
 ```bash
 npm run docker:run:selfhosted -- 0.1.0
 docker restart kairos
+```
+
+Optional overrides:
+```bash
+HOST_PORT=8081 RESTART_POLICY=always CONTAINER_NAME=kairos npm run docker:run:selfhosted -- 0.1.0
 ```
 
 Optional profile-based runtime examples:
@@ -156,7 +170,6 @@ When proposing changes, include:
 ### Extensibility
 
 9. **Generic service schema** — add any service via UI (name, cost, quota type, currency, reset window) without touching the code — makes the tool truly generic
-10. **Docker container** — package the app in a Docker container for easy deployment on any platform, including self-hosted servers
 
 ## License
 
