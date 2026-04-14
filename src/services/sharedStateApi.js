@@ -1,0 +1,118 @@
+const API_BASE = (import.meta.env.VITE_SHARED_API_BASE_URL || 'http://localhost:8080/api/v1').replace(
+  /\/$/,
+  ''
+)
+const DEFAULT_WORKSPACE_ID_KEY = 'kairos:workspace-id'
+const DEFAULT_SESSION_KEY = 'kairos:session-token'
+
+function getSessionToken() {
+  return localStorage.getItem(DEFAULT_SESSION_KEY)
+}
+
+function setSessionToken(token) {
+  localStorage.setItem(DEFAULT_SESSION_KEY, token)
+}
+
+export function getWorkspaceId() {
+  return localStorage.getItem(DEFAULT_WORKSPACE_ID_KEY) || ''
+}
+
+export function setWorkspaceId(workspaceId) {
+  localStorage.setItem(DEFAULT_WORKSPACE_ID_KEY, workspaceId)
+}
+
+async function request(path, { method = 'GET', body, idempotencyKey } = {}) {
+  const headers = {}
+  const token = getSessionToken()
+  if (token) headers.authorization = `Bearer ${token}`
+  if (body !== undefined) headers['content-type'] = 'application/json'
+  if (idempotencyKey) headers['Idempotency-Key'] = idempotencyKey
+
+  const response = await fetch(`${API_BASE}${path}`, {
+    method,
+    headers,
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  })
+
+  if (response.status === 204) return null
+  let data = null
+  try {
+    data = await response.json()
+  } catch {
+    data = null
+  }
+  if (!response.ok) {
+    const err = new Error(data?.error?.message || 'Request failed')
+    err.status = response.status
+    err.code = data?.error?.code
+    err.details = data?.error?.details
+    throw err
+  }
+  return data
+}
+
+export async function login(username, password) {
+  const data = await request('/auth/login', {
+    method: 'POST',
+    body: { username, password },
+  })
+  setSessionToken(data.session_token)
+  return data
+}
+
+export async function getDefaultWorkspace() {
+  return request('/workspaces/default')
+}
+
+export async function logout() {
+  await request('/auth/logout', { method: 'POST' })
+  localStorage.removeItem(DEFAULT_SESSION_KEY)
+}
+
+export async function listRecords(workspaceId, since = null) {
+  const qs = since ? `?since=${encodeURIComponent(since)}` : ''
+  return request(`/workspaces/${workspaceId}/records${qs}`)
+}
+
+export async function createRecord(workspaceId, payload) {
+  return request(`/workspaces/${workspaceId}/records`, {
+    method: 'POST',
+    body: payload,
+  })
+}
+
+export async function updateRecord(workspaceId, recordId, payload) {
+  return request(`/workspaces/${workspaceId}/records/${recordId}`, {
+    method: 'PUT',
+    body: payload,
+  })
+}
+
+export async function syncPull(workspaceId, cursor = null) {
+  const qs = cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''
+  return request(`/workspaces/${workspaceId}/sync/pull${qs}`)
+}
+
+export async function runLocalStorageMigration(workspaceId, payload, idempotencyKey) {
+  return request(`/workspaces/${workspaceId}/migrations/local-storage`, {
+    method: 'POST',
+    body: payload,
+    idempotencyKey,
+  })
+}
+
+export async function getMigrationStatus(workspaceId, jobId) {
+  return request(`/workspaces/${workspaceId}/migrations/${jobId}`)
+}
+
+export async function createBackup(workspaceId) {
+  return request(`/workspaces/${workspaceId}/backups`, { method: 'POST' })
+}
+
+export async function listBackups(workspaceId) {
+  return request(`/workspaces/${workspaceId}/backups`)
+}
+
+export async function restoreBackup(workspaceId, backupId) {
+  return request(`/workspaces/${workspaceId}/backups/${backupId}/restore`, { method: 'POST' })
+}

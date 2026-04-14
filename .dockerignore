@@ -21,6 +21,8 @@ coverage/
 *.tmp
 *.swp
 .DS_Store
+backend/data/
+backend/backups/
 
 # Local project tooling and specs
 .specify/

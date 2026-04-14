@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Shared-state backend (`backend/`) with LAN-scoped authenticated API (`/api/v1`) and SQLite persistence.
+- Optimistic-concurrency shared record sync endpoints plus conflict (`409`) responses.
+- LocalStorage migration API with idempotency-key support and migration job status tracking.
+- Backup create/list/restore API and frontend operator panel for recovery drills.
+- Frontend shared-state integration (`useSharedQuotaState`) with sync status/conflict UI.
+- Backend contract and integration tests for US1/US2/US3 plus quickstart e2e regression test.
+- Shared stack runtime wiring: `docker/docker-compose.shared.yml` and `scripts/docker/run-shared.sh`.
 - Dockerized delivery with multi-stage `Dockerfile` (Node build stage + Nginx runtime stage).
 - Nginx runtime config with SPA routing and readiness endpoint at `/healthz`.
 - OCI image labels and immutable-tag build script (`scripts/docker/build-image.sh`).

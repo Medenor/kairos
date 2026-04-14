@@ -1,0 +1,14 @@
+node_modules/
+dist/
+build/
+coverage/
+backend/data/
+backend/backups/
+.env*
+.git/
+.specify/
+.agents/
+.claude/
+.kilocode/
+*.log
+*.tmp

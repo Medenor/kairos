@@ -27,7 +27,6 @@
 }
 
 .resetBtn {
-  margin-left: auto;
   font-size: 12px;
   padding: 5px 12px;
   border: 0.5px solid var(--color-border-md);
@@ -39,4 +38,49 @@
 
 .resetBtn:hover {
   background: var(--color-bg-tertiary);
+}
+
+.syncBtn {
+  font-size: 12px;
+  padding: 5px 12px;
+  border: 0.5px solid var(--color-border-md);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.syncBtn:hover {
+  background: var(--color-bg-tertiary);
+}
+
+.syncMeta {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.syncLabel {
+  color: var(--color-text-tertiary);
+}
+
+.syncValue {
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.syncValue[data-status='ready'] {
+  color: #2e7d32;
+}
+
+.syncValue[data-status='conflict'],
+.syncValue[data-status='error'] {
+  color: #c62828;
+}
+
+.syncMessage {
+  color: var(--color-text-secondary);
 }

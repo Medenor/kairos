@@ -17,9 +17,49 @@ This tool tracks your quotas in one place and tells you which service to use rig
   - `remaining_pct` — slider showing how much is left, matching the native UI display (ChatGPT Codex)
   - `currency` — numeric balance in $ or € (OpenRouter, Kilocode)
 - Task-based routing: select what you're doing, get a recommendation with reasoning
-- State persisted in `localStorage` — survives page reloads
+- Shared backend mode for LAN-wide state consistency across devices
+- One-click localStorage migration into shared persistence
+- Backup and restore operations from the UI
+- State persisted in `localStorage` as offline fallback
 - Reset button to clear all quotas back to defaults
 - Dark mode support
+
+## Shared State Backend (Feature 002)
+
+The repository now includes a LAN-scoped backend in `backend/`:
+
+- Authenticated session API (`/api/v1`)
+- SQLite persistence with versioned records and optimistic concurrency
+- Retry-safe localStorage migration endpoint
+- Backup create/list/restore endpoints
+
+### Run frontend + backend locally
+
+```bash
+npm install
+npm run backend:migrate
+npm run backend:start
+# in another terminal
+npm run dev
+```
+
+Frontend runs on `http://localhost:5173`, backend on `http://localhost:8080`.
+
+### Run shared stack with Docker Compose
+
+```bash
+scripts/docker/run-shared.sh
+```
+
+This starts:
+- frontend: `http://localhost:5173`
+- backend health: `http://localhost:8080/health`
+
+### Backend tests
+
+```bash
+npm run test:backend
+```
 
 ## Services tracked
 

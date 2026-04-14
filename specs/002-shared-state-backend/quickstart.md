@@ -17,14 +17,19 @@ Validate the shared-state backend flow end-to-end on a local network:
 
 ## 1. Start the stack
 
-1. Start backend and frontend services using project deployment scripts (to be implemented in this feature).
-2. Confirm frontend is reachable from both devices.
-3. Confirm API health endpoint is reachable from LAN clients.
+1. Start backend and frontend services:
+   - `npm install`
+   - `npm run backend:migrate`
+   - `npm run backend:start`
+   - In another terminal: `npm run dev`
+2. Alternative shared container stack: `scripts/docker/run-shared.sh`
+3. Confirm frontend is reachable from both devices.
+4. Confirm API health endpoint is reachable from LAN clients (`GET /health`).
 
 ## 2. Authenticate
 
 1. On each device, sign in with valid credentials.
-2. Verify unauthenticated API access is rejected.
+2. Verify unauthenticated API access is rejected (`401` on workspace routes).
 
 ## 3. Migrate localStorage data
 

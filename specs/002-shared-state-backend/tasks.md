@@ -22,10 +22,10 @@
 
 **Purpose**: Initialize backend workspace and baseline tooling for shared-state development
 
-- [ ] T001 Create backend service scaffold and module layout in `backend/src/api/`, `backend/src/auth/`, `backend/src/db/`, `backend/src/migrations/`, `backend/src/services/`, `backend/src/sync/`
-- [ ] T002 Initialize backend package and scripts in `backend/package.json` and `package.json` (workspace-level script wiring)
-- [ ] T003 [P] Add backend environment template and defaults in `backend/.env.example` and `backend/src/config/env.js`
-- [ ] T004 [P] Add backend test/lint runner configuration in `backend/vitest.config.js` and `backend/eslint.config.js`
+- [X] T001 Create backend service scaffold and module layout in `backend/src/api/`, `backend/src/auth/`, `backend/src/db/`, `backend/src/migrations/`, `backend/src/services/`, `backend/src/sync/`
+- [X] T002 Initialize backend package and scripts in `backend/package.json` and `package.json` (workspace-level script wiring)
+- [X] T003 [P] Add backend environment template and defaults in `backend/.env.example` and `backend/src/config/env.js`
+- [X] T004 [P] Add backend test/lint runner configuration in `backend/vitest.config.js` and `backend/eslint.config.js`
 
 ---
 
@@ -35,13 +35,13 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T005 Implement SQLite connection and transaction helpers in `backend/src/db/client.js`
-- [ ] T006 Create initial SQL schema and migration runner for foundational entities in `backend/src/migrations/001_initial_schema.sql` and `backend/src/db/migrate.js`
-- [ ] T007 [P] Implement shared API server bootstrap and middleware pipeline in `backend/src/server.js` and `backend/src/api/router.js`
-- [ ] T008 [P] Implement auth primitives (password hashing, token issue/verify, session storage) in `backend/src/auth/password.js`, `backend/src/auth/session.js`, and `backend/src/auth/middleware.js`
-- [ ] T009 [P] Implement request validation and normalized API error envelope in `backend/src/api/validation.js` and `backend/src/api/errors.js`
-- [ ] T010 Implement audit/security event logger used by all routes in `backend/src/services/security-event-service.js`
-- [ ] T011 Add test database bootstrap and fixture helpers in `backend/tests/helpers/test-db.js` and `backend/tests/helpers/fixtures.js`
+- [X] T005 Implement SQLite connection and transaction helpers in `backend/src/db/client.js`
+- [X] T006 Create initial SQL schema and migration runner for foundational entities in `backend/src/migrations/001_initial_schema.sql` and `backend/src/db/migrate.js`
+- [X] T007 [P] Implement shared API server bootstrap and middleware pipeline in `backend/src/server.js` and `backend/src/api/router.js`
+- [X] T008 [P] Implement auth primitives (password hashing, token issue/verify, session storage) in `backend/src/auth/password.js`, `backend/src/auth/session.js`, and `backend/src/auth/middleware.js`
+- [X] T009 [P] Implement request validation and normalized API error envelope in `backend/src/api/validation.js` and `backend/src/api/errors.js`
+- [X] T010 Implement audit/security event logger used by all routes in `backend/src/services/security-event-service.js`
+- [X] T011 Add test database bootstrap and fixture helpers in `backend/tests/helpers/test-db.js` and `backend/tests/helpers/fixtures.js`
 
 **Checkpoint**: Foundation ready - user story implementation can now begin
 
@@ -55,22 +55,22 @@
 
 ### Tests for User Story 1
 
-- [ ] T012 [P] [US1] Add contract tests for `/auth/login`, `/workspaces/{workspaceId}/records`, and `/workspaces/{workspaceId}/sync/pull` in `backend/tests/contract/shared-state-api.contract.test.js`
-- [ ] T013 [P] [US1] Add integration test for cross-device record propagation in `backend/tests/integration/us1-shared-sync.test.js`
-- [ ] T014 [P] [US1] Add integration test for version-conflict response (409) in `backend/tests/integration/us1-conflict-handling.test.js`
+- [X] T012 [P] [US1] Add contract tests for `/auth/login`, `/workspaces/{workspaceId}/records`, and `/workspaces/{workspaceId}/sync/pull` in `backend/tests/contract/shared-state-api.contract.test.js`
+- [X] T013 [P] [US1] Add integration test for cross-device record propagation in `backend/tests/integration/us1-shared-sync.test.js`
+- [X] T014 [P] [US1] Add integration test for version-conflict response (409) in `backend/tests/integration/us1-conflict-handling.test.js`
 
 ### Implementation for User Story 1
 
-- [ ] T015 [P] [US1] Implement repository modules for `Workspace`, `WorkspaceMember`, and `SharedRecord` in `backend/src/db/repositories/workspace-repo.js`, `backend/src/db/repositories/workspace-member-repo.js`, and `backend/src/db/repositories/shared-record-repo.js`
-- [ ] T016 [P] [US1] Implement `RecordRevision` write path in `backend/src/db/repositories/record-revision-repo.js`
-- [ ] T017 [US1] Implement shared record service with optimistic concurrency rules in `backend/src/services/shared-record-service.js`
-- [ ] T018 [US1] Implement auth routes `/auth/login` and `/auth/logout` in `backend/src/api/routes/auth-routes.js`
-- [ ] T019 [US1] Implement record CRUD routes and sync pull route in `backend/src/api/routes/record-routes.js` and `backend/src/api/routes/sync-routes.js`
-- [ ] T020 [US1] Wire route registration and authorization guards in `backend/src/api/router.js`
-- [ ] T021 [US1] Implement frontend API client for auth and record/sync operations in `src/services/sharedStateApi.js`
-- [ ] T022 [US1] Implement frontend shared-state hook replacing local-only reads/writes with backend sync in `src/hooks/useSharedQuotaState.js`
-- [ ] T023 [US1] Integrate shared-state hook into app flow and service cards in `src/App.jsx` and `src/components/ServiceCard.jsx`
-- [ ] T024 [US1] Add user-visible sync/conflict state UI in `src/components/SummaryBar.jsx` and `src/components/SummaryBar.module.css`
+- [X] T015 [P] [US1] Implement repository modules for `Workspace`, `WorkspaceMember`, and `SharedRecord` in `backend/src/db/repositories/workspace-repo.js`, `backend/src/db/repositories/workspace-member-repo.js`, and `backend/src/db/repositories/shared-record-repo.js`
+- [X] T016 [P] [US1] Implement `RecordRevision` write path in `backend/src/db/repositories/record-revision-repo.js`
+- [X] T017 [US1] Implement shared record service with optimistic concurrency rules in `backend/src/services/shared-record-service.js`
+- [X] T018 [US1] Implement auth routes `/auth/login` and `/auth/logout` in `backend/src/api/routes/auth-routes.js`
+- [X] T019 [US1] Implement record CRUD routes and sync pull route in `backend/src/api/routes/record-routes.js` and `backend/src/api/routes/sync-routes.js`
+- [X] T020 [US1] Wire route registration and authorization guards in `backend/src/api/router.js`
+- [X] T021 [US1] Implement frontend API client for auth and record/sync operations in `src/services/sharedStateApi.js`
+- [X] T022 [US1] Implement frontend shared-state hook replacing local-only reads/writes with backend sync in `src/hooks/useSharedQuotaState.js`
+- [X] T023 [US1] Integrate shared-state hook into app flow and service cards in `src/App.jsx` and `src/components/ServiceCard.jsx`
+- [X] T024 [US1] Add user-visible sync/conflict state UI in `src/components/SummaryBar.jsx` and `src/components/SummaryBar.module.css`
 
 **Checkpoint**: User Story 1 is independently functional and testable
 
@@ -84,19 +84,19 @@
 
 ### Tests for User Story 2
 
-- [ ] T025 [P] [US2] Add contract tests for `/workspaces/{workspaceId}/migrations/local-storage` and `/workspaces/{workspaceId}/migrations/{jobId}` in `backend/tests/contract/migration-api.contract.test.js`
-- [ ] T026 [P] [US2] Add integration test for successful migration and status accounting in `backend/tests/integration/us2-migration-success.test.js`
-- [ ] T027 [P] [US2] Add integration test for idempotent rerun and malformed-record handling in `backend/tests/integration/us2-migration-idempotency.test.js`
+- [X] T025 [P] [US2] Add contract tests for `/workspaces/{workspaceId}/migrations/local-storage` and `/workspaces/{workspaceId}/migrations/{jobId}` in `backend/tests/contract/migration-api.contract.test.js`
+- [X] T026 [P] [US2] Add integration test for successful migration and status accounting in `backend/tests/integration/us2-migration-success.test.js`
+- [X] T027 [P] [US2] Add integration test for idempotent rerun and malformed-record handling in `backend/tests/integration/us2-migration-idempotency.test.js`
 
 ### Implementation for User Story 2
 
-- [ ] T028 [P] [US2] Implement `MigrationJob` repository and persistence helpers in `backend/src/db/repositories/migration-job-repo.js`
-- [ ] T029 [US2] Implement localStorage mapping and validation logic in `backend/src/services/localstorage-import-mapper.js`
-- [ ] T030 [US2] Implement migration orchestration service (idempotency, counters, error report) in `backend/src/services/migration-service.js`
-- [ ] T031 [US2] Implement migration API routes in `backend/src/api/routes/migration-routes.js`
-- [ ] T032 [US2] Register migration routes and idempotency middleware in `backend/src/api/router.js` and `backend/src/api/idempotency.js`
-- [ ] T033 [US2] Add frontend local export and migration trigger utility in `src/services/localExport.js` and `src/services/sharedStateApi.js`
-- [ ] T034 [US2] Add migration UI/status panel and retry flow in `src/components/MigrationPanel.jsx`, `src/components/MigrationPanel.module.css`, and `src/App.jsx`
+- [X] T028 [P] [US2] Implement `MigrationJob` repository and persistence helpers in `backend/src/db/repositories/migration-job-repo.js`
+- [X] T029 [US2] Implement localStorage mapping and validation logic in `backend/src/services/localstorage-import-mapper.js`
+- [X] T030 [US2] Implement migration orchestration service (idempotency, counters, error report) in `backend/src/services/migration-service.js`
+- [X] T031 [US2] Implement migration API routes in `backend/src/api/routes/migration-routes.js`
+- [X] T032 [US2] Register migration routes and idempotency middleware in `backend/src/api/router.js` and `backend/src/api/idempotency.js`
+- [X] T033 [US2] Add frontend local export and migration trigger utility in `src/services/localExport.js` and `src/services/sharedStateApi.js`
+- [X] T034 [US2] Add migration UI/status panel and retry flow in `src/components/MigrationPanel.jsx`, `src/components/MigrationPanel.module.css`, and `src/App.jsx`
 
 **Checkpoint**: User Stories 1 and 2 both work independently
 
@@ -110,18 +110,18 @@
 
 ### Tests for User Story 3
 
-- [ ] T035 [P] [US3] Add contract tests for backup endpoints and restore trigger in `backend/tests/contract/backup-api.contract.test.js`
-- [ ] T036 [P] [US3] Add integration test for access denial without valid session in `backend/tests/integration/us3-authz-deny.test.js`
-- [ ] T037 [P] [US3] Add integration test for backup-create and restore workflow in `backend/tests/integration/us3-backup-restore.test.js`
+- [X] T035 [P] [US3] Add contract tests for backup endpoints and restore trigger in `backend/tests/contract/backup-api.contract.test.js`
+- [X] T036 [P] [US3] Add integration test for access denial without valid session in `backend/tests/integration/us3-authz-deny.test.js`
+- [X] T037 [P] [US3] Add integration test for backup-create and restore workflow in `backend/tests/integration/us3-backup-restore.test.js`
 
 ### Implementation for User Story 3
 
-- [ ] T038 [P] [US3] Implement `BackupSnapshot` repository in `backend/src/db/repositories/backup-snapshot-repo.js`
-- [ ] T039 [US3] Implement LAN restriction middleware and allowed-subnet checks in `backend/src/api/lan-restriction.js` and `backend/src/config/env.js`
-- [ ] T040 [US3] Implement backup create/list/restore services in `backend/src/services/backup-service.js`
-- [ ] T041 [US3] Implement backup API routes in `backend/src/api/routes/backup-routes.js`
-- [ ] T042 [US3] Register backup routes and security-event logging hooks in `backend/src/api/router.js` and `backend/src/services/security-event-service.js`
-- [ ] T043 [US3] Add frontend backup/restore operator panel in `src/components/BackupPanel.jsx`, `src/components/BackupPanel.module.css`, and `src/App.jsx`
+- [X] T038 [P] [US3] Implement `BackupSnapshot` repository in `backend/src/db/repositories/backup-snapshot-repo.js`
+- [X] T039 [US3] Implement LAN restriction middleware and allowed-subnet checks in `backend/src/api/lan-restriction.js` and `backend/src/config/env.js`
+- [X] T040 [US3] Implement backup create/list/restore services in `backend/src/services/backup-service.js`
+- [X] T041 [US3] Implement backup API routes in `backend/src/api/routes/backup-routes.js`
+- [X] T042 [US3] Register backup routes and security-event logging hooks in `backend/src/api/router.js` and `backend/src/services/security-event-service.js`
+- [X] T043 [US3] Add frontend backup/restore operator panel in `src/components/BackupPanel.jsx`, `src/components/BackupPanel.module.css`, and `src/App.jsx`
 
 **Checkpoint**: All user stories are independently functional
 
@@ -131,12 +131,12 @@
 
 **Purpose**: Final hardening, docs, and full-scenario verification across stories
 
-- [ ] T044 [P] Add regression tests for end-to-end quickstart scenarios in `backend/tests/integration/quickstart-e2e.test.js`
-- [ ] T045 [P] Add container/runtime wiring for frontend+backend LAN deployment in `docker/docker-compose.shared.yml` and `scripts/docker/run-shared.sh`
-- [ ] T046 Update operational docs for shared-state setup, migration, and privacy defaults in `README.md` and `specs/002-shared-state-backend/quickstart.md`
-- [ ] T047 Run full verification (`npm run lint`, backend tests, integration tests) and capture results in `specs/002-shared-state-backend/verification.md`
-- [ ] T048 [P] Update CHANGELOG UNRELEASED section with summary of shared state backend implementation and any important notes for users in `CHANGELOG.md`
-- [ ] T049 [P] Update README with shared state backend overview, setup instructions, and links to docs in `README.md`
+- [X] T044 [P] Add regression tests for end-to-end quickstart scenarios in `backend/tests/integration/quickstart-e2e.test.js`
+- [X] T045 [P] Add container/runtime wiring for frontend+backend LAN deployment in `docker/docker-compose.shared.yml` and `scripts/docker/run-shared.sh`
+- [X] T046 Update operational docs for shared-state setup, migration, and privacy defaults in `README.md` and `specs/002-shared-state-backend/quickstart.md`
+- [X] T047 Run full verification (`npm run lint`, backend tests, integration tests) and capture results in `specs/002-shared-state-backend/verification.md`
+- [X] T048 [P] Update CHANGELOG UNRELEASED section with summary of shared state backend implementation and any important notes for users in `CHANGELOG.md`
+- [X] T049 [P] Update README with shared state backend overview, setup instructions, and links to docs in `README.md`
 
 ---
 
