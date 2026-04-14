@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { SERVICES } from '../data/services'
 import {
   createRecord,
@@ -61,6 +61,23 @@ export function useSharedQuotaState() {
   const [syncStatus, setSyncStatus] = useState('idle')
   const [syncMessage, setSyncMessage] = useState('')
   const [syncCursor, setSyncCursor] = useState(null)
+  const stateRef = useRef(state)
+  const recordIndexRef = useRef(recordIndex)
+  const syncCursorRef = useRef(syncCursor)
+  const syncInFlightRef = useRef(false)
+  const writeTimersRef = useRef(new Map())
+
+  useEffect(() => {
+    stateRef.current = state
+  }, [state])
+
+  useEffect(() => {
+    recordIndexRef.current = recordIndex
+  }, [recordIndex])
+
+  useEffect(() => {
+    syncCursorRef.current = syncCursor
+  }, [syncCursor])
 
   useEffect(() => {
     let mounted = true
@@ -106,42 +123,56 @@ export function useSharedQuotaState() {
     localStorage.setItem(FALLBACK_STORAGE_KEY, JSON.stringify(state))
   }, [state])
 
-  const refreshSync = async () => {
+  const refreshSync = useCallback(async (silent = false) => {
     if (!workspaceId) return
-    setSyncStatus('syncing')
+    if (syncInFlightRef.current) return
+    syncInFlightRef.current = true
+    if (!silent) setSyncStatus('syncing')
     try {
-      const result = await syncPull(workspaceId, syncCursor)
-      let nextState = state
-      const nextIndex = { ...recordIndex }
+      const result = await syncPull(workspaceId, syncCursorRef.current)
+      let nextState = stateRef.current
+      const nextIndex = { ...recordIndexRef.current }
       for (const item of result.items || []) {
         nextState = applyRecordToState(nextState, item)
         nextIndex[item.logical_key] = item
       }
       setState(nextState)
       setRecordIndex(nextIndex)
-      setSyncCursor(result.next_cursor || syncCursor)
-      setSyncStatus('ready')
-      setSyncMessage('Synced')
+      setSyncCursor(result.next_cursor || syncCursorRef.current)
+      if (!silent) {
+        setSyncStatus('ready')
+        setSyncMessage('Synced')
+      }
     } catch (error) {
       setSyncStatus('error')
       setSyncMessage(error.message)
+    } finally {
+      syncInFlightRef.current = false
     }
-  }
+  }, [workspaceId])
 
-  const updateQuota = async (serviceId, quotaId, value) => {
-    const logicalKey = `${serviceId}:${quotaId}`
-    setState((prev) => ({
-      ...prev,
-      [serviceId]: {
-        ...(prev[serviceId] || {}),
-        [quotaId]: value,
-      },
-    }))
+  useEffect(() => {
+    if (!workspaceId) return undefined
+    const interval = setInterval(() => {
+      refreshSync(true)
+    }, 3000)
+    return () => clearInterval(interval)
+  }, [workspaceId, refreshSync])
 
+  useEffect(() => {
+    return () => {
+      for (const timer of writeTimersRef.current.values()) {
+        clearTimeout(timer)
+      }
+      writeTimersRef.current.clear()
+    }
+  }, [])
+
+  const persistQuota = useCallback(async (logicalKey, value) => {
     if (!workspaceId) return
     setSyncStatus('syncing')
     try {
-      const existing = recordIndex[logicalKey]
+      const existing = recordIndexRef.current[logicalKey]
       let saved = null
       if (!existing) {
         saved = await createRecord(workspaceId, {
@@ -155,18 +186,40 @@ export function useSharedQuotaState() {
           payload: { value },
         })
       }
+      setState((prev) => applyRecordToState(prev, saved))
       setRecordIndex((prev) => ({ ...prev, [logicalKey]: saved }))
       setSyncStatus('ready')
       setSyncMessage('Synced')
     } catch (error) {
       if (error.status === 409) {
         setSyncStatus('conflict')
-        setSyncMessage('Conflict detected. Pull latest changes.')
+        setSyncMessage('Conflict detected. Pulling latest changes.')
+        await refreshSync(false)
       } else {
         setSyncStatus('error')
         setSyncMessage(error.message)
       }
     }
+  }, [workspaceId, refreshSync])
+
+  const updateQuota = (serviceId, quotaId, value) => {
+    const logicalKey = `${serviceId}:${quotaId}`
+    setState((prev) => ({
+      ...prev,
+      [serviceId]: {
+        ...(prev[serviceId] || {}),
+        [quotaId]: value,
+      },
+    }))
+    if (!workspaceId) return
+
+    const existingTimer = writeTimersRef.current.get(logicalKey)
+    if (existingTimer) clearTimeout(existingTimer)
+    const timer = setTimeout(() => {
+      persistQuota(logicalKey, value)
+      writeTimersRef.current.delete(logicalKey)
+    }, 220)
+    writeTimersRef.current.set(logicalKey, timer)
   }
 
   const resetAll = () => {

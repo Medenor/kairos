@@ -18,7 +18,7 @@ export default function App() {
     <div className={styles.app}>
       <header className={styles.header}>
         <div className={styles.titleRow}>
-          <img src="/logo.webp" className={styles.logo} alt="Kairos Logo" />
+          <img src="/logo_squared.webp" className={styles.logo} alt="Kairos Logo" />
           <h1 className={styles.title}>Kairos - AI Quota Router</h1>
         </div>
         <p className={styles.subtitle}>Update your quotas on the fly — get a routing recommendation instantly.</p>

@@ -20,6 +20,9 @@ import { createLanRestriction } from './api/lan-restriction.js'
 import { ApiError, toErrorEnvelope } from './api/errors.js'
 
 function json(res, status, body) {
+  res.setHeader('access-control-allow-origin', '*')
+  res.setHeader('access-control-allow-methods', 'GET,POST,PUT,DELETE,OPTIONS')
+  res.setHeader('access-control-allow-headers', 'content-type,idempotency-key,authorization')
   if (status === 204) {
     res.writeHead(204)
     res.end()
@@ -99,6 +102,9 @@ export function createApp({
     const ctx = { req, res, url, db, repos, services, config }
 
     try {
+      if (req.method === 'OPTIONS') {
+        return json(res, 204, null)
+      }
       if (url.pathname === '/health') {
         return json(res, 200, { status: 'ok' })
       }
