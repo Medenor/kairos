@@ -3,15 +3,6 @@ const API_BASE = (import.meta.env.VITE_SHARED_API_BASE_URL || 'http://localhost:
   ''
 )
 const DEFAULT_WORKSPACE_ID_KEY = 'kairos:workspace-id'
-const DEFAULT_SESSION_KEY = 'kairos:session-token'
-
-function getSessionToken() {
-  return localStorage.getItem(DEFAULT_SESSION_KEY)
-}
-
-function setSessionToken(token) {
-  localStorage.setItem(DEFAULT_SESSION_KEY, token)
-}
 
 export function getWorkspaceId() {
   return localStorage.getItem(DEFAULT_WORKSPACE_ID_KEY) || ''
@@ -23,8 +14,6 @@ export function setWorkspaceId(workspaceId) {
 
 async function request(path, { method = 'GET', body, idempotencyKey } = {}) {
   const headers = {}
-  const token = getSessionToken()
-  if (token) headers.authorization = `Bearer ${token}`
   if (body !== undefined) headers['content-type'] = 'application/json'
   if (idempotencyKey) headers['Idempotency-Key'] = idempotencyKey
 
@@ -52,12 +41,9 @@ async function request(path, { method = 'GET', body, idempotencyKey } = {}) {
 }
 
 export async function login(username, password) {
-  const data = await request('/auth/login', {
-    method: 'POST',
-    body: { username, password },
-  })
-  setSessionToken(data.session_token)
-  return data
+  void username
+  void password
+  return { session_token: 'local-trust-mode' }
 }
 
 export async function getDefaultWorkspace() {
@@ -65,8 +51,7 @@ export async function getDefaultWorkspace() {
 }
 
 export async function logout() {
-  await request('/auth/logout', { method: 'POST' })
-  localStorage.removeItem(DEFAULT_SESSION_KEY)
+  return null
 }
 
 export async function listRecords(workspaceId, since = null) {

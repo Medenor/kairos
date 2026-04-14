@@ -28,7 +28,7 @@ This tool tracks your quotas in one place and tells you which service to use rig
 
 The repository now includes a LAN-scoped backend in `backend/`:
 
-- Authenticated session API (`/api/v1`)
+- LAN-local trusted API (`/api/v1`) with no user login flow
 - SQLite persistence with versioned records and optimistic concurrency
 - Retry-safe localStorage migration endpoint
 - Backup create/list/restore endpoints

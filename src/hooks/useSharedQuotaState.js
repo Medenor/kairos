@@ -5,7 +5,6 @@ import {
   getDefaultWorkspace,
   getWorkspaceId,
   listRecords,
-  login,
   setWorkspaceId,
   syncPull,
   updateRecord,
@@ -68,7 +67,6 @@ export function useSharedQuotaState() {
     async function bootstrap() {
       try {
         setSyncStatus('connecting')
-        await login('owner', 'password123')
         const storedWorkspace = workspaceId || localStorage.getItem(FALLBACK_WORKSPACE_KEY)
         const selectedWorkspace =
           storedWorkspace || (await getDefaultWorkspace().then((ws) => ws.id).catch(() => ''))

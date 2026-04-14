@@ -3,7 +3,6 @@
 ## Goal
 
 Validate the shared-state backend flow end-to-end on a local network:
-- authenticate
 - migrate existing browser-local state
 - sync records across two devices
 - run backup and restore drill
@@ -26,10 +25,10 @@ Validate the shared-state backend flow end-to-end on a local network:
 3. Confirm frontend is reachable from both devices.
 4. Confirm API health endpoint is reachable from LAN clients (`GET /health`).
 
-## 2. Authenticate
+## 2. Access model
 
-1. On each device, sign in with valid credentials.
-2. Verify unauthenticated API access is rejected (`401` on workspace routes).
+1. Access the app and API from devices on the same trusted LAN.
+2. Verify LAN-only restriction behavior for non-allowed source ranges.
 
 ## 3. Migrate localStorage data
 
@@ -53,14 +52,14 @@ Validate the shared-state backend flow end-to-end on a local network:
 
 ## 6. Security and privacy checks
 
-1. Attempt access from an unauthorized account and verify denial.
+1. Attempt access from outside allowed LAN ranges and verify denial.
 2. Verify service exposure remains LAN-scoped.
-3. Verify security events are logged for failed logins and access denials.
+3. Verify security events are logged for denied requests.
 
 ## Expected Outcomes
 
 - Shared state remains consistent across devices.
 - Migration is retry-safe.
 - Conflict handling is deterministic.
-- Unauthorized access is blocked.
+- Access outside allowed LAN ranges is blocked.
 - Backup/restore path is operational.
