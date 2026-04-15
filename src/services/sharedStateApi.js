@@ -1,11 +1,26 @@
-const defaultApiBase = (() => {
-  if (typeof window !== 'undefined' && window.location?.hostname) {
-    return `http://${window.location.hostname}:8080/api/v1`
-  }
-  return 'http://localhost:8080/api/v1'
-})()
+function uniqueBases(items) {
+  return Array.from(new Set(items.filter(Boolean).map((item) => item.replace(/\/$/, ''))))
+}
 
-const API_BASE = (import.meta.env.VITE_SHARED_API_BASE_URL || defaultApiBase).replace(/\/$/, '')
+function buildDefaultApiBases() {
+  if (typeof window !== 'undefined' && window.location?.hostname) {
+    const host = window.location.hostname
+    // Prefer docker-compose published backend port first, then local direct backend default.
+    return uniqueBases([
+      `http://${host}:8888/api/v1`,
+      `http://${host}:8080/api/v1`,
+      'http://localhost:8888/api/v1',
+      'http://localhost:8080/api/v1',
+    ])
+  }
+  return ['http://localhost:8888/api/v1', 'http://localhost:8080/api/v1']
+}
+
+const API_BASES = (() => {
+  const configured = import.meta.env.VITE_SHARED_API_BASE_URL
+  if (configured) return uniqueBases([configured])
+  return buildDefaultApiBases()
+})()
 const DEFAULT_WORKSPACE_ID_KEY = 'kairos:workspace-id'
 
 export function getWorkspaceId() {
@@ -21,11 +36,26 @@ async function request(path, { method = 'GET', body, idempotencyKey } = {}) {
   if (body !== undefined) headers['content-type'] = 'application/json'
   if (idempotencyKey) headers['Idempotency-Key'] = idempotencyKey
 
-  const response = await fetch(`${API_BASE}${path}`, {
-    method,
-    headers,
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  })
+  let response = null
+  let networkError = null
+  for (const base of API_BASES) {
+    try {
+      response = await fetch(`${base}${path}`, {
+        method,
+        headers,
+        body: body !== undefined ? JSON.stringify(body) : undefined,
+      })
+      break
+    } catch (error) {
+      networkError = error
+    }
+  }
+
+  if (!response) {
+    const err = new Error('Request failed')
+    err.cause = networkError || null
+    throw err
+  }
 
   if (response.status === 204) return null
   let data = null
