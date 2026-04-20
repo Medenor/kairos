@@ -126,3 +126,16 @@ export function getResetInfo(lastResetDate, resetCycleDays, now = new Date()) {
     nextResetDate: nextReset.toISOString().slice(0, 10),
   }
 }
+
+// Returns a map of reset timing signals for all services.
+// Pure function — no side effects.
+export function getResetSignals(state, services) {
+  const signals = {}
+  for (const svc of services) {
+    signals[svc.id] = getResetInfo(
+      state[svc.id]?.[RESET_DATE_KEY] ?? null,
+      svc.resetCycleDays
+    )
+  }
+  return signals
+}

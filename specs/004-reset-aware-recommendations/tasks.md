@@ -20,7 +20,7 @@
 
 **Purpose**: Confirm baseline — no new dependencies or directories required for this feature.
 
-- [ ] T001 Audit `src/utils.js` to confirm `getResetInfo` and `RESET_DATE_KEY` are exported and callable with the expected signature `(lastResetDate, resetCycleDays, now?)` — no changes needed, reading only
+- [X] T001 Audit `src/utils.js` to confirm `getResetInfo` and `RESET_DATE_KEY` are exported and callable with the expected signature `(lastResetDate, resetCycleDays, now?)` — no changes needed, reading only
 
 ---
 
@@ -30,8 +30,8 @@
 
 **⚠️ CRITICAL**: All user story phases depend on T002 and T003 being complete.
 
-- [ ] T002 Add `getResetSignals(state, services)` pure function export to `src/utils.js` — iterates `services`, calls `getResetInfo(state[svc.id]?.[RESET_DATE_KEY] ?? null, svc.resetCycleDays)` for each service, returns a plain object keyed by `svc.id`; no side effects
-- [ ] T003 [P] Add `resetTiebreaker(sigA, sigB, pressureA, pressureB)` and `resetNote(signal)` private helper functions at the top of `src/data/rules.js` — `resetTiebreaker` returns `true` when both `daysRemaining` are non-null AND `|pressureA - pressureB| <= 15`; `resetNote` returns the due/overdue suffix string or `''`
+- [X] T002 Add `getResetSignals(state, services)` pure function export to `src/utils.js` — iterates `services`, calls `getResetInfo(state[svc.id]?.[RESET_DATE_KEY] ?? null, svc.resetCycleDays)` for each service, returns a plain object keyed by `svc.id`; no side effects
+- [X] T003 [P] Add `resetTiebreaker(sigA, sigB, pressureA, pressureB)` and `resetNote(signal)` private helper functions at the top of `src/data/rules.js` — `resetTiebreaker` returns `true` when both `daysRemaining` are non-null AND `|pressureA - pressureB| <= 15`; `resetNote` returns the due/overdue suffix string or `''`
 
 **Checkpoint**: `getResetSignals`, `resetTiebreaker`, and `resetNote` are available — user story implementation can begin.
 
@@ -47,16 +47,16 @@
 
 > **Write these tests FIRST and confirm they FAIL before implementing T007–T010**
 
-- [ ] T004 [P] [US1] Write test scenarios for `coding_hard` reset tiebreaker in `src/utils.reco-reset.test.js`: comparable pressure (within 15 pts) → prefer sooner reset; gap > 15 pts → no tiebreaker; both signals `countdown` but same days → no change
-- [ ] T005 [P] [US1] Write test scenarios for `coding_light` reset tiebreaker in `src/utils.reco-reset.test.js`: Claude and Copilot at comparable pressure → prefer sooner reset; quota-dominant path unchanged
-- [ ] T006 [P] [US1] Write test scenarios for `work_heavy` reset tiebreaker in `src/utils.reco-reset.test.js`: Claude and ChatGPT at comparable pressure → prefer sooner reset; Claude blocked → Copilot/ChatGPT tiebreaker
+- [X] T004 [P] [US1] Write test scenarios for `coding_hard` reset tiebreaker in `src/utils.reco-reset.test.js`: comparable pressure (within 15 pts) → prefer sooner reset; gap > 15 pts → no tiebreaker; both signals `countdown` but same days → no change
+- [X] T005 [P] [US1] Write test scenarios for `coding_light` reset tiebreaker in `src/utils.reco-reset.test.js`: Claude and Copilot at comparable pressure → prefer sooner reset; quota-dominant path unchanged
+- [X] T006 [P] [US1] Write test scenarios for `work_heavy` reset tiebreaker in `src/utils.reco-reset.test.js`: Claude and ChatGPT at comparable pressure → prefer sooner reset; Claude blocked → Copilot/ChatGPT tiebreaker
 
 ### Implementation for User Story 1
 
-- [ ] T007 [US1] Augment `coding_hard` rule in `src/data/rules.js` — add `(s, rs)` signature; add reset tiebreaker branch at the `c < 85` decision point comparing `claude` vs `copilot` and at the Claude-blocked branch comparing `copilot` vs `chatgpt`; reason strings updated to include reset context (e.g., `"Claude under pressure — resets in 1d vs Copilot's 20d. Spend Claude now."`)
-- [ ] T008 [US1] Augment `coding_light` rule in `src/data/rules.js` — add `(s, rs)` signature; add reset tiebreaker at the `cop < 50` / `c < 50` decision branches comparing `copilot` vs `claude`; reason strings updated to include reset context when tiebreaker applies
-- [ ] T009 [US1] Augment `work_heavy` rule in `src/data/rules.js` — add `(s, rs)` signature; add reset tiebreaker at the `c < 80` pressure branch comparing `claude` vs `chatgpt`; reason strings updated to include reset context when tiebreaker applies
-- [ ] T010 [US1] Update `src/components/RecoBox.jsx` — import `SERVICES` from `../data/services` and `getResetSignals` from `../utils`; compute `const resetSignals = getResetSignals(state, SERVICES)` before the rule call; pass `resetSignals` as second argument to `rule(state, resetSignals)`
+- [X] T007 [US1] Augment `coding_hard` rule in `src/data/rules.js` — add `(s, rs)` signature; add reset tiebreaker branch at the `c < 85` decision point comparing `claude` vs `copilot` and at the Claude-blocked branch comparing `copilot` vs `chatgpt`; reason strings updated to include reset context (e.g., `"Claude under pressure — resets in 1d vs Copilot's 20d. Spend Claude now."`)
+- [X] T008 [US1] Augment `coding_light` rule in `src/data/rules.js` — add `(s, rs)` signature; add reset tiebreaker at the `cop < 50` / `c < 50` decision branches comparing `copilot` vs `claude`; reason strings updated to include reset context when tiebreaker applies
+- [X] T009 [US1] Augment `work_heavy` rule in `src/data/rules.js` — add `(s, rs)` signature; add reset tiebreaker at the `c < 80` pressure branch comparing `claude` vs `chatgpt`; reason strings updated to include reset context when tiebreaker applies
+- [X] T010 [US1] Update `src/components/RecoBox.jsx` — import `SERVICES` from `../data/services` and `getResetSignals` from `../utils`; compute `const resetSignals = getResetSignals(state, SERVICES)` before the rule call; pass `resetSignals` as second argument to `rule(state, resetSignals)`
 
 **Checkpoint**: User Story 1 is independently testable — run `node --test src/utils.reco-reset.test.js` for T004–T006 scenarios, and manually verify recommendation switches when reset timing differs.
 
@@ -72,13 +72,13 @@
 
 > **Write these tests FIRST and confirm they FAIL before implementing T013–T014**
 
-- [ ] T011 [P] [US2] Write test scenarios in `src/utils.reco-reset.test.js` asserting reason strings mention reset timing (service name + days) when tiebreaker is decisive across all three augmented rules
-- [ ] T012 [P] [US2] Write test scenarios in `src/utils.reco-reset.test.js` asserting reason appends `"Reset due today — your quota may have already refreshed."` when selected service state is `due`, and `"Reset overdue — consider logging the new reset date."` when state is `overdue`
+- [X] T011 [P] [US2] Write test scenarios in `src/utils.reco-reset.test.js` asserting reason strings mention reset timing (service name + days) when tiebreaker is decisive across all three augmented rules
+- [X] T012 [P] [US2] Write test scenarios in `src/utils.reco-reset.test.js` asserting reason appends `"Reset due today — your quota may have already refreshed."` when selected service state is `due`, and `"Reset overdue — consider logging the new reset date."` when state is `overdue`
 
 ### Implementation for User Story 2
 
-- [ ] T013 [US2] Verify all tiebreaker return paths in `src/data/rules.js` (`coding_hard`, `coding_light`, `work_heavy`) name both compared services and include days-remaining values in the reason string (e.g., `"Copilot resets in 3d vs Claude's 18d"`) — adjust any reason string that omits this detail
-- [ ] T014 [US2] Verify `resetNote(rs?.primary)` is appended to every reason string in all three augmented rules for `due` and `overdue` states in `src/data/rules.js` — including the non-tiebreaker branches (Claude available, Claude blocked, etc.)
+- [X] T013 [US2] Verify all tiebreaker return paths in `src/data/rules.js` (`coding_hard`, `coding_light`, `work_heavy`) name both compared services and include days-remaining values in the reason string (e.g., `"Copilot resets in 3d vs Claude's 18d"`) — adjust any reason string that omits this detail
+- [X] T014 [US2] Verify `resetNote(rs?.primary)` is appended to every reason string in all three augmented rules for `due` and `overdue` states in `src/data/rules.js` — including the non-tiebreaker branches (Claude available, Claude blocked, etc.)
 
 **Checkpoint**: User Story 2 independently testable — scenario-driven assertions confirm reason strings meet SC-002 (100% of tiebreaker scenarios mention reset timing).
 
@@ -94,14 +94,14 @@
 
 > **Write these tests FIRST and confirm they FAIL before implementing T018–T019**
 
-- [ ] T015 [P] [US3] Write test scenarios in `src/utils.reco-reset.test.js` asserting quota-only result is returned when `resetSignals` is `undefined` for `coding_hard`, `coding_light`, and `work_heavy`
-- [ ] T016 [P] [US3] Write test scenarios in `src/utils.reco-reset.test.js` asserting quota-only result is returned when both compared services have state `unset`, `invalid`, or `none` — reason MUST NOT mention reset timing
-- [ ] T017 [P] [US3] Write test scenarios in `src/utils.reco-reset.test.js` for edge cases: one service `countdown` and one `unset` (tiebreaker skipped, quota-only); both services same `daysRemaining` (no preference change); service state `overdue` (note added but not used as tiebreaker)
+- [X] T015 [P] [US3] Write test scenarios in `src/utils.reco-reset.test.js` asserting quota-only result is returned when `resetSignals` is `undefined` for `coding_hard`, `coding_light`, and `work_heavy`
+- [X] T016 [P] [US3] Write test scenarios in `src/utils.reco-reset.test.js` asserting quota-only result is returned when both compared services have state `unset`, `invalid`, or `none` — reason MUST NOT mention reset timing
+- [X] T017 [P] [US3] Write test scenarios in `src/utils.reco-reset.test.js` for edge cases: one service `countdown` and one `unset` (tiebreaker skipped, quota-only); both services same `daysRemaining` (no preference change); service state `overdue` (note added but not used as tiebreaker)
 
 ### Implementation for User Story 3
 
-- [ ] T018 [US3] Add `if (!resetSignals)` guard at the top of each augmented rule function in `src/data/rules.js` — returns the existing quota-only result unchanged; confirm `daily_chat` and `oneshot` rules are NOT modified (they never use resetSignals)
-- [ ] T019 [US3] Verify `getResetSignals` in `src/utils.js` handles `state[svc.id]` being `undefined` or missing `RESET_DATE_KEY` without throwing — confirm optional chaining `state[svc.id]?.[RESET_DATE_KEY] ?? null` is in place and returns a valid `ResetTimingSignal` for every service
+- [X] T018 [US3] Add `if (!resetSignals)` guard at the top of each augmented rule function in `src/data/rules.js` — returns the existing quota-only result unchanged; confirm `daily_chat` and `oneshot` rules are NOT modified (they never use resetSignals)
+- [X] T019 [US3] Verify `getResetSignals` in `src/utils.js` handles `state[svc.id]` being `undefined` or missing `RESET_DATE_KEY` without throwing — confirm optional chaining `state[svc.id]?.[RESET_DATE_KEY] ?? null` is in place and returns a valid `ResetTimingSignal` for every service
 
 **Checkpoint**: All three user stories independently functional and testable — run full test suite to confirm no regressions.
 
@@ -111,10 +111,10 @@
 
 **Purpose**: Verify determinism, backward compatibility, and all acceptance criteria across the full feature.
 
-- [ ] T020 [P] Run all existing tests to confirm no regressions: `node --test src/utils.reset.test.js` — verify 0 failures before and after the feature
-- [ ] T021 [P] Run new test file to confirm all US1–US3 scenarios pass: `node --test src/utils.reco-reset.test.js`
-- [ ] T022 Execute the manual verification checklist from `specs/004-reset-aware-recommendations/quickstart.md` — cover all five checklist items (tiebreaker switch, overdue note, cleared dates, invalid dates, `coding_light` example)
-- [ ] T023 Verify `daily_chat` and `oneshot` rules in `src/data/rules.js` are untouched and return identical results with or without `resetSignals` passed (no accidental modifications)
+- [X] T020 [P] Run all existing tests to confirm no regressions: `node --test src/utils.reset.test.js` — verify 0 failures before and after the feature
+- [X] T021 [P] Run new test file to confirm all US1–US3 scenarios pass: `node --test src/utils.reco-reset.test.js`
+- [X] T022 Execute the manual verification checklist from `specs/004-reset-aware-recommendations/quickstart.md` — cover all five checklist items (tiebreaker switch, overdue note, cleared dates, invalid dates, `coding_light` example)
+- [X] T023 Verify `daily_chat` and `oneshot` rules in `src/data/rules.js` are untouched and return identical results with or without `resetSignals` passed (no accidental modifications)
 
 ---
 
