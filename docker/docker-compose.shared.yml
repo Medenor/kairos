@@ -1,0 +1,26 @@
+name: kairos
+services:
+  backend:
+    image: node:20-alpine
+    working_dir: /app
+    command: sh -c "apk add --no-cache sqlite && npm install && npm run backend:start"
+    environment:
+      HOST: 0.0.0.0
+      PORT: 8080
+      DB_PATH: /app/backend/data/kairos.db
+      LAN_ONLY: "false"
+    ports:
+      - "8888:8080"
+    volumes:
+      - ..:/app
+
+  frontend:
+    image: node:20-alpine
+    working_dir: /app
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0 --port 5173"
+    ports:
+      - "5273:5173"
+    depends_on:
+      - backend
+    volumes:
+      - ..:/app
