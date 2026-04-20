@@ -1,4 +1,11 @@
-import { getConsumedPct, getServicePressure, getStatusBadge, getBarColor } from '../utils'
+import {
+  RESET_DATE_KEY,
+  getBarColor,
+  getConsumedPct,
+  getResetInfo,
+  getServicePressure,
+  getStatusBadge,
+} from '../utils'
 import styles from './ServiceCard.module.css'
 
 function QuotaRow({ svc, quota, value, onChange }) {
@@ -85,6 +92,41 @@ const RESET_LABELS = {
   payg: 'Pay-as-you-go',
 }
 
+function ResetTrackingRow({ svc, quotaState, onUpdate }) {
+  const rawResetDate = quotaState[RESET_DATE_KEY]
+  const lastResetDate = typeof rawResetDate === 'string' && rawResetDate ? rawResetDate : null
+  const resetInfo = getResetInfo(lastResetDate, svc.resetCycleDays)
+
+  return (
+    <div className={styles.resetBlock}>
+      <div className={styles.resetHeader}>
+        <span className={styles.resetLabel}>Last reset date</span>
+        <span className={`${styles.resetState} ${styles[`resetState_${resetInfo.state}`] || ''}`}>
+          {resetInfo.label}
+        </span>
+      </div>
+      <div className={styles.resetControls}>
+        <input
+          className={styles.resetInput}
+          type="date"
+          value={lastResetDate || ''}
+          max={new Date().toISOString().slice(0, 10)}
+          onChange={(e) => onUpdate(svc.id, RESET_DATE_KEY, e.target.value || null)}
+        />
+        <button
+          className={styles.clearBtn}
+          onClick={() => onUpdate(svc.id, RESET_DATE_KEY, null)}
+          disabled={!lastResetDate}
+          title="Clear last reset date"
+        >
+          Clear
+        </button>
+      </div>
+      {resetInfo.nextResetDate && <div className={styles.resetMeta}>Next reset: {resetInfo.nextResetDate}</div>}
+    </div>
+  )
+}
+
 export default function ServiceCard({ svc, quotaState, onUpdate }) {
   const pressure = getServicePressure(svc, { [svc.id]: quotaState })
   const badge = getStatusBadge(pressure)
@@ -113,6 +155,10 @@ export default function ServiceCard({ svc, quotaState, onUpdate }) {
           onChange={(val) => onUpdate(svc.id, q.id, val)}
         />
       ))}
+
+      {svc.resetType !== 'payg' && (
+        <ResetTrackingRow svc={svc} quotaState={quotaState} onUpdate={onUpdate} />
+      )}
 
       <div className={styles.footer}>
         {RESET_LABELS[svc.resetType]} · {svc.note}

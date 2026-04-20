@@ -1,5 +1,6 @@
 import { SERVICES } from '../data/services'
 import { RULES } from '../data/rules'
+import { getResetSignals } from '../utils'
 import styles from './RecoBox.module.css'
 
 export default function RecoBox({ task, state }) {
@@ -14,7 +15,8 @@ export default function RecoBox({ task, state }) {
   const rule = RULES[task]
   if (!rule) return null
 
-  const result = rule(state)
+  const resetSignals = getResetSignals(state, SERVICES)
+  const result = rule(state, resetSignals)
   const svc = SERVICES.find((s) => s.id === result.primary)
   if (!svc) return null
 
