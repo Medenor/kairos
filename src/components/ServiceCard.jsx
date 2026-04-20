@@ -156,7 +156,9 @@ export default function ServiceCard({ svc, quotaState, onUpdate }) {
         />
       ))}
 
-      <ResetTrackingRow svc={svc} quotaState={quotaState} onUpdate={onUpdate} />
+      {svc.resetType !== 'payg' && (
+        <ResetTrackingRow svc={svc} quotaState={quotaState} onUpdate={onUpdate} />
+      )}
 
       <div className={styles.footer}>
         {RESET_LABELS[svc.resetType]} · {svc.note}
