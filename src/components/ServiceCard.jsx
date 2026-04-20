@@ -4,18 +4,28 @@ import styles from './ServiceCard.module.css'
 function QuotaRow({ svc, quota, value, onChange }) {
   const cPct = getConsumedPct(quota, value)
 
+  const handleIncrement = (val) => {
+    const newVal = Math.min(100, Math.max(0, value + val))
+    onChange(newVal)
+  }
+
   if (quota.type === 'currency') {
     return (
       <div className={styles.quotaBlock}>
         <div className={styles.creditRow}>
           <span className={styles.quotaLabel}>{quota.label}</span>
-          <input
-            type="number"
-            min={0}
-            step={0.5}
-            value={value}
-            onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
-          />
+          <div className={styles.stepperWrap}>
+            <button className={styles.stepBtn} onClick={() => handleIncrement(-1)}>−</button>
+            <input
+              className={styles.numInput}
+              type="number"
+              min={0}
+              step={0.5}
+              value={value}
+              onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
+            />
+            <button className={styles.stepBtn} onClick={() => handleIncrement(1)}>+</button>
+          </div>
           <span className={styles.currencyUnit}>{quota.currency}</span>
           {value <= 0 && <span className={styles.subnote}>— exhausted</span>}
           {value > 0 && value < 2 && <span className={styles.subnote}>— low</span>}
@@ -37,20 +47,18 @@ function QuotaRow({ svc, quota, value, onChange }) {
 
   return (
     <div className={styles.quotaBlock}>
-      <div className={styles.sliderRow}>
+      <div className={styles.stepperRow}>
         <span className={styles.quotaLabel}>
           {quota.label}
           {quota.subnote && <span className={styles.subnote}> ({quota.subnote})</span>}
         </span>
-        <input
-          type="range"
-          min={0}
-          max={100}
-          step={1}
-          value={value}
-          onChange={(e) => onChange(parseInt(e.target.value))}
-        />
-        <span className={styles.quotaVal}>{displayLabel}</span>
+        <div className={styles.stepperWrap}>
+          <button className={styles.stepBtn} onClick={() => handleIncrement(-5)} title="-5%">-5</button>
+          <button className={styles.stepBtn} onClick={() => handleIncrement(-1)} title="-1%">-</button>
+          <span className={styles.quotaValDisplay}>{value}%</span>
+          <button className={styles.stepBtn} onClick={() => handleIncrement(1)} title="+1%">+</button>
+          <button className={styles.stepBtn} onClick={() => handleIncrement(5)} title="+5%">+5</button>
+        </div>
       </div>
       <div className={styles.barRow}>
         <div className={styles.barWrap}>

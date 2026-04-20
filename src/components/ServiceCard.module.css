@@ -49,36 +49,84 @@
   margin-bottom: 2px;
 }
 
-.sliderRow {
+.stepperRow {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 10px;
   margin-bottom: 4px;
+  flex-wrap: wrap;
+}
+
+.stepperWrap {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.stepBtn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-bg-tertiary);
+  border: 0.5px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 0;
+  user-select: none;
+  touch-action: manipulation;
+}
+
+.stepBtn:active {
+  background: var(--color-bg-secondary);
+  transform: translateY(1px);
+}
+
+.quotaValDisplay {
+  font-size: 14px;
+  font-weight: 600;
+  min-width: 44px;
+  text-align: center;
+  color: var(--color-text);
+}
+
+.numInput {
+  width: 60px;
+  padding: 6px;
+  border: 0.5px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  color: var(--color-text);
+  text-align: center;
+  font-size: 14px;
 }
 
 .creditRow {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 10px;
   margin-bottom: 4px;
+  flex-wrap: wrap;
 }
 
 .quotaLabel {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--color-text-secondary);
-  min-width: 155px;
+  flex: 1;
+  min-width: 120px;
 }
 
 .quotaVal {
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--color-text);
-  min-width: 112px;
-  text-align: right;
+  display: none;
 }
 
 .currencyUnit {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--color-text-secondary);
 }
 
@@ -90,8 +138,25 @@
 .barRow {
   display: flex;
   align-items: center;
-  margin-bottom: 8px;
-  margin-left: 163px;
+  margin-bottom: 12px;
+}
+
+@media (max-width: 480px) {
+  .stepperRow, .creditRow {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  
+  .stepperWrap {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .stepBtn {
+    flex: 1;
+    height: 36px;
+  }
 }
 
 .barWrap {
