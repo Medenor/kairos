@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { SERVICES } from '../data/services'
+import { RESET_DATE_KEY } from '../utils'
 
 const STORAGE_KEY = 'kairos-ai-quota-router:state'
 
@@ -10,6 +11,7 @@ function buildDefaultState() {
     svc.quotas.forEach((q) => {
       s[svc.id][q.id] = q.value
     })
+    s[svc.id][RESET_DATE_KEY] = null
   })
   return s
 }

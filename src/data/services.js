@@ -10,6 +10,7 @@ export const SERVICES = [
     cost: 21.78,
     costCurrency: '€',
     resetType: 'weekly',
+    resetCycleDays: 7,
     color: '#378ADD',
     quotas: [
       { id: 'weekly', label: 'Weekly quota', value: 70, type: 'consumed_pct' },
@@ -24,6 +25,7 @@ export const SERVICES = [
     cost: 22.99,
     costCurrency: '€',
     resetType: 'weekly',
+    resetCycleDays: 7,
     color: '#1D9E75',
     quotas: [
       { id: 'codex_remaining', label: 'Weekly quota — remaining', value: 75, type: 'remaining_pct', subnote: 'Codex only' },
@@ -38,6 +40,7 @@ export const SERVICES = [
     cost: 8.71,
     costCurrency: '€',
     resetType: 'monthly',
+    resetCycleDays: 30,
     color: '#7F77DD',
     quotas: [
       { id: 'monthly', label: 'Monthly quota', value: 20, type: 'consumed_pct' },
@@ -51,6 +54,7 @@ export const SERVICES = [
     cost: 0,
     costCurrency: null,
     resetType: 'payg',
+    resetCycleDays: null,
     color: '#D85A30',
     quotas: [
       { id: 'credits', label: 'Remaining balance', value: 10.00, type: 'currency', currency: '$' },
@@ -64,6 +68,7 @@ export const SERVICES = [
     cost: 0,
     costCurrency: null,
     resetType: 'payg',
+    resetCycleDays: null,
     color: '#BA7517',
     quotas: [
       { id: 'credits', label: 'Remaining balance', value: 8.00, type: 'currency', currency: '$' },

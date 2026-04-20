@@ -141,6 +141,92 @@
   margin-bottom: 12px;
 }
 
+.resetBlock {
+  border-top: 0.5px solid var(--color-border);
+  margin-top: 2px;
+  padding-top: 8px;
+  margin-bottom: 8px;
+}
+
+.resetHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.resetLabel {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.resetState {
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: var(--radius-md);
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+}
+
+.resetState_countdown {
+  background: #eaf3de;
+  color: #3b6d11;
+}
+
+.resetState_due {
+  background: #faeeda;
+  color: #854f0b;
+}
+
+.resetState_overdue,
+.resetState_invalid {
+  background: #fcebeb;
+  color: #a32d2d;
+}
+
+.resetState_unset,
+.resetState_none {
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+}
+
+.resetControls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.resetInput {
+  padding: 6px 8px;
+  border: 0.5px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-size: 13px;
+}
+
+.clearBtn {
+  border: 0.5px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.clearBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.resetMeta {
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+}
+
 @media (max-width: 480px) {
   .stepperRow, .creditRow {
     flex-direction: column;
@@ -156,6 +242,12 @@
   .stepBtn {
     flex: 1;
     height: 36px;
+  }
+
+  .resetControls {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
   }
 }
 

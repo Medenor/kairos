@@ -21,6 +21,7 @@ This tool tracks your quotas in one place and tells you which service to use rig
 - One-click localStorage migration into shared persistence
 - Backup and restore operations from the UI
 - State persisted in `localStorage` as offline fallback
+- Per-service reset date tracking with automatic `days until reset` / `overdue` status
 - Reset button to clear all quotas back to defaults
 - Dark mode support
 
@@ -190,6 +191,7 @@ When proposing changes, include:
 ### Core functionality
 
 1. **Reset date tracking** — enter the last reset date per service, display days remaining until the next reset
+   - Status: implemented in `specs/003-reset-date-tracking`
 2. **Weekly history** — save a quota state snapshot per week to identify consumption patterns over time
 3. **Service toggle** — enable/disable a service without deleting it (useful when suspending a subscription)
 

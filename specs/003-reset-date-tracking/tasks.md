@@ -17,9 +17,9 @@
 
 **Purpose**: Extend the existing service state shape and prepare the feature surface
 
-- [ ] T001 [P] Update the service definitions in `src/data/services.js` to include reset-cycle metadata needed for countdown calculations.
-- [ ] T002 [P] Extend shared state defaults and merge logic in `src/hooks/useQuotaState.js` and `src/hooks/useSharedQuotaState.js` to carry per-service last reset dates.
-- [ ] T003 [P] Update local export/import handling in `src/services/localExport.js` so reset-date data is preserved during export.
+- [X] T001 [P] Update the service definitions in `src/data/services.js` to include reset-cycle metadata needed for countdown calculations.
+- [X] T002 [P] Extend shared state defaults and merge logic in `src/hooks/useQuotaState.js` and `src/hooks/useSharedQuotaState.js` to carry per-service last reset dates.
+- [X] T003 [P] Update local export/import handling in `src/services/localExport.js` so reset-date data is preserved during export.
 
 ---
 
@@ -29,9 +29,9 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T004 Add shared date utilities in `src/utils.js` for computing days remaining and handling unset/overdue states deterministically.
-- [ ] T005 [P] Add any backend shared-record/schema support needed in `backend/src/migrations/001_initial_schema.sql` and related services so reset-date state can persist with existing shared records.
-- [ ] T006 [P] Add contract or integration coverage for persistence of reset-date fields in `backend/tests/contract/` or `backend/tests/integration/` as appropriate to the existing state model.
+- [X] T004 Add shared date utilities in `src/utils.js` for computing days remaining and handling unset/overdue states deterministically.
+- [X] T005 [P] Add any backend shared-record/schema support needed in `backend/src/migrations/001_initial_schema.sql` and related services so reset-date state can persist with existing shared records.
+- [X] T006 [P] Add contract or integration coverage for persistence of reset-date fields in `backend/tests/contract/` or `backend/tests/integration/` as appropriate to the existing state model.
 
 **Checkpoint**: Foundation ready - user story implementation can now begin in parallel
 
@@ -47,15 +47,15 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T007 [P] [US1] Add unit coverage for set/update/clear behavior in `src/utils.js` or a dedicated helper test file.
+- [X] T007 [P] [US1] Add unit coverage for set/update/clear behavior in `src/utils.js` or a dedicated helper test file.
 - [ ] T008 [P] [US1] Add UI behavior verification for editing a service reset date in `src/components/ServiceCard.jsx` and `src/App.jsx`.
 
 ### Implementation for User Story 1
 
-- [ ] T009 [US1] Add last-reset-date input and controls to `src/components/ServiceCard.jsx`.
-- [ ] T010 [US1] Wire reset-date updates through `src/App.jsx` into `src/hooks/useQuotaState.js` and `src/hooks/useSharedQuotaState.js`.
-- [ ] T011 [US1] Ensure reset-date data is serialized and restored for each service in `src/services/localExport.js` and any shared-state persistence path.
-- [ ] T012 [US1] Add clear empty-state behavior for services with no saved reset date in `src/components/ServiceCard.jsx`.
+- [X] T009 [US1] Add last-reset-date input and controls to `src/components/ServiceCard.jsx`.
+- [X] T010 [US1] Wire reset-date updates through `src/App.jsx` into `src/hooks/useQuotaState.js` and `src/hooks/useSharedQuotaState.js`.
+- [X] T011 [US1] Ensure reset-date data is serialized and restored for each service in `src/services/localExport.js` and any shared-state persistence path.
+- [X] T012 [US1] Add clear empty-state behavior for services with no saved reset date in `src/components/ServiceCard.jsx`.
 
 **Checkpoint**: At this point, User Story 1 should be fully functional and testable independently
 
@@ -69,14 +69,14 @@
 
 ### Tests for User Story 2 (REQUIRED for behavior changes) ⚠️
 
-- [ ] T013 [P] [US2] Add unit coverage for remaining-day calculations and overdue handling in `src/utils.js`.
+- [X] T013 [P] [US2] Add unit coverage for remaining-day calculations and overdue handling in `src/utils.js`.
 - [ ] T014 [P] [US2] Add UI verification for countdown rendering in `src/components/ServiceCard.jsx`.
 
 ### Implementation for User Story 2
 
-- [ ] T015 [US2] Render the days-remaining countdown in `src/components/ServiceCard.jsx` using the shared date utilities.
-- [ ] T016 [US2] Show overdue or due-now messaging when the calculated next reset date has passed.
-- [ ] T017 [US2] Keep the countdown display in sync when service reset data changes in `src/hooks/useQuotaState.js` and `src/hooks/useSharedQuotaState.js`.
+- [X] T015 [US2] Render the days-remaining countdown in `src/components/ServiceCard.jsx` using the shared date utilities.
+- [X] T016 [US2] Show overdue or due-now messaging when the calculated next reset date has passed.
+- [X] T017 [US2] Keep the countdown display in sync when service reset data changes in `src/hooks/useQuotaState.js` and `src/hooks/useSharedQuotaState.js`.
 
 **Checkpoint**: At this point, User Stories 1 and 2 should both work independently
 
@@ -90,13 +90,13 @@
 
 ### Tests for User Story 3 (REQUIRED for behavior changes) ⚠️
 
-- [ ] T018 [P] [US3] Add unit coverage for unset-date display logic in `src/utils.js` or component-level helpers.
+- [X] T018 [P] [US3] Add unit coverage for unset-date display logic in `src/utils.js` or component-level helpers.
 - [ ] T019 [P] [US3] Add UI verification for the unset state in `src/components/ServiceCard.jsx`.
 
 ### Implementation for User Story 3
 
-- [ ] T020 [US3] Add unset-state messaging and visual treatment in `src/components/ServiceCard.jsx`.
-- [ ] T021 [US3] Ensure removing a reset date restores the unset state without affecting other service values in `src/hooks/useQuotaState.js` and `src/hooks/useSharedQuotaState.js`.
+- [X] T020 [US3] Add unset-state messaging and visual treatment in `src/components/ServiceCard.jsx`.
+- [X] T021 [US3] Ensure removing a reset date restores the unset state without affecting other service values in `src/hooks/useQuotaState.js` and `src/hooks/useSharedQuotaState.js`.
 
 **Checkpoint**: All user stories should now be independently functional
 
@@ -106,9 +106,9 @@
 
 **Purpose**: Improvements that affect multiple user stories
 
-- [ ] T022 [P] Update `specs/003-reset-date-tracking/quickstart.md` with the final verification steps after implementation details are confirmed.
-- [ ] T023 [P] Add or adjust any documentation in `README.md` if the reset-date workflow is user-facing and needs explanation.
-- [ ] T024 Run `npm test` and `npm run lint` to verify the feature across frontend and backend checks.
+- [X] T022 [P] Update `specs/003-reset-date-tracking/quickstart.md` with the final verification steps after implementation details are confirmed.
+- [X] T023 [P] Add or adjust any documentation in `README.md` if the reset-date workflow is user-facing and needs explanation.
+- [X] T024 Run `npm test` and `npm run lint` to verify the feature across frontend and backend checks.
 - [ ] T025 Validate manual UI behavior in the browser for at least one service with a set date, one overdue service, and one unset service.
 
 ---

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { SERVICES } from '../data/services'
+import { RESET_DATE_KEY } from '../utils'
 import {
   createRecord,
   getDefaultWorkspace,
@@ -20,6 +21,7 @@ function buildDefaultState() {
     svc.quotas.forEach((q) => {
       s[svc.id][q.id] = q.value
     })
+    s[svc.id][RESET_DATE_KEY] = null
   })
   return s
 }
@@ -30,6 +32,7 @@ function buildDefaultEntries() {
     svc.quotas.forEach((q) => {
       entries.push({ logicalKey: `${svc.id}:${q.id}`, value: q.value })
     })
+    entries.push({ logicalKey: `${svc.id}:${RESET_DATE_KEY}`, value: null })
   })
   return entries
 }
@@ -58,7 +61,18 @@ function loadFallback() {
     const raw = localStorage.getItem(FALLBACK_STORAGE_KEY)
     if (!raw) return buildDefaultState()
     const parsed = JSON.parse(raw)
-    return { ...buildDefaultState(), ...parsed }
+    const defaults = buildDefaultState()
+    Object.keys(defaults).forEach((svcId) => {
+      if (!parsed[svcId]) parsed[svcId] = defaults[svcId]
+      else {
+        Object.keys(defaults[svcId]).forEach((stateKey) => {
+          if (parsed[svcId][stateKey] === undefined) {
+            parsed[svcId][stateKey] = defaults[svcId][stateKey]
+          }
+        })
+      }
+    })
+    return parsed
   } catch {
     return buildDefaultState()
   }

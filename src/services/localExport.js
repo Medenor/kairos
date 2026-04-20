@@ -1,4 +1,5 @@
 import { SERVICES } from '../data/services'
+import { RESET_DATE_KEY } from '../utils'
 
 const STORAGE_KEY = 'kairos-ai-quota-router:state'
 
@@ -23,6 +24,13 @@ export function exportLocalStateForMigration() {
         source_fingerprint: `${svc.id}:${quota.id}:${value}`,
       })
     }
+    const lastResetDate = svcState[RESET_DATE_KEY] ?? null
+    records.push({
+      logical_key: `${svc.id}:${RESET_DATE_KEY}`,
+      record_type: 'quota_state',
+      payload: { value: lastResetDate },
+      source_fingerprint: `${svc.id}:${RESET_DATE_KEY}:${lastResetDate ?? 'null'}`,
+    })
   }
 
   return {
