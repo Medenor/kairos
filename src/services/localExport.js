@@ -1,5 +1,5 @@
 import { SERVICES } from '../data/services'
-import { RESET_DATE_KEY } from '../utils'
+import { RESET_DATE_KEY, WEEKLY_HISTORY_STORAGE_KEY, loadWeeklyHistory } from '../utils'
 
 const STORAGE_KEY = 'kairos-ai-quota-router:state'
 
@@ -30,6 +30,17 @@ export function exportLocalStateForMigration() {
       record_type: 'quota_state',
       payload: { value: lastResetDate },
       source_fingerprint: `${svc.id}:${RESET_DATE_KEY}:${lastResetDate ?? 'null'}`,
+    })
+  }
+
+  const weeklyHistory = loadWeeklyHistory(localStorage.getItem(WEEKLY_HISTORY_STORAGE_KEY))
+  for (const snapshot of weeklyHistory) {
+    if (!snapshot?.weekKey || !snapshot?.workspaceId) continue
+    records.push({
+      logical_key: `weekly-history:${snapshot.weekKey}`,
+      record_type: 'snapshot',
+      payload: snapshot,
+      source_fingerprint: `weekly-history:${snapshot.workspaceId}:${snapshot.weekKey}:${snapshot.capturedAt ?? 'unknown'}`,
     })
   }
 
