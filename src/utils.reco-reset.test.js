@@ -283,3 +283,163 @@ test('T017: service state overdue → note added but overdue not used as tiebrea
   // Copilot has daysRemaining (countdown), Claude overdue → tiebreaker only eligible for countdown/due
   // So copilot should be preferred if it would be in the tiebreaker range
 })
+
+// ---------------------------------------------------------------------------
+// T018 — Bug fix: overdue never wins tiebreaker against a countdown service
+// ---------------------------------------------------------------------------
+
+test('T018 coding_hard: overdue service does NOT win tiebreaker over countdown service', () => {
+  // Claude overdue (-3d), Copilot countdown (5d) — comparable pressure (10 pts gap)
+  // Before fix: -3 <= 5 → overdue (Claude) would incorrectly win
+  // After fix: overdue excluded from tiebreaker, quota-only path applies → Copilot (lower pressure)
+  const s = makeState({ claudeWeekly: 70, claudeSlot: 50, copilotMonthly: 60 })
+  const signals = rs({ claude: sig('overdue', -3), copilot: sig('countdown', 5) })
+  const result = RULES.coding_hard(s, signals)
+  // Tiebreaker must NOT fire — overdue is excluded
+  assert.ok(!result.reason.includes('d vs'), `reason must not include tiebreaker text: "${result.reason}"`)
+  // Quota-only path: c=70 < 85, copilotMonthly=60 → copilot preferred
+  assert.equal(result.primary, 'copilot', 'overdue Claude must not win tiebreaker')
+})
+
+test('T018 coding_light: overdue service does NOT win tiebreaker', () => {
+  // Copilot overdue, Claude countdown — quota comparable
+  const s = makeState({ claudeWeekly: 45, copilotMonthly: 55 })
+  const signals = rs({ copilot: sig('overdue', -2), claude: sig('countdown', 4) })
+  const result = RULES.coding_light(s, signals)
+  assert.ok(!result.reason.includes('d vs'), `reason must not include tiebreaker text: "${result.reason}"`)
+})
+
+// ---------------------------------------------------------------------------
+// T019 — resetNote: countdown ≤ 2 days appends urgency note
+// ---------------------------------------------------------------------------
+
+test('T019 coding_hard: countdown ≤ 2d on selected service appends spend-now note', () => {
+  // Claude selected (available, c=30), reset in 1d → note appended
+  const s = makeState({ claudeWeekly: 30, claudeSlot: 40 })
+  const signals = rs({ claude: sig('countdown', 1) })
+  const result = RULES.coding_hard(s, signals)
+  assert.equal(result.primary, 'claude')
+  assert.ok(
+    result.reason.includes('Resets in 1d — spend it now before quota refreshes.'),
+    `reason must include near-reset note: "${result.reason}"`
+  )
+})
+
+test('T019 coding_light: countdown ≤ 2d on selected service appends spend-now note', () => {
+  // Copilot selected (cop=30 < 50), reset in 2d → note appended
+  const s = makeState({ claudeWeekly: 60, copilotMonthly: 30 })
+  const signals = rs({ copilot: sig('countdown', 2) })
+  const result = RULES.coding_light(s, signals)
+  assert.equal(result.primary, 'copilot')
+  assert.ok(
+    result.reason.includes('Resets in 2d — spend it now before quota refreshes.'),
+    `reason must include near-reset note: "${result.reason}"`
+  )
+})
+
+test('T019: countdown > 2d does NOT append spend-now note', () => {
+  const s = makeState({ claudeWeekly: 30, claudeSlot: 40 })
+  const signals = rs({ claude: sig('countdown', 5) })
+  const result = RULES.coding_hard(s, signals)
+  assert.ok(
+    !result.reason.includes('spend it now before quota refreshes'),
+    `reason must NOT include near-reset note when daysRemaining > 2: "${result.reason}"`
+  )
+})
+
+// ---------------------------------------------------------------------------
+// T020/T021 — daily_chat: preserve upcoming Claude refresh
+// ---------------------------------------------------------------------------
+
+test('T020 daily_chat: Claude resets in ≤ 2d → switch to ChatGPT even when c < 40', () => {
+  // Claude quota comfortable (c=20) BUT resets in 1d → prefer ChatGPT to preserve refresh
+  const s = makeState({ claudeWeekly: 20 })
+  const signals = rs({ claude: sig('countdown', 1) })
+  const result = RULES.daily_chat(s, signals)
+  assert.equal(result.primary, 'chatgpt', 'must switch to ChatGPT to preserve upcoming reset')
+  assert.ok(result.reason.includes('1d'), `reason must mention days: "${result.reason}"`)
+  assert.ok(result.reason.toLowerCase().includes('reset'), `reason must mention reset: "${result.reason}"`)
+})
+
+test('T020 daily_chat: Claude resets in exactly 2d → still switches to ChatGPT', () => {
+  const s = makeState({ claudeWeekly: 20 })
+  const signals = rs({ claude: sig('countdown', 2) })
+  const result = RULES.daily_chat(s, signals)
+  assert.equal(result.primary, 'chatgpt')
+  assert.ok(result.reason.includes('2d'))
+})
+
+test('T021 daily_chat: Claude resets in 3d → normal quota logic applies', () => {
+  // c=20 < 40 and daysRemaining=3 > 2 → normal path: Claude preferred
+  const s = makeState({ claudeWeekly: 20 })
+  const signals = rs({ claude: sig('countdown', 3) })
+  const result = RULES.daily_chat(s, signals)
+  assert.equal(result.primary, 'claude', 'reset in 3d does not trigger preserve logic')
+})
+
+test('T021 daily_chat: no reset signals → normal quota logic unchanged', () => {
+  const s = makeState({ claudeWeekly: 20 })
+  const result = RULES.daily_chat(s, undefined)
+  assert.equal(result.primary, 'claude')
+})
+
+// ---------------------------------------------------------------------------
+// T022 — work_heavy: Claude blocked includes reset ETA when available
+// ---------------------------------------------------------------------------
+
+test('T022 work_heavy: Claude blocked + reset ETA known → reason includes ETA', () => {
+  const s = makeState({ claudeWeekly: 100, claudeSlot: 80 })
+  const signals = rs({ claude: sig('countdown', 3) })
+  const result = RULES.work_heavy(s, signals)
+  assert.equal(result.primary, 'chatgpt')
+  assert.ok(result.reason.includes('3d'), `reason must include ETA: "${result.reason}"`)
+})
+
+test('T022 work_heavy: Claude blocked + reset unset → no ETA in reason', () => {
+  const s = makeState({ claudeWeekly: 100, claudeSlot: 80 })
+  const signals = rs({ claude: sig('unset') })
+  const result = RULES.work_heavy(s, signals)
+  assert.equal(result.primary, 'chatgpt')
+  // No ETA should appear
+  assert.ok(!result.reason.match(/resets in \d+d/i), `reason must not include ETA: "${result.reason}"`)
+})
+
+// ---------------------------------------------------------------------------
+// T023 — coding_hard / work_heavy: Claude near-exhausted + imminent reset
+// ---------------------------------------------------------------------------
+
+test('T023 coding_hard: Claude ≥ 95% + reset in ≤ 2d → reason suggests waiting', () => {
+  // Claude nearly exhausted but resets in 1d → nudge to wait for critical tasks
+  const s = makeState({ claudeWeekly: 96, claudeSlot: 90 })
+  const signals = rs({ claude: sig('countdown', 1) })
+  const result = RULES.coding_hard(s, signals)
+  assert.equal(result.primary, 'chatgpt', 'must still recommend ChatGPT (not block the user)')
+  assert.ok(result.reason.includes('1d'), `reason must mention days: "${result.reason}"`)
+  assert.ok(
+    result.reason.toLowerCase().includes('consider waiting') || result.reason.toLowerCase().includes('critical'),
+    `reason must suggest waiting for critical tasks: "${result.reason}"`
+  )
+})
+
+test('T023 work_heavy: Claude ≥ 95% + reset in ≤ 2d → reason suggests waiting', () => {
+  const s = makeState({ claudeWeekly: 96, claudeSlot: 95 })
+  const signals = rs({ claude: sig('countdown', 2) })
+  const result = RULES.work_heavy(s, signals)
+  assert.equal(result.primary, 'chatgpt')
+  assert.ok(result.reason.includes('2d'), `reason must mention days: "${result.reason}"`)
+  assert.ok(
+    result.reason.toLowerCase().includes('consider waiting') || result.reason.toLowerCase().includes('critical'),
+    `reason must suggest waiting: "${result.reason}"`
+  )
+})
+
+test('T023 coding_hard: Claude ≥ 95% but reset in 5d → no waiting nudge', () => {
+  const s = makeState({ claudeWeekly: 96, claudeSlot: 90 })
+  const signals = rs({ claude: sig('countdown', 5) })
+  const result = RULES.coding_hard(s, signals)
+  assert.equal(result.primary, 'chatgpt')
+  assert.ok(
+    !result.reason.toLowerCase().includes('consider waiting'),
+    `reason must not suggest waiting when reset is not imminent: "${result.reason}"`
+  )
+})
