@@ -3,6 +3,12 @@
 //
 // Each rule returns: { primary: serviceId, reason: string, alts: string[] }
 
+const SERVICE_LABELS = {
+  claude: 'Claude',
+  copilot: 'Copilot',
+  chatgpt: 'ChatGPT',
+}
+
 // Returns true when both services have a valid daysRemaining and their
 // quota pressures are within the comparable-pressure band (≤ 15 pts).
 function resetTiebreaker(sigA, sigB, pressureA, pressureB) {
@@ -17,6 +23,21 @@ function resetNote(signal) {
   if (signal.state === 'due') return ' Reset due today — your quota may have already refreshed.'
   if (signal.state === 'overdue') return ' Reset overdue — consider logging the new reset date.'
   return ''
+}
+
+// Picks the service that resets sooner (spend it before it expires).
+// Returns { primary, alt, primaryDays, altDays, primaryLabel, altLabel }.
+function pickShorterReset(idA, idB, rs) {
+  const primary = rs[idA].daysRemaining <= rs[idB].daysRemaining ? idA : idB
+  const alt = primary === idA ? idB : idA
+  return {
+    primary,
+    alt,
+    primaryDays: rs[primary].daysRemaining,
+    altDays: rs[alt].daysRemaining,
+    primaryLabel: SERVICE_LABELS[primary],
+    altLabel: SERVICE_LABELS[alt],
+  }
 }
 
 const codexBlocked = (s) =>
@@ -34,12 +55,11 @@ export const RULES = {
       const copPressure = s.copilot.monthly
       const chatPressure = 100 - s.chatgpt.codex_remaining
       if (rs && resetTiebreaker(rs.copilot, rs.chatgpt, copPressure, chatPressure)) {
-        const preferCop = rs.copilot.daysRemaining <= rs.chatgpt.daysRemaining
-        const primary = preferCop ? 'copilot' : 'chatgpt'
+        const { primary, primaryDays, altLabel, altDays, primaryLabel } = pickShorterReset('copilot', 'chatgpt', rs)
         return {
           primary,
-          reason: `Claude blocked. ${preferCop ? 'Copilot' : 'ChatGPT'} resets in ${preferCop ? rs.copilot.daysRemaining : rs.chatgpt.daysRemaining}d vs ${preferCop ? 'ChatGPT' : 'Copilot'}'s ${preferCop ? rs.chatgpt.daysRemaining : rs.copilot.daysRemaining}d — spend it now.${resetNote(rs[primary])}`,
-          alts: [preferCop ? 'chatgpt (Codex if available)' : 'copilot'],
+          reason: `Claude blocked. ${primaryLabel} resets in ${primaryDays}d vs ${altLabel}'s ${altDays}d — spend it now.${resetNote(rs[primary])}`,
+          alts: [primary === 'copilot' ? 'chatgpt (Codex if available)' : 'copilot'],
         }
       }
       return {
@@ -58,16 +78,11 @@ export const RULES = {
     if (c < 85) {
       const copPressure = s.copilot.monthly
       if (rs && resetTiebreaker(rs.claude, rs.copilot, c, copPressure)) {
-        const preferClaude = rs.claude.daysRemaining <= rs.copilot.daysRemaining
-        const primary = preferClaude ? 'claude' : 'copilot'
-        const primaryDays = preferClaude ? rs.claude.daysRemaining : rs.copilot.daysRemaining
-        const altDays = preferClaude ? rs.copilot.daysRemaining : rs.claude.daysRemaining
-        const altName = preferClaude ? 'Copilot' : 'Claude'
-        const primaryName = preferClaude ? 'Claude' : 'Copilot'
+        const { primary, primaryDays, altLabel, altDays, primaryLabel } = pickShorterReset('claude', 'copilot', rs)
         return {
           primary,
-          reason: `${primaryName} under pressure — but resets in ${primaryDays}d vs ${altName}'s ${altDays}d. Spend ${primaryName} now.${resetNote(rs[primary])}`,
-          alts: [preferClaude ? 'copilot for IDE completion in parallel' : 'claude for critical blocks only'],
+          reason: `${primaryLabel} under pressure — but resets in ${primaryDays}d vs ${altLabel}'s ${altDays}d. Spend ${primaryLabel} now.${resetNote(rs[primary])}`,
+          alts: [primary === 'claude' ? 'copilot for IDE completion in parallel' : 'claude for critical blocks only'],
         }
       }
       return {
@@ -96,16 +111,11 @@ export const RULES = {
     }
     if (c < 50) {
       if (rs && resetTiebreaker(rs.copilot, rs.claude, cop, c)) {
-        const preferCop = rs.copilot.daysRemaining <= rs.claude.daysRemaining
-        const primary = preferCop ? 'copilot' : 'claude'
-        const primaryName = preferCop ? 'Copilot' : 'Claude'
-        const altName = preferCop ? 'Claude' : 'Copilot'
-        const primaryDays = preferCop ? rs.copilot.daysRemaining : rs.claude.daysRemaining
-        const altDays = preferCop ? rs.claude.daysRemaining : rs.copilot.daysRemaining
+        const { primary, primaryDays, altLabel, altDays, primaryLabel } = pickShorterReset('copilot', 'claude', rs)
         return {
           primary,
-          reason: `${primaryName} resets in ${primaryDays}d vs ${altName}'s ${altDays}d — spend ${primaryName} now for light coding.${resetNote(rs[primary])}`,
-          alts: [preferCop ? 'claude for context-heavy tasks' : 'copilot for IDE completion'],
+          reason: `${primaryLabel} resets in ${primaryDays}d vs ${altLabel}'s ${altDays}d — spend ${primaryLabel} now for light coding.${resetNote(rs[primary])}`,
+          alts: [primary === 'copilot' ? 'claude for context-heavy tasks' : 'copilot for IDE completion'],
         }
       }
       return {
@@ -123,7 +133,6 @@ export const RULES = {
 
   work_heavy: (s, rs) => {
     const c = s.claude.weekly
-    const c5h = s.claude.slot5h
 
     if (claudeBlocked(s)) {
       return {
@@ -142,16 +151,11 @@ export const RULES = {
     if (c < 95) {
       const chatPressure = 100 - s.chatgpt.codex_remaining
       if (rs && resetTiebreaker(rs.claude, rs.chatgpt, c, chatPressure)) {
-        const preferClaude = rs.claude.daysRemaining <= rs.chatgpt.daysRemaining
-        const primary = preferClaude ? 'claude' : 'chatgpt'
-        const primaryName = preferClaude ? 'Claude' : 'ChatGPT'
-        const altName = preferClaude ? 'ChatGPT' : 'Claude'
-        const primaryDays = preferClaude ? rs.claude.daysRemaining : rs.chatgpt.daysRemaining
-        const altDays = preferClaude ? rs.chatgpt.daysRemaining : rs.claude.daysRemaining
+        const { primary, primaryDays, altLabel, altDays, primaryLabel } = pickShorterReset('claude', 'chatgpt', rs)
         return {
           primary,
-          reason: `${primaryName} resets in ${primaryDays}d vs ${altName}'s ${altDays}d — work tasks justify spending ${primaryName} now.${resetNote(rs[primary])}`,
-          alts: [preferClaude ? 'chatgpt if task is less critical' : 'claude for critical work only'],
+          reason: `${primaryLabel} resets in ${primaryDays}d vs ${altLabel}'s ${altDays}d — work tasks justify spending ${primaryLabel} now.${resetNote(rs[primary])}`,
+          alts: [primary === 'claude' ? 'chatgpt if task is less critical' : 'claude for critical work only'],
         }
       }
       return {
