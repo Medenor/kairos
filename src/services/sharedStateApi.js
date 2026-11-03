@@ -107,6 +107,10 @@ export async function updateRecord(workspaceId, recordId, payload) {
   })
 }
 
+export async function deleteRecord(workspaceId, recordId) {
+  return request(`/workspaces/${workspaceId}/records/${recordId}`, { method: 'DELETE' })
+}
+
 export async function syncPull(workspaceId, cursor = null) {
   const qs = cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''
   return request(`/workspaces/${workspaceId}/sync/pull${qs}`)

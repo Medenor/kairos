@@ -16,6 +16,10 @@
   --color-green: #1D9E75;
   --color-amber: #EF9F27;
   --color-red: #E24B4A;
+  /* Text-safe variants: >= 4.5:1 on the pale status backgrounds (light), lightened in dark mode */
+  --color-green-text: #0b6b4c;
+  --color-amber-text: #7a4a00;
+  --color-red-text: #b3261e;
   --radius-md: 8px;
   --radius-lg: 12px;
   font-family: system-ui, -apple-system, sans-serif;
@@ -35,6 +39,9 @@
     --color-text: #f0ece4;
     --color-text-secondary: #b4b2a9;
     --color-text-tertiary: #888780;
+    --color-green-text: #3fc79b;
+    --color-amber-text: #EF9F27;
+    --color-red-text: #f0807f;
   }
 }
 

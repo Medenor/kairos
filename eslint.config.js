@@ -7,8 +7,9 @@ export default [
   { ignores: ['dist/', 'coverage/', 'node_modules/', 'backend/data/', 'backend/backups/'] },
   js.configs.recommended,
   {
-    // Frontend (browser, React)
+    // Frontend (browser, React); src/surplus is pure Node-compatible logic, linted below
     files: ['src/**/*.{js,jsx}'],
+    ignores: ['src/surplus/**'],
     plugins: { react, 'react-hooks': reactHooks },
     languageOptions: {
       ecmaVersion: 'latest',
@@ -30,6 +31,18 @@ export default [
     // Frontend tests and Node-run modules
     files: ['src/**/*.test.js'],
     languageOptions: { globals: { ...globals.node } },
+  },
+  {
+    // Pure surplus domain logic (no browser globals) and local runner CLI (Node)
+    files: ['src/surplus/**/*.js', 'runner/**/*.js'],
+    languageOptions: {
+      ecmaVersion: 'latest',
+      sourceType: 'module',
+      globals: { ...globals.node },
+    },
+    rules: {
+      'no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+    },
   },
   {
     // Backend + tooling (Node)

@@ -8,12 +8,21 @@ import SummaryBar from './components/SummaryBar'
 import MigrationPanel from './components/MigrationPanel'
 import BackupPanel from './components/BackupPanel'
 import WeeklyHistoryPanel from './components/WeeklyHistoryPanel.jsx'
+import IdeaCapture from './components/IdeaCapture'
+import IdeaQueue from './components/IdeaQueue'
+import SurplusNotice from './components/SurplusNotice'
+import SurplusSettings from './components/SurplusSettings'
+import RunReview from './components/RunReview'
+import CycleSummary from './components/CycleSummary'
+import { useSurplusStore } from './hooks/useSurplusStore'
+import { globalSwitchState } from './surplus/policy'
 import styles from './App.module.css'
 
 export default function App() {
   const {
     state,
     updateQuota,
+    confirmQuotas,
     resetAll,
     refreshSync,
     syncStatus,
@@ -24,6 +33,7 @@ export default function App() {
     getServiceHistory,
   } = useSharedQuotaState()
   const [selectedTask, setSelectedTask] = useState(null)
+  const surplus = useSurplusStore({ workspaceId, quotaState: state })
 
   return (
     <div className={styles.app}>
@@ -43,6 +53,7 @@ export default function App() {
             svc={svc}
             quotaState={state[svc.id]}
             onUpdate={updateQuota}
+            onConfirm={confirmQuotas}
           />
         ))}
       </section>
@@ -64,6 +75,61 @@ export default function App() {
       <section>
         <div className={styles.sectionLabel}>Recommendation</div>
         <RecoBox task={selectedTask} state={state} />
+      </section>
+
+      <section>
+        <div className={styles.sectionLabel}>Expiring surplus</div>
+        <SurplusNotice
+          evaluation={surplus.evaluation}
+          ideas={surplus.ideas}
+          services={SERVICES}
+          onMarkLaunched={surplus.markLaunchedManually}
+          onConfirmQuotas={confirmQuotas}
+          lease={surplus.lease}
+        />
+      </section>
+
+      <section>
+        <div className={styles.sectionLabel}>Idea queue</div>
+        {!surplus.sharedMode && (
+          <p className={styles.subtitle}>
+            The queue works on this device. Automatic runs need shared mode and are unavailable until a workspace is set.
+          </p>
+        )}
+        <IdeaCapture onAdd={surplus.addIdea} sharedMode={surplus.sharedMode} />
+        <IdeaQueue
+          ideas={surplus.ideas}
+          invalid={surplus.invalid}
+          sharedMode={surplus.sharedMode}
+          lease={surplus.lease}
+          actions={{
+            updateIdea: surplus.updateIdea,
+            reorder: surplus.reorder,
+            archiveIdea: surplus.archiveIdea,
+            deleteIdea: surplus.deleteIdea,
+            requestApproval: surplus.requestApproval,
+          }}
+        />
+      </section>
+
+      <section>
+        <div className={styles.sectionLabel}>Run results</div>
+        <RunReview runs={surplus.runs} ideas={surplus.ideas} onDecision={surplus.decideRun} />
+        <CycleSummary cycles={surplus.cycles} runs={surplus.runs} services={SERVICES} />
+      </section>
+
+      <section>
+        <div className={styles.sectionLabel}>Surplus settings</div>
+        <SurplusSettings
+          policy={surplus.policy}
+          onUpdatePolicy={surplus.updatePolicy}
+          services={SERVICES}
+          sharedMode={surplus.sharedMode}
+          autoRunEnabled={surplus.autoRunEnabled}
+          stopIssued={globalSwitchState(surplus.control) === 'stopped'}
+          onStopAutoRuns={surplus.stopAutoRuns}
+          onSetAutoRunEnabled={surplus.setAutoRunEnabled}
+        />
       </section>
 
       <section>
