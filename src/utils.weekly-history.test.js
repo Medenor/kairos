@@ -2,12 +2,14 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { SERVICES } from './data/services.js'
 import {
+  adoptLocalSnapshots,
   createWeeklySnapshot,
   deriveServiceHistorySeries,
   getLocalWeekKey,
   loadWeeklyHistory,
   recordWeeklySnapshot,
   retainWeeklySnapshots,
+  snapshotsEquivalent,
   upsertCurrentWeekSnapshot,
 } from './utils.js'
 
@@ -251,4 +253,100 @@ test('deriveServiceHistorySeries distinguishes missing weeks, missing services, 
   assert.equal(claudeSeries.entries[1].status, 'missing_week')
   assert.equal(claudeSeries.entries[2].status, 'recorded')
   assert.equal(claudeSeries.recordedWeekCount, 1)
+})
+
+test('gap entries expose an empty quota array, never zero-valued quotas (data-model, FR-006)', () => {
+  const currentWeek = new Date('2026-04-24T12:00:00')
+  const twoWeeksAgo = shiftLocalDays(currentWeek, -14)
+  const servicesWithoutCopilot = SERVICES.filter((service) => service.id !== 'copilot')
+  const history = [
+    makeSnapshot({ weekDate: twoWeeksAgo, services: servicesWithoutCopilot }),
+    makeSnapshot({ weekDate: currentWeek }),
+  ]
+
+  const series = deriveServiceHistorySeries({
+    history,
+    serviceId: 'copilot',
+    services: SERVICES,
+    fromWeekKey: getLocalWeekKey(twoWeeksAgo).weekKey,
+    toWeekKey: getLocalWeekKey(currentWeek).weekKey,
+  })
+
+  assert.deepEqual(series.entries.map((entry) => entry.status), ['missing_service', 'missing_week', 'recorded'])
+  assert.deepEqual(series.entries[0].quotas, [])
+  assert.deepEqual(series.entries[1].quotas, [])
+  assert.ok(Array.isArray(series.entries[2].quotas))
+})
+
+test('capturedAt is the real capture time and moves when a same-week snapshot is replaced', () => {
+  const first = new Date('2026-04-24T09:15:00')
+  const later = new Date('2026-04-24T17:40:30')
+
+  const created = recordWeeklySnapshot([], {
+    workspaceId: 'workspace-1',
+    state: makeState({ claude: { weekly: 50 } }),
+    services: SERVICES,
+    now: first,
+  })
+  assert.equal(created[0].capturedAt, first.toISOString())
+
+  const updated = recordWeeklySnapshot(created, {
+    workspaceId: 'workspace-1',
+    state: makeState({ claude: { weekly: 51 } }),
+    services: SERVICES,
+    now: later,
+  })
+  assert.equal(updated.length, 1)
+  assert.equal(updated[0].capturedAt, later.toISOString())
+})
+
+test('recording unchanged state keeps the same history and capturedAt', () => {
+  const first = new Date('2026-04-24T09:15:00')
+  const later = new Date('2026-04-24T17:40:30')
+  const input = {
+    workspaceId: 'workspace-1',
+    state: makeState({ claude: { weekly: 50 } }),
+    services: SERVICES,
+  }
+
+  const created = recordWeeklySnapshot([], { ...input, now: first })
+  const again = recordWeeklySnapshot(created, { ...input, now: later })
+
+  assert.equal(again, created)
+  assert.equal(again[0].capturedAt, first.toISOString())
+})
+
+test('snapshotsEquivalent ignores capturedAt but not content', () => {
+  const a = makeSnapshot({ weekDate: new Date('2026-04-24T12:00:00'), stateOverrides: { claude: { weekly: 10 } } })
+  const sameContent = { ...a, capturedAt: '2030-01-01T00:00:00.000Z' }
+  const changed = makeSnapshot({ weekDate: new Date('2026-04-24T12:00:00'), stateOverrides: { claude: { weekly: 11 } } })
+
+  assert.equal(snapshotsEquivalent(a, sameContent), true)
+  assert.equal(snapshotsEquivalent(a, changed), false)
+  assert.equal(snapshotsEquivalent(a, null), false)
+})
+
+test('adoptLocalSnapshots moves local history into the workspace without overwriting its own weeks', () => {
+  const currentWeek = new Date('2026-04-24T12:00:00')
+  const lastWeek = shiftLocalDays(currentWeek, -7)
+  const history = [
+    makeSnapshot({ weekDate: lastWeek, workspaceId: 'local', stateOverrides: { claude: { weekly: 30 } } }),
+    makeSnapshot({ weekDate: currentWeek, workspaceId: 'local', stateOverrides: { claude: { weekly: 40 } } }),
+    makeSnapshot({ weekDate: currentWeek, workspaceId: 'workspace-1', stateOverrides: { claude: { weekly: 99 } } }),
+    makeSnapshot({ weekDate: currentWeek, workspaceId: 'workspace-2', stateOverrides: { claude: { weekly: 5 } } }),
+  ]
+  const before = JSON.stringify(history)
+
+  const adopted = adoptLocalSnapshots(history, 'workspace-1', { now: currentWeek })
+
+  assert.equal(JSON.stringify(history), before)
+  const mine = adopted.filter((entry) => entry.workspaceId === 'workspace-1')
+  assert.deepEqual(mine.map((entry) => entry.weekKey), [
+    getLocalWeekKey(lastWeek).weekKey,
+    getLocalWeekKey(currentWeek).weekKey,
+  ])
+  assert.equal(mine[0].services.claude.quotas.weekly.value, 30)
+  assert.equal(mine[1].services.claude.quotas.weekly.value, 99)
+  assert.equal(adopted.filter((entry) => entry.workspaceId === 'local').length, 0)
+  assert.equal(adopted.filter((entry) => entry.workspaceId === 'workspace-2').length, 1)
 })

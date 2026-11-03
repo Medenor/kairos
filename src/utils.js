@@ -172,9 +172,18 @@ export function createWeeklySnapshot({ workspaceId, state = {}, services = [], n
     weekKey: weekInfo.weekKey,
     weekStartDate: weekInfo.weekStartDate,
     weekEndDate: weekInfo.weekEndDate,
-    capturedAt: toLocalMidday(now).toISOString(),
+    capturedAt: new Date(now).toISOString(),
     services: servicesSnapshot,
   }
+}
+
+// Two snapshots are equivalent when everything but the capture timestamp matches.
+// Used to skip no-op rewrites so `capturedAt` only moves when content changes.
+export function snapshotsEquivalent(left, right) {
+  if (!left || !right) return false
+  const { capturedAt: _leftCapturedAt, ...leftRest } = left
+  const { capturedAt: _rightCapturedAt, ...rightRest } = right
+  return JSON.stringify(leftRest) === JSON.stringify(rightRest)
 }
 
 export function upsertCurrentWeekSnapshot(history, snapshot) {
@@ -249,10 +258,41 @@ export function loadWeeklyHistory(rawValue) {
   }
 }
 
+// Records the current-week snapshot. When the stored snapshot for the same
+// workspace and week already matches, the original history reference is returned
+// so callers (React state) see no change and `capturedAt` is preserved.
 export function recordWeeklySnapshot(history, { workspaceId, state, services, now = new Date(), completedWeeksToKeep = 52 }) {
   const snapshot = createWeeklySnapshot({ workspaceId, state, services, now })
+  const existing = normalizeHistoryInput(history).find(
+    (entry) => entry.workspaceId === snapshot.workspaceId && entry.weekKey === snapshot.weekKey
+  )
+  if (existing && snapshotsEquivalent(existing, snapshot)) {
+    return history
+  }
   const withSnapshot = upsertCurrentWeekSnapshot(history, snapshot)
   return retainWeeklySnapshots(withSnapshot, { now, completedWeeksToKeep })
+}
+
+// Moves snapshots recorded before a workspace was known (scoped to `fromWorkspaceId`,
+// 'local' by default) into the resolved workspace. An existing snapshot for the same
+// workspace and week always wins, so a workspace's own history is never overwritten.
+export function adoptLocalSnapshots(history, workspaceId, { fromWorkspaceId = 'local', now = new Date() } = {}) {
+  const source = normalizeHistoryInput(history)
+  if (!workspaceId || workspaceId === fromWorkspaceId) return source.map((entry) => cloneData(entry))
+
+  const owned = new Set(
+    source.filter((entry) => entry.workspaceId === workspaceId).map((entry) => entry.weekKey)
+  )
+  const next = []
+  for (const entry of source) {
+    if (entry.workspaceId !== fromWorkspaceId) {
+      next.push(cloneData(entry))
+      continue
+    }
+    if (owned.has(entry.weekKey)) continue
+    next.push({ ...cloneData(entry), workspaceId })
+  }
+  return retainWeeklySnapshots(next, { now })
 }
 
 function getServiceMetaFromSnapshot(snapshotService, currentService) {
@@ -345,7 +385,7 @@ export function deriveServiceHistorySeries({ history, serviceId, services = [], 
         weekKey: weekInfo.weekKey,
         weekStartDate: weekInfo.weekStartDate,
         status: 'missing_week',
-        quotas: {},
+        quotas: [],
         message: 'No snapshot recorded for this week.',
       })
       cursor = addLocalDays(cursor, 7)
@@ -358,7 +398,7 @@ export function deriveServiceHistorySeries({ history, serviceId, services = [], 
         weekKey: weekInfo.weekKey,
         weekStartDate: weekInfo.weekStartDate,
         status: 'missing_service',
-        quotas: {},
+        quotas: [],
         message: 'This service was not present in the recorded snapshot for this week.',
       })
       cursor = addLocalDays(cursor, 7)

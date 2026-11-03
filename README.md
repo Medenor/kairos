@@ -22,6 +22,7 @@ This tool tracks your quotas in one place and tells you which service to use rig
 - Backup and restore operations from the UI
 - State persisted in `localStorage` as offline fallback
 - Per-service reset date tracking with automatic `days until reset` / `overdue` status
+- Weekly history: one quota snapshot per calendar week (Monday start, local time), updated in place during the week, 52 completed weeks retained. Review any service week by week; missing weeks and services show as explicit gaps, never as zero consumption. Removed services stay reviewable
 - Reset button to clear all quotas back to defaults
 - Dark mode support
 
@@ -56,10 +57,12 @@ This starts:
 - frontend: `http://localhost:5173`
 - backend health: `http://localhost:8080/health`
 
-### Backend tests
+### Tests
 
 ```bash
-npm run test:backend
+npm test                # frontend (node --test src/) + backend
+npm run test:frontend   # frontend only
+npm run test:backend    # backend only
 ```
 
 ## Services tracked
@@ -193,6 +196,7 @@ When proposing changes, include:
 1. **Reset date tracking** — enter the last reset date per service, display days remaining until the next reset
    - Status: implemented in `specs/003-reset-date-tracking`
 2. **Weekly history** — save a quota state snapshot per week to identify consumption patterns over time
+   - Status: implemented in `specs/005-weekly-history`
 3. **Service toggle** — enable/disable a service without deleting it (useful when suspending a subscription)
 
 ### Routing intelligence

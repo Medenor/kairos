@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Weekly history (`specs/005-weekly-history`): one quota snapshot per workspace and local calendar week, recorded locally on load and on every change (works offline), updated in place within the week, 52 completed weeks retained.
+- Weekly history panel with per-service week-by-week comparison, explicit `Missing week` / `Missing service` gaps, short-history messaging, and archived-service support.
+- Weekly snapshots sync through existing shared `snapshot` records (`weekly-history:{weekKey}`), are included in localStorage migration (re-scoped to the target workspace), and never alter live quota values. Only the current week is pushed to the server.
+- `npm run test:frontend`; `npm test` now runs frontend and backend suites.
 - Shared-state backend (`backend/`) with LAN-scoped authenticated API (`/api/v1`) and SQLite persistence.
 - Optimistic-concurrency shared record sync endpoints plus conflict (`409`) responses.
 - LocalStorage migration API with idempotency-key support and migration job status tracking.
@@ -23,6 +27,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Integration verification scripts for US1/US2/US3 under `tests/integration/docker/`.
 - Environment profile samples for `dev`, `staging`, and `prod` in `docker/env/`.
 - Container runtime contract schema, quickstart deployment matrix, and verification evidence artifacts.
+
+### Fixed
+
+- Shared-state bootstrap no longer throws "Assignment to constant variable" when the server returns quota records.
+- Weekly history view no longer lags one render behind the stored history.
 
 ## [0.0.1] - 2026-04-13
 

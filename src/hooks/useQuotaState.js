@@ -1,28 +1,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { SERVICES } from '../data/services'
 import {
-  RESET_DATE_KEY,
   WEEKLY_HISTORY_STORAGE_KEY,
-  createWeeklySnapshot,
   deriveServiceHistorySeries,
   loadWeeklyHistory,
-  recordWeeklySnapshot,
 } from '../utils'
+import {
+  LOCAL_WORKSPACE_ID,
+  applyQuotaUpdate,
+  buildDefaultState,
+  recordCurrentWeek,
+  scopeHistory,
+} from '../stateTransitions'
 
 const STORAGE_KEY = 'kairos-ai-quota-router:state'
-const LOCAL_WORKSPACE_ID = 'local'
-
-function buildDefaultState() {
-  const state = {}
-  SERVICES.forEach((service) => {
-    state[service.id] = {}
-    service.quotas.forEach((quota) => {
-      state[service.id][quota.id] = quota.value
-    })
-    state[service.id][RESET_DATE_KEY] = null
-  })
-  return state
-}
 
 function loadState() {
   try {
@@ -58,15 +49,10 @@ export function useQuotaState() {
   const [state, setState] = useState(loadState)
   const [weeklyHistory, setWeeklyHistory] = useState(loadHistory)
   const stateRef = useRef(state)
-  const weeklyHistoryRef = useRef(weeklyHistory)
 
   useEffect(() => {
     stateRef.current = state
   }, [state])
-
-  useEffect(() => {
-    weeklyHistoryRef.current = weeklyHistory
-  }, [weeklyHistory])
 
   useEffect(() => {
     try {
@@ -86,7 +72,7 @@ export function useQuotaState() {
 
   useEffect(() => {
     setWeeklyHistory((prev) =>
-      recordWeeklySnapshot(prev, {
+      recordCurrentWeek(prev, {
         workspaceId: LOCAL_WORKSPACE_ID,
         state,
         services: SERVICES,
@@ -96,13 +82,7 @@ export function useQuotaState() {
   }, [state])
 
   const updateQuota = useCallback((serviceId, quotaId, value) => {
-    setState((prev) => ({
-      ...prev,
-      [serviceId]: {
-        ...(prev[serviceId] || {}),
-        [quotaId]: value,
-      },
-    }))
+    setState((prev) => applyQuotaUpdate(prev, serviceId, quotaId, value))
   }, [])
 
   const resetAll = useCallback(() => {
@@ -111,7 +91,7 @@ export function useQuotaState() {
 
   const refreshWeeklyHistory = useCallback(() => {
     const persisted = loadWeeklyHistory(localStorage.getItem(WEEKLY_HISTORY_STORAGE_KEY))
-    const next = recordWeeklySnapshot(persisted, {
+    const next = recordCurrentWeek(persisted, {
       workspaceId: LOCAL_WORKSPACE_ID,
       state: stateRef.current,
       services: SERVICES,
@@ -121,16 +101,18 @@ export function useQuotaState() {
     return next
   }, [])
 
-  const getServiceHistory = useCallback((serviceId, range = {}) => {
-    const scopedHistory = weeklyHistoryRef.current.filter((item) => item.workspaceId === LOCAL_WORKSPACE_ID)
-    return deriveServiceHistorySeries({
-      history: scopedHistory,
-      serviceId,
-      services: SERVICES,
-      fromWeekKey: range.fromWeekKey || undefined,
-      toWeekKey: range.toWeekKey || undefined,
-    })
-  }, [])
+  // Depends on `weeklyHistory` itself so the series is never one render stale.
+  const getServiceHistory = useCallback(
+    (serviceId, range = {}) =>
+      deriveServiceHistorySeries({
+        history: scopeHistory(weeklyHistory, LOCAL_WORKSPACE_ID),
+        serviceId,
+        services: SERVICES,
+        fromWeekKey: range.fromWeekKey || undefined,
+        toWeekKey: range.toWeekKey || undefined,
+      }),
+    [weeklyHistory]
+  )
 
   return useMemo(
     () => ({

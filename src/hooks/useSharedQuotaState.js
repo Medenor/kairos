@@ -4,13 +4,22 @@ import {
   RESET_DATE_KEY,
   WEEKLY_HISTORY_LOGICAL_KEY_PREFIX,
   WEEKLY_HISTORY_STORAGE_KEY,
+  adoptLocalSnapshots,
   createWeeklySnapshot,
   deriveServiceHistorySeries,
   loadWeeklyHistory,
-  recordWeeklySnapshot,
   retainWeeklySnapshots,
+  snapshotsEquivalent,
   upsertCurrentWeekSnapshot,
 } from '../utils'
+import {
+  applyQuotaRecord,
+  applyQuotaUpdate,
+  applyServerRecords,
+  buildDefaultState,
+  recordCurrentWeek,
+  scopeHistory,
+} from '../stateTransitions'
 import {
   createRecord,
   getDefaultWorkspace,
@@ -23,19 +32,6 @@ import {
 
 const FALLBACK_STORAGE_KEY = 'kairos-ai-quota-router:state'
 const FALLBACK_WORKSPACE_KEY = 'kairos:workspace-id'
-const LOCAL_WORKSPACE_ID = 'local'
-
-function buildDefaultState() {
-  const state = {}
-  SERVICES.forEach((service) => {
-    state[service.id] = {}
-    service.quotas.forEach((quota) => {
-      state[service.id][quota.id] = quota.value
-    })
-    state[service.id][RESET_DATE_KEY] = null
-  })
-  return state
-}
 
 function buildDefaultEntries() {
   const entries = []
@@ -46,33 +42,6 @@ function buildDefaultEntries() {
     entries.push({ logicalKey: `${service.id}:${RESET_DATE_KEY}`, value: null })
   })
   return entries
-}
-
-function logicalKeyToQuota(logicalKey) {
-  const [serviceId, ...rest] = String(logicalKey).split(':')
-  return { serviceId, quotaId: rest.join(':') }
-}
-
-function applyRecordToState(prev, record) {
-  if (record?.record_type !== 'quota_state') return prev
-  const { serviceId, quotaId } = logicalKeyToQuota(record.logical_key)
-  if (!serviceId || !quotaId) return prev
-  const value = record?.payload?.value
-  if (value === undefined) return prev
-  return {
-    ...prev,
-    [serviceId]: {
-      ...(prev[serviceId] || {}),
-      [quotaId]: value,
-    },
-  }
-}
-
-function applySnapshotRecord(prev, record) {
-  if (record?.record_type !== 'snapshot' || !record?.payload) return prev
-  return retainWeeklySnapshots(upsertCurrentWeekSnapshot(prev, record.payload), {
-    now: new Date(),
-  })
 }
 
 function loadFallbackState() {
@@ -103,11 +72,6 @@ function loadFallbackHistory() {
   } catch {
     return []
   }
-}
-
-function collectScopedHistory(history, workspaceId) {
-  if (!workspaceId) return history
-  return history.filter((item) => item.workspaceId === workspaceId)
 }
 
 export function useSharedQuotaState() {
@@ -172,25 +136,22 @@ export function useSharedQuotaState() {
         const result = await listRecords(selectedWorkspace)
         if (!mounted) return
 
-        const nextState = buildDefaultState()
-        const nextRecordIndex = {}
-        let nextWeeklyHistory = loadFallbackHistory()
-        const nextHistoryIndex = {}
+        // History recorded before a workspace was known moves into this workspace
+        // once; server snapshots then override matching weeks.
+        const next = applyServerRecords(
+          {
+            state: buildDefaultState(),
+            recordIndex: {},
+            weeklyHistory: adoptLocalSnapshots(loadFallbackHistory(), selectedWorkspace),
+            historyIndex: {},
+          },
+          result.items || []
+        )
 
-        for (const item of result.items || []) {
-          if (item.record_type === 'quota_state') {
-            nextState = applyRecordToState(nextState, item)
-            nextRecordIndex[item.logical_key] = item
-          } else if (item.record_type === 'snapshot') {
-            nextWeeklyHistory = applySnapshotRecord(nextWeeklyHistory, item)
-            nextHistoryIndex[item.logical_key] = item
-          }
-        }
-
-        setState(nextState)
-        setRecordIndex(nextRecordIndex)
-        setWeeklyHistory(nextWeeklyHistory)
-        setHistoryIndex(nextHistoryIndex)
+        setState(next.state)
+        setRecordIndex(next.recordIndex)
+        setWeeklyHistory(next.weeklyHistory)
+        setHistoryIndex(next.historyIndex)
         setSyncCursor(result.sync_cursor || null)
         setSyncStatus('ready')
         setSyncMessage('Connected')
@@ -231,25 +192,20 @@ export function useSharedQuotaState() {
       if (!silent) setSyncStatus('syncing')
       try {
         const result = await syncPull(workspaceId, syncCursorRef.current)
-        let nextState = stateRef.current
-        const nextRecordIndex = { ...recordIndexRef.current }
-        let nextWeeklyHistory = weeklyHistoryRef.current
-        const nextHistoryIndex = { ...historyIndexRef.current }
+        const next = applyServerRecords(
+          {
+            state: stateRef.current,
+            recordIndex: recordIndexRef.current,
+            weeklyHistory: weeklyHistoryRef.current,
+            historyIndex: historyIndexRef.current,
+          },
+          result.items || []
+        )
 
-        for (const item of result.items || []) {
-          if (item.record_type === 'quota_state') {
-            nextState = applyRecordToState(nextState, item)
-            nextRecordIndex[item.logical_key] = item
-          } else if (item.record_type === 'snapshot') {
-            nextWeeklyHistory = applySnapshotRecord(nextWeeklyHistory, item)
-            nextHistoryIndex[item.logical_key] = item
-          }
-        }
-
-        setState(nextState)
-        setRecordIndex(nextRecordIndex)
-        setWeeklyHistory(nextWeeklyHistory)
-        setHistoryIndex(nextHistoryIndex)
+        setState(next.state)
+        setRecordIndex(next.recordIndex)
+        setWeeklyHistory(next.weeklyHistory)
+        setHistoryIndex(next.historyIndex)
         setSyncCursor(result.next_cursor || syncCursorRef.current)
         if (!silent) {
           setSyncStatus('ready')
@@ -304,7 +260,7 @@ export function useSharedQuotaState() {
             payload: { value },
           })
         }
-        setState((prev) => applyRecordToState(prev, saved))
+        setState((prev) => applyQuotaRecord(prev, saved))
         setRecordIndex((prev) => ({ ...prev, [logicalKey]: saved }))
         setSyncStatus('ready')
         setSyncMessage('Synced')
@@ -327,7 +283,7 @@ export function useSharedQuotaState() {
       if (!workspaceId) return
       const logicalKey = `${WEEKLY_HISTORY_LOGICAL_KEY_PREFIX}${snapshot.weekKey}`
       const existing = historyIndexRef.current[logicalKey]
-      if (existing?.payload && JSON.stringify(existing.payload) === JSON.stringify(snapshot)) {
+      if (existing?.payload && snapshotsEquivalent(existing.payload, snapshot)) {
         return
       }
 
@@ -368,6 +324,14 @@ export function useSharedQuotaState() {
     [workspaceId, refreshSync]
   )
 
+  // Local-first: the current week is recorded locally on load and on every state
+  // change, whether or not a workspace or the backend is reachable.
+  useEffect(() => {
+    setWeeklyHistory((prev) =>
+      recordCurrentWeek(prev, { workspaceId, state, services: SERVICES, now: new Date() })
+    )
+  }, [state, workspaceId])
+
   useEffect(() => {
     if (!workspaceId) return undefined
     const snapshot = createWeeklySnapshot({
@@ -392,13 +356,7 @@ export function useSharedQuotaState() {
 
   const updateQuota = (serviceId, quotaId, value) => {
     const logicalKey = `${serviceId}:${quotaId}`
-    setState((prev) => ({
-      ...prev,
-      [serviceId]: {
-        ...(prev[serviceId] || {}),
-        [quotaId]: value,
-      },
-    }))
+    setState((prev) => applyQuotaUpdate(prev, serviceId, quotaId, value))
     if (!workspaceId) return
 
     const existingTimer = writeTimersRef.current.get(logicalKey)
@@ -460,9 +418,12 @@ export function useSharedQuotaState() {
   }, [workspaceId, refreshSync])
 
   const refreshWeeklyHistory = useCallback(() => {
-    const persisted = loadWeeklyHistory(localStorage.getItem(WEEKLY_HISTORY_STORAGE_KEY))
-    const next = recordWeeklySnapshot(persisted, {
-      workspaceId: workspaceId || LOCAL_WORKSPACE_ID,
+    const persisted = adoptLocalSnapshots(
+      loadWeeklyHistory(localStorage.getItem(WEEKLY_HISTORY_STORAGE_KEY)),
+      workspaceId
+    )
+    const next = recordCurrentWeek(persisted, {
+      workspaceId,
       state: stateRef.current,
       services: SERVICES,
       now: new Date(),
@@ -471,18 +432,18 @@ export function useSharedQuotaState() {
     return next
   }, [workspaceId])
 
+  // Depends on `weeklyHistory` itself (not a ref) so the derived series is never
+  // one render behind the history it describes.
   const getServiceHistory = useCallback(
-    (serviceId, range = {}) => {
-      const scopedHistory = collectScopedHistory(weeklyHistoryRef.current, workspaceId)
-      return deriveServiceHistorySeries({
-        history: scopedHistory,
+    (serviceId, range = {}) =>
+      deriveServiceHistorySeries({
+        history: scopeHistory(weeklyHistory, workspaceId),
         serviceId,
         services: SERVICES,
         fromWeekKey: range.fromWeekKey || undefined,
         toWeekKey: range.toWeekKey || undefined,
-      })
-    },
-    [workspaceId]
+      }),
+    [weeklyHistory, workspaceId]
   )
 
   return useMemo(

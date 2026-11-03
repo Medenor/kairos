@@ -7,7 +7,7 @@ import RecoBox from './components/RecoBox'
 import SummaryBar from './components/SummaryBar'
 import MigrationPanel from './components/MigrationPanel'
 import BackupPanel from './components/BackupPanel'
-import WeeklyHistoryPanel from './components/WeeklyHistoryPanel.js'
+import WeeklyHistoryPanel from './components/WeeklyHistoryPanel.jsx'
 import styles from './App.module.css'
 
 export default function App() {

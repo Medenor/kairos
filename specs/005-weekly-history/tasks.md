@@ -216,3 +216,20 @@ Complete through **User Story 1**: weekly snapshots are created, updated in plac
 - Do not add runtime dependencies.
 - Do not synthesize snapshots for inactive weeks.
 - Do not apply shared `snapshot` records to live quota values.
+
+---
+
+## Phase 7: Convergence
+
+**Purpose**: Close gaps found by `/speckit-converge` between the implementation and the spec, plan, and data model.
+
+- [X] T040 Fix `const nextState` being reassigned in the `bootstrap` function of `/Users/raphael/Programmation/kairos/src/hooks/useSharedQuotaState.js` (change to `let`) and add a regression test that loading `quota_state` and `snapshot` records does not throw, per US1/AC1 (contradicts)
+- [X] T041 Record the current-week snapshot locally on every state change and on load in `/Users/raphael/Programmation/kairos/src/hooks/useSharedQuotaState.js` using `recordWeeklySnapshot`, independent of server persistence, so history is kept when offline or without a workspace, per FR-001 and FR-002 (partial)
+- [X] T042 Make `getServiceHistory` and `weeklyHistory` in `/Users/raphael/Programmation/kairos/src/hooks/useSharedQuotaState.js` handle snapshots recorded under `'local'` before a workspace id resolves (re-scope them or include them in the view), so earlier history does not disappear, per FR-009 (partial)
+- [X] T043 Set `capturedAt` in `createWeeklySnapshot` in `/Users/raphael/Programmation/kairos/src/utils.js` to the real update time, and compare snapshots ignoring `capturedAt` in `persistWeeklySnapshot` so unchanged state does not trigger a write, per data-model `capturedAt` (partial)
+- [X] T044 Rewrite `workspaceId` in migrated snapshot payloads to the target workspace in `/Users/raphael/Programmation/kairos/src/services/localExport.js` or `/Users/raphael/Programmation/kairos/backend/src/services/migration-service.js`, and add a test that migrated snapshots appear in the workspace-scoped history, per FR-009 and T019 (partial)
+- [X] T045 Replace the stubbed `getServiceHistory` in `/Users/raphael/Programmation/kairos/src/weekly-history.integration.test.js` with real derived series, and add assertions for the empty state, the one-week "needs more weeks" message, `missing_service` and removed-service rendering, per US3/AC1-3 and Constitution III (partial)
+- [X] T046 Add hook-level tests for snapshot creation on load, same-week update, and `resetAll` recording in `/Users/raphael/Programmation/kairos/src/hooks/` (for example `useQuotaState.weekly-history.test.js`), per T012 and Constitution III (partial). _Done in `src/stateTransitions.weekly-history.test.js`: the hooks' load/update/reset/sync logic was extracted to `src/stateTransitions.js` because the toolchain has no DOM renderer._
+- [X] T047 Include the frontend tests (`node --test src/`) in the `test` script of `/Users/raphael/Programmation/kairos/package.json` so `npm test` validates weekly-history behavior, per Constitution III (partial)
+- [X] T048 Return `quotas: []` instead of `{}` for `missing_week` and `missing_service` entries in `deriveServiceHistorySeries` in `/Users/raphael/Programmation/kairos/src/utils.js`, and update the tests, per data-model `ServiceHistoryEntry` (partial)
+- [X] T049 Rename `/Users/raphael/Programmation/kairos/src/components/WeeklyHistoryPanel.js` to `.jsx` with standard JSX, import `WeeklyHistoryPanel.module.css` for its styles, remove the duplicate `.weekly-history-panel__*` rules from `/Users/raphael/Programmation/kairos/src/index.css`, and update imports in `App.jsx` and the integration test, per plan: project structure (contradicts)
