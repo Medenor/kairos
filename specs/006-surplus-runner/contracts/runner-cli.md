@@ -21,11 +21,11 @@ Exit codes: 0 ok; 1 usage or config error; 2 preflight failure; 3 another device
 1. Read `now` once. If `STOP` exists or `control.autoRunEnabled` is false, heartbeat only.
 2. Heartbeat the lease. `designatedDeviceId` different from this device, or a 409 against a live lease of another device, means exit 3. A tick that begins after the reset day has started for a service simply finds that service ineligible (R2): windows missed while the runner was down are skipped, never replayed.
 3. Pull records; build `state`, `policy`, `ideas`, `runs`.
-4. Run `folderChecks` locally for waiting ideas (exists, readable, not refused, size under limit). Relative path without a base folder is `folder_missing_base`.
+4. Run `folderChecks` locally for waiting ideas (exists, readable, not refused, size under limit). Relative path without a base folder is `folder_missing_base`. An idea without a working folder passes with `resolvedFolder: null` and runs in an empty scratch directory (FR-017).
 5. `evaluateSurplus({ mode: 'auto', ... })`.
 6. If an idea is selected: verify local guardrails (service `autoRunEnabled` and `disclosuresAckAt`, `allowServices`, approval hash equal, no active run, preflight ok). On any failure record the reason in the status output and in an `evaluation-skipped` line of the journal; start nothing.
 7. Claim: `PUT idea waiting->running` (409 aborts), `POST run` (status `running`), journal `start`.
-8. Build the disposable copy; spawn the adapter command with the allowlisted environment; arm the hard-stop timer; start the **stop watcher (every 5 s: `STOP` file and `surplus-control`)** and the **quota watcher (every 60 s: reserve rule, lease and designation)**.
+8. Build the disposable copy (an empty scratch directory for an idea without a working folder); spawn the adapter command with the allowlisted environment; arm the hard-stop timer; start the **stop watcher (every 5 s: `STOP` file and `surplus-control`)** and the **quota watcher (every 60 s: reserve rule, lease and designation)**.
 9. On exit, stop signal or timer: capture output (capped), compute the diff, `PUT run` once with final status, `PUT idea` to the matching status, upsert the cycle record, journal `end`.
 
 ## Adapter contract

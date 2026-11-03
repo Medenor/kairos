@@ -95,7 +95,7 @@ A run record is written once as `running` (claim) and rewritten exactly once on 
 | File | Content |
 | --- | --- |
 | `config.json` | `deviceId`, `deviceName`, `apiBase`, `workspaceId`, `projectsBaseFolder`, `allowServices`, tool paths, copy exclusions, limits |
-| `approvals.json` | `{ ideaId: { hash, approvedAt, preview } }` where `hash` = SHA-256 of canonical JSON of `{text, context, resolvedFolder}` |
+| `approvals.json` | `{ ideaId: { hash, approvedAt, preview } }` where `hash` = SHA-256 of canonical JSON of `{text, context, resolvedFolder}`; `resolvedFolder` is `null` for an idea without a working folder (empty scratch directory, FR-017) |
 | `journal.jsonl` | Append-only `start` / `end` entries per run for restart idempotence |
 | `runs/{runId}/` | Disposable copy, full output, diff; removable with `runner clean` |
 | `STOP` | Sentinel file; its presence stops the runner |
