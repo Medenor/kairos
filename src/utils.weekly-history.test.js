@@ -188,7 +188,6 @@ test('deriveServiceHistorySeries returns ordered recorded rows and quota values 
 
 test('deriveServiceHistorySeries distinguishes missing weeks, missing services, and removed-service metadata', () => {
   const currentWeek = new Date('2026-04-24T12:00:00')
-  const previousWeek = shiftLocalDays(currentWeek, -7)
   const retiredWeek = shiftLocalDays(currentWeek, -14)
 
   const history = [

@@ -38,3 +38,12 @@ Issue Number: N/A
 ## Other information
 
 <!-- Any other information that is important to this PR, such as screenshots of how the component looks before and after the change. -->
+
+## Checklist
+
+- [ ] `npm run lint`, `npm test` and `npm run build` pass locally
+- [ ] Behavior changes include a test that fails if they regress (routing-rule changes: a before/after scenario)
+- [ ] Recommendations still carry a clear `reason`
+- [ ] No new runtime dependency (or it is justified above)
+- [ ] `CHANGELOG.md` `[UNRELEASED]` updated for user-visible changes
+- [ ] Docs / feature spec updated if behavior or configuration changed

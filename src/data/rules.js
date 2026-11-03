@@ -213,7 +213,7 @@ export const RULES = {
     }
   },
 
-  oneshot: (s, rs) => {
+  oneshot: (s) => {
     const kc = s.kilocode.credits
     const or = s.openrouter.credits
 

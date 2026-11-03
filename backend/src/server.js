@@ -119,7 +119,6 @@ export function createApp({
       return json(res, routeResponse.status, routeResponse.body)
     } catch (error) {
       if (!(error instanceof ApiError)) {
-        // eslint-disable-next-line no-console
         console.error(error)
       }
       const formatted = toErrorEnvelope(error)
@@ -151,7 +150,6 @@ export function createApp({
 if (import.meta.url === `file://${process.argv[1]}`) {
   const app = createApp()
   app.listen().then(({ host, port }) => {
-    // eslint-disable-next-line no-console
     console.log(`Kairos backend listening on http://${host}:${port}`)
   })
 }

@@ -1,8 +1,17 @@
 {
   "name": "kairos-ai-quota-router",
   "version": "0.1.0",
+  "private": true,
   "description": "Dashboard to track AI subscription quotas and get routing recommendations",
+  "license": "AGPL-3.0-or-later",
+  "repository": {
+    "type": "git",
+    "url": "https://codeberg.org/medenor/kairos.git"
+  },
   "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -10,9 +19,7 @@
     "test": "npm run test:frontend && npm run test:backend",
     "test:frontend": "node --test src/",
     "test:backend": "cd backend && npm test",
-    "lint": "npm run lint:frontend && npm run lint:backend",
-    "lint:frontend": "node -e \"console.log('Frontend lint not configured')\"",
-    "lint:backend": "cd backend && npm run lint",
+    "lint": "eslint .",
     "backend:start": "cd backend && npm start",
     "backend:dev": "cd backend && npm run dev",
     "backend:migrate": "cd backend && npm run migrate",
@@ -23,16 +30,22 @@
     "docker:verify": "scripts/docker/verify-container.sh",
     "docker:test:us1": "tests/integration/docker/us1-local-deploy.sh",
     "docker:test:us2": "tests/integration/docker/us2-selfhosted-health.sh",
-    "docker:test:us3": "tests/integration/docker/us3-consistency-check.sh"
+    "docker:test:us3": "tests/integration/docker/us3-consistency-check.sh",
+    "lint:fix": "eslint . --fix"
   },
   "dependencies": {
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.5",
     "@types/react": "^18.3.1",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.1",
+    "eslint": "^9.39.5",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.14.0",
     "vite": "^5.4.0"
   }
 }
