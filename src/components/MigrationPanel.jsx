@@ -11,7 +11,7 @@ export default function MigrationPanel({ workspaceId }) {
     if (!workspaceId || running) return
     setRunning(true)
     try {
-      const payload = exportLocalStateForMigration()
+      const payload = exportLocalStateForMigration(workspaceId)
       const key = `mig-${Date.now()}`
       const job = await runLocalStorageMigration(workspaceId, payload, key)
       const final = await getMigrationStatus(workspaceId, job.id)

@@ -7,11 +7,22 @@ import RecoBox from './components/RecoBox'
 import SummaryBar from './components/SummaryBar'
 import MigrationPanel from './components/MigrationPanel'
 import BackupPanel from './components/BackupPanel'
+import WeeklyHistoryPanel from './components/WeeklyHistoryPanel.jsx'
 import styles from './App.module.css'
 
 export default function App() {
-  const { state, updateQuota, resetAll, refreshSync, syncStatus, syncMessage, workspaceId } =
-    useSharedQuotaState()
+  const {
+    state,
+    updateQuota,
+    resetAll,
+    refreshSync,
+    syncStatus,
+    syncMessage,
+    workspaceId,
+    weeklyHistory,
+    refreshWeeklyHistory,
+    getServiceHistory,
+  } = useSharedQuotaState()
   const [selectedTask, setSelectedTask] = useState(null)
 
   return (
@@ -34,6 +45,15 @@ export default function App() {
             onUpdate={updateQuota}
           />
         ))}
+      </section>
+
+      <section className={styles.historySection}>
+        <WeeklyHistoryPanel
+          services={SERVICES}
+          weeklyHistory={weeklyHistory}
+          onRefresh={refreshWeeklyHistory}
+          getServiceHistory={getServiceHistory}
+        />
       </section>
 
       <section style={{ marginTop: '20px' }}>

@@ -66,3 +66,51 @@ test('us1: reset-date quota_state propagates across clients', async () => {
     await tctx.stop()
   }
 })
+
+test('us1: weekly snapshot records sync across clients without touching quota_state records', async () => {
+  const tctx = await startTestApp()
+  try {
+    const tokenA = await tctx.login()
+    const tokenB = await tctx.login()
+
+    const createSnapshot = await fetch(
+      `${tctx.baseUrl}/api/v1/workspaces/${tctx.workspaceId}/records`,
+      {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${tokenA}`,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          record_type: 'snapshot',
+          logical_key: 'weekly-history:2026-W17',
+          payload: {
+            schemaVersion: 1,
+            workspaceId: tctx.workspaceId,
+            weekKey: '2026-W17',
+            weekStartDate: '2026-04-20',
+            weekEndDate: '2026-04-26',
+            capturedAt: '2026-04-24T12:00:00.000Z',
+            services: {},
+          },
+        }),
+      }
+    )
+    assert.equal(createSnapshot.status, 201)
+
+    const list = await fetch(`${tctx.baseUrl}/api/v1/workspaces/${tctx.workspaceId}/records`, {
+      headers: { authorization: `Bearer ${tokenB}` },
+    })
+    assert.equal(list.status, 200)
+    const body = await list.json()
+    const snapshotItem = body.items.find((item) => item.logical_key === 'weekly-history:2026-W17')
+    assert.ok(snapshotItem)
+    assert.equal(snapshotItem.record_type, 'snapshot')
+    assert.equal(
+      body.items.filter((item) => item.record_type === 'quota_state').some((item) => item.logical_key === 'weekly-history:2026-W17'),
+      false
+    )
+  } finally {
+    await tctx.stop()
+  }
+})
