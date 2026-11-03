@@ -13,57 +13,16 @@ This tool tracks your quotas in one place and tells you which service to use rig
 ## Features
 
 - Per-service quota tracking with three input modes:
-  - `consumed_pct` — slider showing how much you've used (Claude, Copilot)
-  - `remaining_pct` — slider showing how much is left, matching the native UI display (ChatGPT Codex)
+  - `consumed_pct` — how much you've used (Claude, Copilot)
+  - `remaining_pct` — how much is left, matching the native UI display (ChatGPT Codex)
   - `currency` — numeric balance in $ or € (OpenRouter, Kilocode)
-- Task-based routing: select what you're doing, get a recommendation with reasoning
-- Shared backend mode for LAN-wide state consistency across devices
-- One-click localStorage migration into shared persistence
-- Backup and restore operations from the UI
-- State persisted in `localStorage` as offline fallback
-- Per-service reset date tracking with automatic `days until reset` / `overdue` status
-- Weekly history: one quota snapshot per calendar week (Monday start, local time), updated in place during the week, 52 completed weeks retained. Review any service week by week; missing weeks and services show as explicit gaps, never as zero consumption. Removed services stay reviewable
+- Task-based routing: select what you're doing, get a recommendation with its reasoning
+- Per-service reset date tracking with automatic `days until reset` / `overdue` status, used by the recommendations
+- Weekly history: one quota snapshot per calendar week (Monday start, local time), updated in place, 52 completed weeks retained. Missing weeks and services show as explicit gaps, never as zero consumption. Removed services stay reviewable
+- Works fully offline: state is persisted in `localStorage`
+- Optional shared backend for LAN-wide consistency across devices, one-click localStorage migration, backup and restore
 - Reset button to clear all quotas back to defaults
 - Dark mode support
-
-## Shared State Backend (Feature 002)
-
-The repository now includes a LAN-scoped backend in `backend/`:
-
-- LAN-local trusted API (`/api/v1`) with no user login flow
-- SQLite persistence with versioned records and optimistic concurrency
-- Retry-safe localStorage migration endpoint
-- Backup create/list/restore endpoints
-
-### Run frontend + backend locally
-
-```bash
-npm install
-npm run backend:migrate
-npm run backend:start
-# in another terminal
-npm run dev
-```
-
-Frontend runs on `http://localhost:5173`, backend on `http://localhost:8080`.
-
-### Run shared stack with Docker Compose
-
-```bash
-scripts/docker/run-shared.sh
-```
-
-This starts:
-- frontend: `http://localhost:5173`
-- backend health: `http://localhost:8080/health`
-
-### Tests
-
-```bash
-npm test                # frontend (node --test src/) + backend
-npm run test:frontend   # frontend only
-npm run test:backend    # backend only
-```
 
 ## Services tracked
 
@@ -77,90 +36,49 @@ npm run test:backend    # backend only
 
 ## Getting started
 
+Requires Node.js 20 or newer.
+
 ```bash
 git clone https://codeberg.org/medenor/kairos.git
 cd kairos
-npm install
+npm ci
 npm run dev
 ```
 
-Open [http://localhost:5173](http://localhost:5173).
+Open [http://localhost:5173](http://localhost:5173). That's all you need: the shared backend is optional.
 
-## Build
-
-```bash
-npm run build
-```
-
-Output in `dist/` — deploy anywhere static (Codeberg Pages, Netlify, self-hosted).
-
-## Container deployment
-
-Runtime notes:
-- `HOST_PORT` must be numeric and in range `1-65535` (scripts fail fast on invalid values)
-- Default ports: local `8080`, self-hosted `80`
-
-### Build image with immutable tag
+### Optional: shared backend (LAN)
 
 ```bash
-npm run docker:build -- 0.1.0
+npm run backend:migrate
+npm run backend:start      # http://localhost:8080  (needs the sqlite3 CLI)
+# in another terminal
+npm run dev
 ```
 
-### One-command local deployment (US1)
+Or run the whole stack with Docker: `scripts/docker/run-shared.sh` (frontend `http://localhost:5273`, backend health `http://localhost:8888/health`).
+
+> The shared backend is built for a trusted home network. Read [docs/SECURITY.md](docs/SECURITY.md) before exposing it.
+
+### Commands
 
 ```bash
-npm run docker:run:local -- 0.1.0
+npm run lint       # ESLint
+npm test           # frontend + backend tests
+npm run build      # production bundle in dist/
 ```
 
-Optional overrides:
-```bash
-HOST_PORT=9090 CONTAINER_NAME=kairos-local npm run docker:run:local -- 0.1.0
-```
+## Documentation
 
-Expected result:
-- App available at `http://localhost:8080`
-- Readiness endpoint available at `http://localhost:8080/healthz`
-
-### Self-hosted deployment and restart (US2)
-
-```bash
-npm run docker:run:selfhosted -- 0.1.0
-docker restart kairos
-```
-
-Optional overrides:
-```bash
-HOST_PORT=8081 RESTART_POLICY=always CONTAINER_NAME=kairos npm run docker:run:selfhosted -- 0.1.0
-```
-
-Optional profile-based runtime examples:
-- `docker/env/dev.env`
-- `docker/env/staging.env`
-- `docker/env/prod.env`
-
-### Verification helpers
-
-```bash
-npm run docker:verify -- 0.1.0
-npm run docker:test:us1 -- 0.1.0
-npm run docker:test:us2 -- 0.1.0
-npm run docker:test:us3 -- 0.1.0
-```
-
-### Rollback with explicit previous tag (US3)
-
-If release `0.1.1` fails:
-
-```bash
-docker rm -f kairos
-docker run -d --name kairos --restart unless-stopped -p 80:80 kairos:0.1.0
-```
-
-Re-run health checks after rollback:
-
-```bash
-curl -fsS http://127.0.0.1/healthz
-```
+| Document | What's inside |
+|---|---|
+| [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | Setup, commands, quality gates |
+| [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | Static build, container, shared stack, rollback |
+| [docs/SECURITY.md](docs/SECURITY.md) | Threat model, backend limits, reporting |
+| [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) | How to propose a change |
+| [docs/agents/](docs/agents/) | Architecture, frontend, backend, testing, git workflow |
+| [CHANGELOG.md](CHANGELOG.md) | Release notes |
+| [specs/](specs/) | Feature specifications (spec-driven development) |
 
 ## Customising your services
 
@@ -170,13 +88,14 @@ Edit `src/data/rules.js` to adjust the routing logic and thresholds.
 
 ## Stack
 
-- React 18 + Vite
-- CSS Modules
-- No runtime dependencies beyond React
+- Frontend: React 18 + Vite 5, CSS Modules. Only `react` and `react-dom` at runtime
+- Backend (optional): Node.js `http` server, SQLite via the `sqlite3` CLI, no npm dependencies
+- Tests: built-in `node:test`. Lint: ESLint
+- Delivery: static build or Nginx container
 
 ## Contributing
 
-Issues and PRs welcome. Keep it dependency-free as much as possible.
+Issues and PRs welcome — see [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md). Keep it dependency-free as much as possible.
 
 ## Development Constitution
 
@@ -193,29 +112,32 @@ When proposing changes, include:
 
 ### Core functionality
 
-1. **Reset date tracking** — enter the last reset date per service, display days remaining until the next reset
-   - Status: implemented in `specs/003-reset-date-tracking`
-2. **Weekly history** — save a quota state snapshot per week to identify consumption patterns over time
-   - Status: implemented in `specs/005-weekly-history`
+1. ✅ **Reset date tracking** — enter the last reset date per service, display days remaining until the next reset (`specs/003-reset-date-tracking`)
+2. ✅ **Weekly history** — a quota snapshot per week to identify consumption patterns (`specs/005-weekly-history`)
 3. **Service toggle** — enable/disable a service without deleting it (useful when suspending a subscription)
 
 ### Routing intelligence
 
-4. **Configurable thresholds** — make routing thresholds (50%, 75%, 95%) editable in a settings panel rather than hardcoded in `rules.js`
-5. **Custom task types** — add your own task types with associated routing rules, without touching the code
+4. ✅ **Reset-aware recommendations** — recommendations account for upcoming and overdue resets (`specs/004-reset-aware-recommendations`)
+5. **Configurable thresholds** — make routing thresholds (50%, 75%, 95%) editable in a settings panel rather than hardcoded in `rules.js`
+6. **Custom task types** — add your own task types with associated routing rules, without touching the code
 
 ### UX
 
-6. **Quick-update shortcuts** — +10% / -10% buttons on each gauge for fast updates without precise slider interaction
-7. **Recommendation history** — log of the last 10 recommendations with timestamps, to review decision patterns over time
+7. **Quick-update shortcuts** — +10% / -10% buttons on each gauge for fast updates without precise slider interaction
+8. **Recommendation history** — log of the last 10 recommendations with timestamps, to review decision patterns over time
 
 ### Portability
 
-8. **Export / import JSON** — save and restore a full configuration (services, thresholds, history) — useful when switching machines or sharing a setup
+9. **Export / import JSON** — save and restore a full configuration (services, thresholds, history) — useful when switching machines or sharing a setup
 
 ### Extensibility
 
-9. **Generic service schema** — add any service via UI (name, cost, quota type, currency, reset window) without touching the code — makes the tool truly generic
+10. **Generic service schema** — add any service via UI (name, cost, quota type, currency, reset window) without touching the code — makes the tool truly generic
+
+### Hardening
+
+11. **Shared backend security** — enforce authentication on data routes, remove the default account, restrict CORS, use prepared statements (see [docs/SECURITY.md](docs/SECURITY.md#known-follow-ups))
 
 ## License
 

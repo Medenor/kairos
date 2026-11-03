@@ -8,7 +8,7 @@ import {
 } from '../utils'
 import styles from './ServiceCard.module.css'
 
-function QuotaRow({ svc, quota, value, onChange }) {
+function QuotaRow({ quota, value, onChange }) {
   const cPct = getConsumedPct(quota, value)
 
   const handleIncrement = (val) => {
@@ -48,9 +48,6 @@ function QuotaRow({ svc, quota, value, onChange }) {
       </div>
     )
   }
-
-  const displayLabel =
-    quota.type === 'remaining_pct' ? `${value}% remaining` : `${value}% consumed`
 
   return (
     <div className={styles.quotaBlock}>
@@ -149,7 +146,6 @@ export default function ServiceCard({ svc, quotaState, onUpdate }) {
       {svc.quotas.map((q) => (
         <QuotaRow
           key={q.id}
-          svc={svc}
           quota={q}
           value={quotaState[q.id] ?? q.value}
           onChange={(val) => onUpdate(svc.id, q.id, val)}

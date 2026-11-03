@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Weekly history panel with per-service week-by-week comparison, explicit `Missing week` / `Missing service` gaps, short-history messaging, and archived-service support.
 - Weekly snapshots sync through existing shared `snapshot` records (`weekly-history:{weekKey}`), are included in localStorage migration (re-scoped to the target workspace), and never alter live quota values. Only the current week is pushed to the server.
 - `npm run test:frontend`; `npm test` now runs frontend and backend suites.
-- Shared-state backend (`backend/`) with LAN-scoped authenticated API (`/api/v1`) and SQLite persistence.
+- Shared-state backend (`backend/`) with LAN-restricted API (`/api/v1`) and SQLite persistence. Login endpoints exist but data routes do not enforce authentication yet (see `docs/SECURITY.md`).
 - Optimistic-concurrency shared record sync endpoints plus conflict (`409`) responses.
 - LocalStorage migration API with idempotency-key support and migration job status tracking.
 - Backup create/list/restore API and frontend operator panel for recovery drills.
@@ -27,6 +27,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Integration verification scripts for US1/US2/US3 under `tests/integration/docker/`.
 - Environment profile samples for `dev`, `staging`, and `prod` in `docker/env/`.
 - Container runtime contract schema, quickstart deployment matrix, and verification evidence artifacts.
+
+- Developer documentation: `docs/DEVELOPMENT.md`, `docs/DEPLOYMENT.md`, `docs/SECURITY.md`, `docs/CONTRIBUTING.md` and per-topic agent guides in `docs/agents/`.
+- ESLint (flat config) for frontend and backend; `npm run lint` and `npm run lint:fix` now run real checks.
+- `.editorconfig`, `.nvmrc` (Node 20) and `engines` constraint.
+
+### Changed
+
+- Forgejo CI and issue/PR templates moved from `.specify/.forgejo/` to `.forgejo/` so Codeberg picks them up; CI now runs `npm ci`, lint, test and build on Node 20; the weekly security audit now runs `npm audit` on runtime dependencies. Removed the unused docs-portal workflow.
+- `README.md` slimmed down: container deployment moved to `docs/DEPLOYMENT.md`, shared-stack ports corrected (frontend `5273`, backend `8888`), roadmap statuses refreshed.
+- `AGENTS.md` now carries commands, workflow and a reference table to `docs/agents/`.
+- Dev dependencies refreshed with `npm audit fix` (no runtime dependency changes).
+
+### Removed
+
+- Dead code flagged by lint: unused `svc` prop and `displayLabel` in `ServiceCard`, unused `rs` parameter in the `oneshot` rule.
 
 ### Fixed
 

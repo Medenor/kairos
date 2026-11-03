@@ -2,7 +2,7 @@
 name: Bug Report
 about: Create a report to help Kairos to improve
 title: 'bug: '
-labels: 'bug'
+labels: 'bugfix'
 assignees: ''
 ---
 

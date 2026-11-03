@@ -1,0 +1,28 @@
+name: Security Audit
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+jobs:
+  npm-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Gate on shipped (runtime) dependencies only. Dev-tooling advisories
+      # (e.g. the Vite dev server) are tracked in docs/SECURITY.md.
+      - name: npm dependency audit (runtime)
+        run: npm audit --omit=dev --audit-level=high
