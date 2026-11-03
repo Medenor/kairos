@@ -4,6 +4,7 @@
 import { SERVICES } from './data/services.js'
 import {
   RESET_DATE_KEY,
+  quotaTimeKey,
   recordWeeklySnapshot,
   retainWeeklySnapshots,
   upsertCurrentWeekSnapshot,
@@ -17,20 +18,41 @@ export function buildDefaultState(services = SERVICES) {
     state[service.id] = {}
     service.quotas.forEach((quota) => {
       state[service.id][quota.id] = quota.value
+      state[service.id][quotaTimeKey(quota.id)] = null
     })
     state[service.id][RESET_DATE_KEY] = null
   })
   return state
 }
 
-export function applyQuotaUpdate(prev, serviceId, quotaId, value) {
+function setQuotaValue(prev, serviceId, key, value) {
   return {
     ...prev,
     [serviceId]: {
       ...(prev[serviceId] || {}),
-      [quotaId]: value,
+      [key]: value,
     },
   }
+}
+
+// `now` is required: pure transitions never read the clock. Metadata keys
+// (`__last_reset_date`, `__ts_*`) are stored as-is and never get a stamp of their own.
+export function applyQuotaUpdate(prev, serviceId, quotaId, value, now) {
+  const next = setQuotaValue(prev, serviceId, quotaId, value)
+  if (String(quotaId).startsWith('__')) return next
+  return setQuotaValue(next, serviceId, quotaTimeKey(quotaId), now.toISOString())
+}
+
+// Stamps every quota of a service as "still current" without changing any value.
+export function confirmQuotas(prev, serviceId, now, services = SERVICES) {
+  const service = services.find((item) => item.id === serviceId)
+  if (!service) return prev
+  const stamp = now.toISOString()
+  const serviceState = { ...(prev[serviceId] || {}) }
+  service.quotas.forEach((quota) => {
+    serviceState[quotaTimeKey(quota.id)] = stamp
+  })
+  return { ...prev, [serviceId]: serviceState }
 }
 
 function logicalKeyToQuota(logicalKey) {
@@ -46,7 +68,7 @@ export function applyQuotaRecord(prev, record) {
   if (!serviceId || !quotaId) return prev
   const value = record?.payload?.value
   if (value === undefined) return prev
-  return applyQuotaUpdate(prev, serviceId, quotaId, value)
+  return setQuotaValue(prev, serviceId, quotaId, value)
 }
 
 // Merges a shared `snapshot` record into local weekly history. The record's own

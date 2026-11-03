@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { RULES } from './data/rules.js'
+import { getResetInfo } from './utils.js'
 
 // ---------------------------------------------------------------------------
 // Shared state factories
@@ -442,4 +443,52 @@ test('T023 coding_hard: Claude ≥ 95% but reset in 5d → no waiting nudge', ()
     !result.reason.toLowerCase().includes('consider waiting'),
     `reason must not suggest waiting when reset is not imminent: "${result.reason}"`
   )
+})
+
+// ---------------------------------------------------------------------------
+// 006 T006 — local calendar day basis near midnight (before/after scenario)
+// ---------------------------------------------------------------------------
+
+function withTimeZone(tz, fn) {
+  const previous = process.env.TZ
+  process.env.TZ = tz
+  try {
+    fn()
+  } finally {
+    if (previous === undefined) delete process.env.TZ
+    else process.env.TZ = previous
+  }
+}
+
+test('006 D3 scenario: at 00:30 local (UTC+12) a reset on local day D+2 says "Resets in 2d" (UTC basis gave 3d)', () => {
+  withTimeZone('Pacific/Auckland', () => {
+    assert.equal(new Date(2026, 3, 21, 12, 0).getTimezoneOffset(), -720)
+    const now = new Date(2026, 3, 21, 0, 30) // local 2026-04-21, UTC 2026-04-20T12:30Z
+    // Last reset 04-16 + 7d = 04-23 = local D+2.
+    const claude = getResetInfo('2026-04-16', 7, now)
+    assert.equal(claude.daysRemaining, 2)
+    const s = makeState({ claudeWeekly: 30, claudeSlot: 40 })
+    const result = RULES.coding_hard(s, rs({ claude: claude }))
+    assert.equal(result.primary, 'claude')
+    assert.ok(
+      result.reason.includes('Resets in 2d — spend it now before quota refreshes.'),
+      `note must use the local day count (2d), not the UTC one (3d): "${result.reason}"`
+    )
+    assert.ok(!result.reason.includes('Resets in 3d'), `reason must not show the UTC-basis count: "${result.reason}"`)
+  })
+})
+
+test('006 D3 scenario: reason text for coding_hard at 23:30 local is unchanged', () => {
+  withTimeZone('Pacific/Auckland', () => {
+    const now = new Date(2026, 3, 20, 23, 30) // UTC day and local day agree
+    const claude = getResetInfo('2026-04-15', 7, now) // next reset 04-22 -> 2d
+    assert.equal(claude.daysRemaining, 2)
+    const s = makeState({ claudeWeekly: 30, claudeSlot: 40 })
+    const result = RULES.coding_hard(s, rs({ claude: claude }))
+    assert.equal(result.primary, 'claude')
+    assert.equal(
+      result.reason,
+      'Claude available — best choice for complex coding. Resets in 2d — spend it now before quota refreshes.'
+    )
+  })
 })

@@ -9,6 +9,7 @@ import {
   LOCAL_WORKSPACE_ID,
   applyQuotaUpdate,
   buildDefaultState,
+  confirmQuotas as confirmQuotasState,
   recordCurrentWeek,
   scopeHistory,
 } from '../stateTransitions'
@@ -82,7 +83,11 @@ export function useQuotaState() {
   }, [state])
 
   const updateQuota = useCallback((serviceId, quotaId, value) => {
-    setState((prev) => applyQuotaUpdate(prev, serviceId, quotaId, value))
+    setState((prev) => applyQuotaUpdate(prev, serviceId, quotaId, value, new Date()))
+  }, [])
+
+  const confirmQuotas = useCallback((serviceId) => {
+    setState((prev) => confirmQuotasState(prev, serviceId, new Date()))
   }, [])
 
   const resetAll = useCallback(() => {
@@ -118,11 +123,12 @@ export function useQuotaState() {
     () => ({
       state,
       updateQuota,
+      confirmQuotas,
       resetAll,
       weeklyHistory,
       refreshWeeklyHistory,
       getServiceHistory,
     }),
-    [state, updateQuota, resetAll, weeklyHistory, refreshWeeklyHistory, getServiceHistory]
+    [state, updateQuota, confirmQuotas, resetAll, weeklyHistory, refreshWeeklyHistory, getServiceHistory]
   )
 }

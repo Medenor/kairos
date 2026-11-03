@@ -8,6 +8,7 @@ import {
   createWeeklySnapshot,
   deriveServiceHistorySeries,
   loadWeeklyHistory,
+  quotaTimeKey,
   retainWeeklySnapshots,
   snapshotsEquivalent,
   upsertCurrentWeekSnapshot,
@@ -17,6 +18,7 @@ import {
   applyQuotaUpdate,
   applyServerRecords,
   buildDefaultState,
+  confirmQuotas as confirmQuotasState,
   recordCurrentWeek,
   scopeHistory,
 } from '../stateTransitions'
@@ -38,6 +40,7 @@ function buildDefaultEntries() {
   SERVICES.forEach((service) => {
     service.quotas.forEach((quota) => {
       entries.push({ logicalKey: `${service.id}:${quota.id}`, value: quota.value })
+      entries.push({ logicalKey: `${service.id}:${quotaTimeKey(quota.id)}`, value: null })
     })
     entries.push({ logicalKey: `${service.id}:${RESET_DATE_KEY}`, value: null })
   })
@@ -354,19 +357,45 @@ export function useSharedQuotaState() {
     }
   }, [state, workspaceId, persistWeeklySnapshot])
 
+  const scheduleQuotaWrite = useCallback(
+    (logicalKey, value) => {
+      const existingTimer = writeTimersRef.current.get(logicalKey)
+      if (existingTimer) clearTimeout(existingTimer)
+      const timer = setTimeout(() => {
+        persistQuota(logicalKey, value)
+        writeTimersRef.current.delete(logicalKey)
+      }, 220)
+      writeTimersRef.current.set(logicalKey, timer)
+    },
+    [persistQuota]
+  )
+
   const updateQuota = (serviceId, quotaId, value) => {
-    const logicalKey = `${serviceId}:${quotaId}`
-    setState((prev) => applyQuotaUpdate(prev, serviceId, quotaId, value))
+    const now = new Date()
+    setState((prev) => applyQuotaUpdate(prev, serviceId, quotaId, value, now))
     if (!workspaceId) return
 
-    const existingTimer = writeTimersRef.current.get(logicalKey)
-    if (existingTimer) clearTimeout(existingTimer)
-    const timer = setTimeout(() => {
-      persistQuota(logicalKey, value)
-      writeTimersRef.current.delete(logicalKey)
-    }, 220)
-    writeTimersRef.current.set(logicalKey, timer)
+    scheduleQuotaWrite(`${serviceId}:${quotaId}`, value)
+    // Metadata keys (reset date, stamps) carry no reading time of their own.
+    if (!String(quotaId).startsWith('__')) {
+      scheduleQuotaWrite(`${serviceId}:${quotaTimeKey(quotaId)}`, now.toISOString())
+    }
   }
+
+  const confirmQuotas = useCallback(
+    (serviceId) => {
+      const service = SERVICES.find((item) => item.id === serviceId)
+      if (!service) return
+      const now = new Date()
+      setState((prev) => confirmQuotasState(prev, serviceId, now))
+      if (!workspaceId) return
+
+      service.quotas.forEach((quota) => {
+        scheduleQuotaWrite(`${serviceId}:${quotaTimeKey(quota.id)}`, now.toISOString())
+      })
+    },
+    [workspaceId, scheduleQuotaWrite]
+  )
 
   const resetAll = useCallback(async () => {
     for (const timer of writeTimersRef.current.values()) {
@@ -450,6 +479,7 @@ export function useSharedQuotaState() {
     () => ({
       state,
       updateQuota,
+      confirmQuotas,
       resetAll,
       refreshSync,
       syncStatus,
@@ -462,6 +492,7 @@ export function useSharedQuotaState() {
     [
       state,
       updateQuota,
+      confirmQuotas,
       resetAll,
       refreshSync,
       syncStatus,

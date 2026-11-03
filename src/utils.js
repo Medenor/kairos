@@ -37,6 +37,8 @@ export function getBarColor(consumedPct) {
 }
 
 export const RESET_DATE_KEY = '__last_reset_date'
+export const QUOTA_TS_PREFIX = '__ts_'
+export const quotaTimeKey = (quotaId) => `${QUOTA_TS_PREFIX}${quotaId}`
 export const WEEKLY_HISTORY_STORAGE_KEY = 'kairos:weekly-history'
 export const WEEKLY_HISTORY_SCHEMA_VERSION = 1
 export const WEEKLY_HISTORY_LOGICAL_KEY_PREFIX = 'weekly-history:'
@@ -432,6 +434,8 @@ function parseISODateOnly(value) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null
   const date = new Date(`${value}T00:00:00Z`)
   if (Number.isNaN(date.getTime())) return null
+  // V8 rolls impossible days of a short month over (2026-02-31 becomes 2026-03-03): reject them.
+  if (date.toISOString().slice(0, 10) !== value) return null
   return date
 }
 
@@ -479,7 +483,9 @@ export function getResetInfo(lastResetDate, resetCycleDays, now = new Date()) {
     }
   }
 
-  const today = toUtcDateStart(now)
+  // "Today" is the local calendar day of `now`, expressed as a UTC-midnight
+  // date so the UTC-based day arithmetic below stays unchanged (006 research D3).
+  const today = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()))
   if (parsedReset.getTime() > today.getTime()) {
     return {
       state: 'invalid',
