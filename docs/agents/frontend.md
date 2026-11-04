@@ -1,6 +1,6 @@
 # Frontend Conventions
 
-React 18 + Vite 5, plain JavaScript (ES modules, Node 20+ baseline), CSS Modules. No UI library, no state library, no TypeScript.
+React 18 + Vite 5, plain JavaScript (ES modules, Node 26 LTS baseline), CSS Modules. No UI library, no state library, no TypeScript.
 
 ## Rules
 

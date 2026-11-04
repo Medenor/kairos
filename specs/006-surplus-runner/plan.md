@@ -12,7 +12,7 @@ Technical approach, in one paragraph: all rules live in pure ES modules under `s
 
 ## Technical Context
 
-**Language/Version**: JavaScript (ES Modules), Node.js 20 LTS (frontend, backend and runner)
+**Language/Version**: JavaScript (ES Modules), Node.js 26 LTS (frontend, backend and runner)
 
 **Primary Dependencies**: React 18, React DOM 18, Vite 5; runner uses Node built-ins only (`node:child_process`, `node:fs`, `node:crypto`, `node:readline`). No new runtime dependency.
 

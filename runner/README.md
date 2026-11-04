@@ -1,6 +1,6 @@
 # Surplus runner
 
-Optional local CLI that starts approved ideas with your subscription-signed-in `claude` or `codex` tool when a service has quota that would expire unused. Zero dependencies, Node 20 built-ins only.
+Optional local CLI that starts approved ideas with your subscription-signed-in `claude` or `codex` tool when a service has quota that would expire unused. Zero dependencies, Node 26 built-ins only.
 
 ```bash
 npm run runner -- config     # first-time setup, `--take-over` to designate this device, `--exclusions` to edit exclusions

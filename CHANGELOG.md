@@ -42,6 +42,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Node baseline raised from 20 (end of life) to 26 LTS: `.nvmrc`, `engines`, the `Dockerfile` and `docker/docker-compose.shared.yml` images (`node:26-alpine`). Node 22 and later also run the backend test glob that Node 20 could not.
 - Forgejo CI and issue/PR templates moved from `.specify/.forgejo/` to `.forgejo/` so Codeberg picks them up; CI now runs `npm ci`, lint, test and build on Node 20; the weekly security audit now runs `npm audit` on runtime dependencies. Removed the unused docs-portal workflow.
 - `README.md` slimmed down: container deployment moved to `docs/DEPLOYMENT.md`, shared-stack ports corrected (frontend `5273`, backend `8888`), roadmap statuses refreshed.
 - `AGENTS.md` now carries commands, workflow and a reference table to `docs/agents/`.

@@ -1,6 +1,6 @@
 # Quickstart: validating surplus-runner
 
-Prerequisites: Node 20, `npm ci`, `sqlite3` on `PATH` for backend tests. Commands and data shapes are defined in [contracts/](contracts/) and [data-model.md](data-model.md); this guide only says what to run and what to expect.
+Prerequisites: Node 26 LTS, `npm ci`, `sqlite3` on `PATH` for backend tests. Commands and data shapes are defined in [contracts/](contracts/) and [data-model.md](data-model.md); this guide only says what to run and what to expect.
 
 ## 1. Automated checks
 

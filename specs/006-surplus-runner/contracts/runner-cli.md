@@ -1,6 +1,6 @@
 # Contract: runner CLI
 
-Entry: `npm run runner -- <command>` (script `node runner/index.js`). Node 20, no dependencies. Needs `claude` and/or `codex` on `PATH`, signed in by the user.
+Entry: `npm run runner -- <command>` (script `node runner/index.js`). Node 26, no dependencies. Needs `claude` and/or `codex` on `PATH`, signed in by the user.
 
 ## Commands
 
