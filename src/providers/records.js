@@ -119,6 +119,7 @@ function isStale(local, incoming, knownVersion) {
 export function applyCatalogueRecords(base, items = []) {
   let providers = base.providers
   let order = base.order
+  let orderUpdatedAt = base.orderUpdatedAt
   const recordIndex = { ...base.recordIndex }
   let invalid = base.invalid
   let changed = false
@@ -157,6 +158,7 @@ export function applyCatalogueRecords(base, items = []) {
       if (known !== undefined && versionOf(item) !== undefined && versionOf(item) < known) continue
       recordIndex[key] = item
       order = item.payload.ids
+      orderUpdatedAt = item.payload.updatedAt
       changed = true
       continue
     }
@@ -181,7 +183,7 @@ export function applyCatalogueRecords(base, items = []) {
   if (!changed && invalid === base.invalid && Object.keys(recordIndex).length === Object.keys(base.recordIndex).length) {
     return { ...base, recordIndex }
   }
-  return { ...base, providers, order, recordIndex, invalid }
+  return { ...base, providers, order, ...(orderUpdatedAt ? { orderUpdatedAt } : {}), recordIndex, invalid }
 }
 
 /**

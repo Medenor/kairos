@@ -1,4 +1,5 @@
 import { activeProviders } from '../providers/runtime.js'
+import { ORDER_KEY, providerKey } from '../providers/records.js'
 import { loadCatalogue } from '../providers/storage.js'
 import {
   RESET_DATE_KEY,
@@ -77,6 +78,27 @@ export function buildQuotaMigrationRecords(providers, state) {
   return records
 }
 
+// Definition records of the catalogue: every provider (active ones and tombstones, so a deletion
+// travels too) and the display order, as `routing_config` records like in shared mode. Surplus
+// records are not part of the export (scope unchanged).
+export function buildProviderMigrationRecords(catalogue) {
+  const records = Object.values(catalogue.providers).map((payload) => ({
+    logical_key: providerKey(payload.id),
+    record_type: 'routing_config',
+    payload,
+    source_fingerprint: `provider:${payload.id}:${payload.status}:${payload.updatedAt ?? payload.removedAt}`,
+  }))
+  if (catalogue.order.length > 0) {
+    records.push({
+      logical_key: ORDER_KEY,
+      record_type: 'routing_config',
+      payload: { schemaVersion: 1, ids: catalogue.order, updatedAt: catalogue.orderUpdatedAt ?? new Date(0).toISOString() },
+      source_fingerprint: `${ORDER_KEY}:${catalogue.order.join(',')}`,
+    })
+  }
+  return records
+}
+
 export function exportLocalStateForMigration(workspaceId) {
   const raw = localStorage.getItem(STORAGE_KEY)
   let parsed = {}
@@ -87,7 +109,7 @@ export function exportLocalStateForMigration(workspaceId) {
   }
 
   const catalogue = loadCatalogue(localStorage)
-  const records = buildQuotaMigrationRecords(activeProviders(catalogue), parsed)
+  const records = [...buildProviderMigrationRecords(catalogue), ...buildQuotaMigrationRecords(activeProviders(catalogue), parsed)]
 
   records.push(
     ...buildWeeklyHistoryMigrationRecords(

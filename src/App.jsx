@@ -2,11 +2,9 @@ import { useState } from 'react'
 import { useSharedQuotaState } from './hooks/useSharedQuotaState'
 import { useCatalogue } from './hooks/useCatalogue'
 import { useNow } from './hooks/useNow'
-import ServiceCard from './components/ServiceCard'
 import TaskPicker from './components/TaskPicker'
 import RecoBox from './components/RecoBox'
 import SummaryBar from './components/SummaryBar'
-import EmptyState from './components/EmptyState'
 import ProviderManager from './components/ProviderManager'
 import MigrationPanel from './components/MigrationPanel'
 import BackupPanel from './components/BackupPanel'
@@ -25,7 +23,6 @@ export default function App() {
   const now = useNow()
   const catalogue = useCatalogue()
   const providers = catalogue.runtimeProviders
-  const [openRequest, setOpenRequest] = useState(0)
   const {
     state,
     updateQuota,
@@ -43,12 +40,15 @@ export default function App() {
   const [selectedTask, setSelectedTask] = useState(null)
   const surplus = useSurplusStore({ workspaceId, quotaState: state, services: providers, now })
 
-  // Readings entered with the form are applied right after the catalogue persisted state then definition.
-  function handleAddProvider(input) {
-    const result = catalogue.addProvider(input, { state, now })
-    if (result.ok) applyStateEffects(result.effects)
+  // The catalogue persists state then definition; readings entered in a form are applied to the live
+  // state right after, in the same event.
+  function afterChange(result) {
+    if (result.ok && result.effects?.stateWrites?.length) applyStateEffects(result.effects)
     return result
   }
+  const handleAddProvider = (input) => afterChange(catalogue.addProvider(input, { state, now }))
+  const handleUpdateProvider = (id, input) => afterChange(catalogue.updateProvider(id, input, { state, now }))
+  const handleDeleteProvider = (id) => afterChange(catalogue.removeProvider(id, { state, now }))
 
   return (
     <div className={styles.app}>
@@ -62,18 +62,26 @@ export default function App() {
 
       <section>
         <div className={styles.sectionLabel}>Providers</div>
-        {providers.length === 0 && <EmptyState onAdd={() => setOpenRequest((n) => n + 1)} />}
-        {providers.map((svc) => (
-          <ServiceCard
-            key={svc.id}
-            svc={svc}
-            quotaState={state[svc.id]}
-            onUpdate={updateQuota}
-            onConfirm={confirmQuotas}
-            now={now}
-          />
-        ))}
-        <ProviderManager onAdd={handleAddProvider} openRequest={openRequest} />
+        <ProviderManager
+          providers={providers}
+          stored={catalogue.catalogue.providers}
+          state={state}
+          runs={surplus.runs}
+          now={now}
+          onUpdateQuota={updateQuota}
+          onConfirmQuotas={confirmQuotas}
+          onAdd={handleAddProvider}
+          onUpdate={handleUpdateProvider}
+          onDelete={handleDeleteProvider}
+          notices={{
+            conflicts: catalogue.conflicts,
+            invalid: catalogue.invalid,
+            nameConflicts: catalogue.nameConflicts,
+            removedElsewhere: catalogue.removedElsewhere,
+          }}
+          onResolveConflict={catalogue.resolveConflict}
+          onDismissRemoved={catalogue.dismissRemovedNotice}
+        />
       </section>
 
       <section className={styles.historySection}>

@@ -181,7 +181,8 @@ function ResetTrackingRow({ svc, quotaState, onUpdate, now }) {
   )
 }
 
-export default function ServiceCard({ svc, quotaState = {}, onUpdate, onConfirm, now = new Date() }) {
+// `actions`: optional [{ label, onClick, disabled, title }] rendered as buttons (edit, delete, ...).
+export default function ServiceCard({ svc, quotaState = {}, onUpdate, onConfirm, now = new Date(), actions = [] }) {
   const pressure = getServicePressure(svc, { [svc.id]: quotaState })
   const badge = getStatusBadge(pressure)
   const cost = costLabel(svc)
@@ -233,6 +234,22 @@ export default function ServiceCard({ svc, quotaState = {}, onUpdate, onConfirm,
       <div className={styles.footer}>
         {resetLabel(svc)}{svc.note ? ` · ${svc.note}` : ''}
       </div>
+      {actions.length > 0 && (
+        <div className={styles.confirmRow}>
+          {actions.map((action) => (
+            <button
+              key={action.label}
+              type="button"
+              className={styles.confirmBtn}
+              onClick={action.onClick}
+              disabled={action.disabled}
+              title={action.title}
+            >
+              {action.label}
+            </button>
+          ))}
+        </div>
+      )}
       {svc.flags && svc.flags.length > 0 && (
         <div className={styles.flags}>
           {svc.flags.map((f) => (

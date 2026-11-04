@@ -193,9 +193,9 @@ function seqToken(n, length) {
 }
 
 // Deterministic id source for reducers: newId('provider') -> p_aaaaaaaaaaab, newId('quota') -> q_aaaaaaab.
-export function sequentialIds() {
-  let provider = 0
-  let quota = 0
+export function sequentialIds(start = 0) {
+  let provider = start
+  let quota = start
   return (kind) => (kind === 'provider' ? `p_${seqToken((provider += 1), 12)}` : `q_${seqToken((quota += 1), 8)}`)
 }
 

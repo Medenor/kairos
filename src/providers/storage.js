@@ -24,7 +24,8 @@ export function loadCatalogue(storage) {
     if (isProviderId(id) && validateProviderRecord(payload, `provider:${id}`).ok) providers[id] = payload
   }
   const order = Array.isArray(parsed.order) ? parsed.order.filter((id) => isProviderId(id) && providers[id]?.status === 'active') : []
-  return { ...emptyCatalogue(), providers, order: [...new Set(order)] }
+  const orderUpdatedAt = typeof parsed.orderUpdatedAt === 'string' ? parsed.orderUpdatedAt : undefined
+  return { ...emptyCatalogue(), providers, order: [...new Set(order)], ...(orderUpdatedAt ? { orderUpdatedAt } : {}) }
 }
 
 /** Returns true when written. A failing storage (quota, private mode) returns false instead of throwing. */
@@ -33,7 +34,7 @@ export function saveCatalogue(storage, catalogue) {
     if (!storage || typeof storage.setItem !== 'function') return false
     storage.setItem(
       PROVIDERS_STORAGE_KEY,
-      JSON.stringify({ schemaVersion: PROVIDER_SCHEMA_VERSION, providers: catalogue.providers, order: catalogue.order }),
+      JSON.stringify({ schemaVersion: PROVIDER_SCHEMA_VERSION, providers: catalogue.providers, order: catalogue.order, orderUpdatedAt: catalogue.orderUpdatedAt }),
     )
     return true
   } catch {

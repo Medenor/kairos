@@ -1,6 +1,10 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { recommend } from './engine.js'
+import { addProvider, removeProvider } from '../providers/catalogue.js'
+import { emptyCatalogue } from '../providers/records.js'
+import { toRuntimeServices } from '../providers/runtime.js'
+import { sampleInput, sequentialIds } from '../providers/fixtures/sampleProviders.js'
 import { NOW, quota, service, shuffle, stateFor } from './routing.testkit.js'
 
 const TASK = 'coding_hard'
@@ -89,4 +93,27 @@ test('tieBreak.criterion names the first differing criterion', () => {
   assert.equal(criterion(mk('a', 'strong', 31, 3), mk('b', 'strong', 31, 3)), 'name')
   // 'fit' only differs after score, bucket, reset and pressure are equal: strong at >=60 (score 2) vs acceptable at the same load has score 1, so fit alone cannot separate equal-score providers within a bucket
   assert.equal(criterion(mk('a', 'strong', 62, 3), mk('b', 'acceptable', 20, 3)), 'pressure_bucket')
+})
+
+test('removing the primary through removeProvider: the new result no longer mentions it (FR-017)', () => {
+  const newId = sequentialIds()
+  const NOW_ISO = new Date('2026-03-04T10:00:00.000Z')
+  let catalogue = emptyCatalogue()
+  let state = {}
+  for (const name of ['Primary Co', 'Fallback Co']) {
+    const input = sampleInput({
+      name, schedule: { type: 'none' }, surplus: null, fits: { coding_hard: name === 'Primary Co' ? 'strong' : 'acceptable' },
+      quotas: [{ label: 'Pct', type: 'consumed_pct', value: 10 }],
+    })
+    const out = addProvider({ catalogue, state, input, now: NOW_ISO, newId })
+    ;({ catalogue, state } = out)
+  }
+  const before = recommend({ task: TASK, providers: toRuntimeServices(catalogue), state, now: NOW })
+  assert.equal(before.primary.name, 'Primary Co')
+  const removed = removeProvider({ catalogue, state, id: before.primary.providerId, now: NOW_ISO })
+  const after = recommend({ task: TASK, providers: toRuntimeServices(removed.catalogue), state: removed.state, now: NOW })
+  assert.equal(after.primary.name, 'Fallback Co')
+  const text = JSON.stringify(after)
+  assert.equal(text.includes(before.primary.providerId), false)
+  assert.equal(text.includes('Primary Co'), false)
 })

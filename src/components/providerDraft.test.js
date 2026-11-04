@@ -42,11 +42,28 @@ test('custom schedule keeps the typed cycle; weekly drops it', () => {
 test('draftFromProvider round-trips a stored provider back to an equivalent input', () => {
   const cat = sampleCatalogue()
   const provider = cat.providers[sampleWeekly().id]
-  const input = draftToInput(draftFromProvider(provider, sampleState()))
+  const draft = draftFromProvider(provider, sampleState())
+  assert.deepEqual(draft.quotas.map((q) => q.value), ['40', '20'])
+  const input = draftToInput(draft)
   assert.equal(input.name, provider.name)
-  assert.deepEqual(input.quotas.map((q) => q.value), [40, 20])
+  assert.deepEqual(input.quotas.map((q) => q.value), [undefined, undefined])
   assert.deepEqual(input.surplus, provider.surplus)
   assert.deepEqual(input.quotas.map((q) => q.id), provider.quotas.map((q) => q.id))
+})
+
+test('an untouched existing quota sends no value; an edited value or a changed type does', () => {
+  const provider = sampleCatalogue().providers[sampleWeekly().id]
+  const draft = draftFromProvider(provider, sampleState())
+  assert.deepEqual(draftToInput(draft).quotas.map((q) => q.value), [undefined, undefined])
+  draft.quotas[0].value = '55'
+  assert.deepEqual(draftToInput(draft).quotas.map((q) => q.value), [55, undefined])
+  draft.quotas[0].value = draft.quotas[0].originalValue
+  draft.quotas[1].type = 'remaining_pct'
+  assert.deepEqual(draftToInput(draft).quotas.map((q) => q.value), [undefined, 20], 'a changed type resends the (confirmed) value')
+  draft.quotas[1].value = ''
+  assert.equal(draftToInput(draft).quotas[1].value, undefined)
+  const added = emptyQuotaDraft({ label: 'New', value: '5' })
+  assert.equal(draftToInput({ ...draft, quotas: [...draft.quotas, added] }).quotas[2].value, 5)
 })
 
 test('errorMap keeps the first message per path', () => {

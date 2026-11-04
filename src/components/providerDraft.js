@@ -29,6 +29,14 @@ export function emptyDraft() {
 // Number('') is 0, which would silently accept an empty field: keep empty as "not entered".
 const toNumber = (text) => (String(text).trim() === '' ? undefined : Number(text))
 
+// An existing quota whose value text and type are untouched sends no value: editing a name must not
+// restamp a reading. A changed type always sends the value (it has to be re-entered or confirmed, FR-007).
+function valueToSend(q) {
+  const existing = Boolean(q.id) && q.originalValue !== undefined
+  if (existing && q.value === q.originalValue && q.type === q.originalType) return undefined
+  return toNumber(q.value)
+}
+
 export function draftToInput(draft) {
   const amount = toNumber(draft.costAmount)
   const fits = {}
@@ -49,7 +57,7 @@ export function draftToInput(draft) {
       lowBalance: q.type === 'currency' ? (toNumber(q.lowBalance) ?? null) : null,
       gates: q.gates && q.gates.length ? q.gates : null,
       subnote: q.subnote.trim() === '' ? null : q.subnote,
-      value: toNumber(q.value),
+      value: valueToSend(q),
     })),
     fits,
     surplus: draft.surplus.tool
@@ -80,6 +88,7 @@ export function draftFromProvider(provider, state = {}) {
       gates: q.gates ? [...q.gates] : null,
       subnote: q.subnote ?? '',
       value: typeof current[q.id] === 'number' ? String(current[q.id]) : '',
+      originalValue: typeof current[q.id] === 'number' ? String(current[q.id]) : '',
       originalType: q.type,
     })),
     fits: { ...(provider.fits ?? {}) },

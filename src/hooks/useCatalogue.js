@@ -1,55 +1,88 @@
-import { useCallback, useMemo, useRef, useState } from 'react'
-import { addProvider as addProviderReducer } from '../providers/catalogue'
-import { commitCreation } from '../providers/commit'
-import { activeProviders, toRuntimeServices } from '../providers/runtime'
-import { loadCatalogue, saveCatalogue } from '../providers/storage'
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
+import { writeStatePatch } from '../providers/commit'
+import { createCatalogueEngine } from '../providers/engine'
+import { createRecord, deleteRecord, getWorkspaceId, syncPull, updateRecord } from '../services/sharedStateApi'
+
+const POLL_MS = 3000
+const API = { createRecord, updateRecord, deleteRecord, syncPull }
 
 function browserStorage() {
   try {
-    return localStorage
+    return window.localStorage
   } catch {
     return null
   }
 }
 
-// Provider catalogue, local-first (shared mode is added with the sync engine). Every action is a thin
-// delegation to a pure reducer plus a persistence step, so the rules live in src/providers.
-export function useCatalogue({ onStateEffects } = {}) {
-  const [catalogue, setCatalogue] = useState(() => loadCatalogue(browserStorage()))
-  const catalogueRef = useRef(catalogue)
+function detectWorkspaceId() {
+  try {
+    return getWorkspaceId()
+  } catch {
+    return ''
+  }
+}
 
-  const commit = useCallback((next) => {
-    catalogueRef.current = next
-    setCatalogue(next)
-  }, [])
-
-  // `state` is the current quota state. Creation is persisted state first, definition second
-  // (commitCreation), so an interrupted save leaves inert values rather than a half-defined provider.
-  const addProvider = useCallback(
-    (input, { state, now = new Date() }) => {
-      const result = addProviderReducer({ catalogue: catalogueRef.current, state, input, now })
-      if (!result.ok) return result
-      const storage = browserStorage()
-      const saved = commitCreation({ stateStorage: storage, catalogueStorage: storage, result })
-      if (!saved.stateSaved || !saved.catalogueSaved) {
-        // Keep the session usable even when storage is unavailable.
-        saveCatalogue(storage, result.catalogue)
-      }
-      onStateEffects?.(result.effects)
-      commit(result.catalogue)
-      return result
-    },
-    [commit, onStateEffects]
+// Provider catalogue: local-first, with shared sync when a workspace id is set. All logic lives in
+// src/providers (pure reducers and the engine); this hook injects the browser edge (localStorage, clock,
+// API client, workspace id) and exposes the engine's snapshot to React.
+//
+// Return value: catalogue (stored shape: providers by id incl. tombstones, order), providers (stored,
+// active), runtimeProviders (what routing and surplus read), order, invalid[], conflicts[],
+// nameConflicts[] (ids), removedElsewhere[], sharedMode, syncStatus, syncMessage, pendingCount, plus actions:
+//   addProvider(input, { state, now? })        -> { ok, errors?, effects? }
+//   updateProvider(id, patch, { state, now? }) -> { ok, errors?, needsConfirmation?, effects? }
+//   removeProvider(id, { state, now? })        -> { ok, errors?, effects? }
+//   resolveConflict(key, 'theirs' | 'mine'), dismissRemovedNotice(id), cancel()
+// `state` is the current quota state. An accepted action writes the quota-state patch to storage first and
+// the definition second (FR-021); the caller applies `result.effects` to its live state afterwards.
+export function useCatalogue(options = {}) {
+  const [engine] = useState(() =>
+    createCatalogueEngine({
+      storage: browserStorage(),
+      api: API,
+      now: () => new Date(),
+      beforeCommit: (result) => writeStatePatch(browserStorage(), result),
+    })
   )
+  const snapshot = useSyncExternalStore(engine.subscribe, engine.getSnapshot)
+
+  // useSharedQuotaState stores the workspace id once it is known, so keep watching when none is given.
+  const [detectedWorkspaceId, setDetectedWorkspaceId] = useState(detectWorkspaceId)
+  useEffect(() => {
+    const timer = setInterval(() => setDetectedWorkspaceId(detectWorkspaceId()), POLL_MS)
+    return () => clearInterval(timer)
+  }, [])
+  const workspaceId = options.workspaceId || detectedWorkspaceId
+
+  useEffect(() => {
+    engine.setWorkspace(workspaceId)
+  }, [engine, workspaceId])
+
+  useEffect(() => {
+    if (!workspaceId) return undefined
+    const timer = setInterval(engine.tick, POLL_MS)
+    const onHide = () => engine.flush()
+    window.addEventListener('pagehide', onHide)
+    return () => {
+      clearInterval(timer)
+      window.removeEventListener('pagehide', onHide)
+    }
+  }, [engine, workspaceId])
+
+  useEffect(() => () => engine.dispose(), [engine])
 
   return useMemo(
     () => ({
-      catalogue,
-      providers: activeProviders(catalogue),
-      runtimeProviders: toRuntimeServices(catalogue),
-      order: catalogue.order,
-      addProvider,
+      ...snapshot,
+      addProvider: engine.actions.addProvider,
+      updateProvider: engine.actions.updateProvider,
+      removeProvider: engine.actions.removeProvider,
+      resolveConflict: engine.actions.resolveConflict,
+      dismissRemovedNotice: engine.actions.dismissRemovedNotice,
+      // Cancelling a form or dialog calls nothing: no catalogue action exists for it, by construction.
+      cancel: () => {},
+      engine,
     }),
-    [catalogue, addProvider]
+    [snapshot, engine]
   )
 }

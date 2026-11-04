@@ -1,4 +1,4 @@
-import { useId, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { TASKS } from '../data/tasks.js'
 import { FIT_LEVELS, LIMITS } from '../providers/schema.js'
 import { draftToInput, emptyDraft, emptyQuotaDraft, errorMap } from './providerDraft.js'
@@ -22,11 +22,16 @@ function Field({ id, label, error, children, hint }) {
 // The form holds no rules: it builds an input, hands it to `onSubmit(input)` and shows the
 // `{path, message}` errors that come back next to the field they name. Cancel never calls the handler.
 // Props: initial (draft), mode 'create' | 'edit', onSubmit(input) -> {ok, errors?}, onCancel(), extra (render slot).
-export default function ProviderForm({ initial, mode = 'create', onSubmit, onCancel, submitLabel }) {
+export default function ProviderForm({ initial, mode = 'create', onSubmit, onCancel, submitLabel, focusName = false }) {
   const uid = useId()
+  const nameRef = useRef(null)
+  useEffect(() => {
+    if (focusName) nameRef.current?.focus()
+  }, [focusName])
   const [draft, setDraft] = useState(() => initial ?? emptyDraft())
   const [errors, setErrors] = useState({})
   const [notice, setNotice] = useState('')
+  const [confirm, setConfirm] = useState(null) // schedule change awaiting confirmation: { lastResetDate, date }
 
   const set = (patch) => setDraft((d) => ({ ...d, ...patch }))
   const setQuota = (index, patch) =>
@@ -34,18 +39,55 @@ export default function ProviderForm({ initial, mode = 'create', onSubmit, onCan
   const addQuota = () => setDraft((d) => ({ ...d, quotas: [...d.quotas, emptyQuotaDraft()] }))
   const removeQuota = (index) =>
     setDraft((d) => (d.quotas.length <= 1 ? d : { ...d, quotas: d.quotas.filter((_, i) => i !== index) }))
+  const onTypeChange = (index, type) =>
+    setDraft((d) => ({
+      ...d,
+      quotas: d.quotas.map((q, i) => {
+        if (i !== index) return q
+        if (!q.id) return { ...q, type }
+        return { ...q, type, value: type === q.originalType ? q.originalValue : '' }
+      }),
+    }))
   const setFit = (taskId, level) => setDraft((d) => ({ ...d, fits: { ...d.fits, [taskId]: level } }))
 
-  function submit(event) {
-    event.preventDefault()
-    const result = onSubmit(draftToInput(draft))
+  // Changing a quota's type means the stored number would mean something else: the value must be
+  // entered again (FR-007). The reducer refuses it too; this only avoids a pointless round trip.
+  const typeChangeErrors = () => {
+    const found = {}
+    draft.quotas.forEach((q, i) => {
+      if (q.id && q.type !== q.originalType && String(q.value).trim() === '') {
+        found[`quotas[${i}].value`] = 'Enter the value again: the quota type changed.'
+      }
+    })
+    return found
+  }
+
+  function send(extra = {}) {
+    const pending = mode === 'edit' ? typeChangeErrors() : {}
+    if (Object.keys(pending).length > 0) {
+      setErrors(pending)
+      setNotice('Some fields need attention.')
+      return
+    }
+    const result = onSubmit({ ...draftToInput(draft), ...extra })
     if (result?.ok) {
       setErrors({})
       setNotice('')
+      setConfirm(null)
+    } else if (result?.needsConfirmation) {
+      setErrors({})
+      setNotice('')
+      setConfirm({ lastResetDate: result.needsConfirmation.lastResetDate, date: result.needsConfirmation.lastResetDate })
     } else {
+      setConfirm(null)
       setErrors(errorMap(result?.errors))
       setNotice(result?.errors?.length ? 'Some fields need attention.' : 'The provider could not be saved.')
     }
+  }
+
+  function submit(event) {
+    event.preventDefault()
+    send()
   }
 
   const id = (name) => `${uid}-${name}`
@@ -56,7 +98,7 @@ export default function ProviderForm({ initial, mode = 'create', onSubmit, onCan
       {notice && <p className={styles.notice} role="alert">{notice}</p>}
 
       <Field id={id('name')} label="Name" error={errors.name}>
-        <input id={id('name')} className={styles.input} value={draft.name} maxLength={LIMITS.NAME_MAX + 20}
+        <input id={id('name')} ref={nameRef} className={styles.input} value={draft.name} maxLength={LIMITS.NAME_MAX + 20}
           onChange={(e) => set({ name: e.target.value })} aria-invalid={Boolean(errors.name)} />
       </Field>
 
@@ -107,11 +149,11 @@ export default function ProviderForm({ initial, mode = 'create', onSubmit, onCan
                   aria-invalid={Boolean(errors[`quotas[${i}].label`])} />
               </Field>
               <Field id={id(`qt${i}`)} label="Type" error={errors[`quotas[${i}].type`]}>
-                <select id={id(`qt${i}`)} className={styles.input} value={q.type} onChange={(e) => setQuota(i, { type: e.target.value })}>
+                <select id={id(`qt${i}`)} className={styles.input} value={q.type} onChange={(e) => onTypeChange(i, e.target.value)}>
                   {Object.entries(TYPE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                 </select>
               </Field>
-              <Field id={id(`qv${i}`)} label={q.type === 'currency' ? 'Current balance' : 'Current value (%)'} error={errors[`quotas[${i}].value`]}>
+              <Field id={id(`qv${i}`)} label={q.id && q.type !== q.originalType ? 'New value (required: the type changed)' : q.type === 'currency' ? 'Current balance' : 'Current value (%)'} error={errors[`quotas[${i}].value`]}>
                 <input id={id(`qv${i}`)} className={styles.inputShort} inputMode="decimal" value={q.value}
                   onChange={(e) => setQuota(i, { value: e.target.value })} aria-invalid={Boolean(errors[`quotas[${i}].value`])} />
               </Field>
@@ -174,6 +216,24 @@ export default function ProviderForm({ initial, mode = 'create', onSubmit, onCan
           ))}
         </div>
       </fieldset>
+
+      {confirm && (
+        <div className={styles.confirmBox} role="alertdialog" aria-label="Confirm schedule change">
+          <p className={styles.notice}>
+            The reset schedule changed. The recorded last reset date is {confirm.lastResetDate}. Keep it, correct it or clear it, then confirm.
+          </p>
+          <label className={styles.label} htmlFor={id('resetdate')}>Last reset date</label>
+          <input id={id('resetdate')} type="date" className={styles.inputShort} value={confirm.date ?? ''}
+            onChange={(e) => setConfirm({ ...confirm, date: e.target.value })} />
+          <div className={styles.actions}>
+            <button type="button" className={styles.primary}
+              onClick={() => send({ confirmSchedule: true, lastResetDate: confirm.date || null })}>
+              Confirm schedule change
+            </button>
+            <button type="button" className={styles.secondary} onClick={() => setConfirm(null)}>Back</button>
+          </div>
+        </div>
+      )}
 
       <div className={styles.actions}>
         <button type="submit" className={styles.primary}>{submitLabel ?? (mode === 'edit' ? 'Save changes' : 'Add provider')}</button>

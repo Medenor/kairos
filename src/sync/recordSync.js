@@ -15,7 +15,8 @@
 //   unsyncedLocalKeys(state)               local records the store does not hold yet
 //   applyRecords(state, items)             fold pulled records into state
 //   applySilently(next)                    apply a non-user change: persist + emit, never mark dirty
-//   holdPulled(item, dirtyEntry)           true when a pulled record must not be applied now
+//   holdPulled(item, dirtyEntry)           true: hold it (its record is still indexed); 'skip': ignore it entirely
+//                                          (not indexed either, so a pending local push still meets a 409)
 //   remoteDeletedKeys(oldIndex, items)     keys that vanished in a full pull
 //   dropRemoteDeleted(state, keys)         state without those records
 //   onNotFound(key)                        optional, true when a 404 on update was handled
@@ -197,7 +198,9 @@ export function createRecordSync({
     const applicable = []
     for (const item of items) {
       const entry = dirty.get(item?.logical_key)
-      if (domain.holdPulled(item, entry)) held.push(item)
+      const verdict = domain.holdPulled(item, entry)
+      if (verdict === 'skip') continue
+      if (verdict) held.push(item)
       else applicable.push(item)
     }
     let next = domain.applyRecords(domain.getState(), applicable)
