@@ -60,6 +60,7 @@ npm run build     # production bundle in dist/
 
 - Backend and its tests need the `sqlite3` CLI on `PATH`.
 - Do not stop, remove or replace a running `kairos` container to test something: see [git-workflow.md](docs/agents/git-workflow.md#docker-safety).
+- Never commit machine-specific paths (home directory with a real account name, `/private/tmp` scratchpads). Use repo-relative paths or `~`, and run `npm run lint:paths`: see [git-workflow.md](docs/agents/git-workflow.md#no-machine-specific-paths-in-commits).
 
 ## Before non-trivial work
 

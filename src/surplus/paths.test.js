@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { classifyFolder, normalizePath, resolveFolder, isRefusedLocation, refusedLocationReason } from './paths.js'
 
-const HOME = '/Users/raphael'
+const HOME = '/home/test'
 
 test('classifyFolder', () => {
   assert.equal(classifyFolder(''), 'empty')
@@ -45,14 +45,14 @@ test('resolveFolder reports a missing base for relative paths', () => {
 
 test('resolveFolder handles empty input and home expansion', () => {
   assert.deepEqual(resolveFolder('', '/b'), { error: 'folder_empty' })
-  assert.equal(resolveFolder('~/code', null, HOME), '/Users/raphael/code')
+  assert.equal(resolveFolder('~/code', null, HOME), '/home/test/code')
   assert.equal(resolveFolder('~', null, HOME), HOME)
   assert.deepEqual(resolveFolder('~/code', null), { error: 'folder_missing_home' })
 })
 
 test('isRefusedLocation refuses root, home, system locations (FR-030)', () => {
   for (const p of ['/', HOME, `${HOME}/`, '/etc', '/etc/ssh', '/usr/local', '/bin', '/sbin', '/System/Library', '/Library',
-    '/var/log', '/private/tmp', '/opt/homebrew', '/Volumes', '/Users', '/..']) {
+    '/var/log', '/private/tmp', '/opt/homebrew', '/Volumes', '/home', '/..']) {
     assert.equal(isRefusedLocation(p, HOME), true, p)
   }
 })
@@ -79,7 +79,7 @@ test('isRefusedLocation fails closed on non-absolute input', () => {
 test('refusedLocationReason explains why', () => {
   assert.equal(refusedLocationReason('/', HOME), 'root')
   assert.equal(refusedLocationReason(HOME, HOME), 'home')
-  assert.equal(refusedLocationReason('/Users', HOME), 'home_ancestor')
+  assert.equal(refusedLocationReason('/home', HOME), 'home_ancestor')
   assert.equal(refusedLocationReason('/etc', HOME), 'system')
   assert.equal(refusedLocationReason('/Volumes', HOME), 'volumes_root')
   assert.equal(refusedLocationReason('x', HOME), 'not_absolute')

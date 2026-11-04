@@ -11,6 +11,17 @@ Hosted on [Codeberg](https://codeberg.org/medenor/kairos) (Forgejo), not GitHub.
 - Do not commit: `.env*`, `backend/data/`, `backend/backups/`, `dist/`, `node_modules/`.
 - Update `CHANGELOG.md` (`[UNRELEASED]`) for user-visible changes.
 
+## No machine-specific paths in commits
+
+This repo is public. A path like a home directory with a real account name, or an agent scratchpad under `/private/tmp`, leaks the developer's username and folder layout, and it stays in git history.
+
+- **Write repo-relative paths** in specs, plans, tasks, docs and comments (`src/utils.js`, `specs/006-surplus-runner/spec.md`). Use `~` for the home directory and a placeholder such as `<scratchpad>` for temp folders.
+- **Spec-kit and subagents write absolute paths by default** (the `Input:` line of `plan.md` and `tasks.md`, task lines, verification notes). Rewrite them to repo-relative before committing.
+- **Tests use neutral fixtures**: `/home/test`, `/Users/me`. Never a real account name.
+- **Pasted output** (terminal logs, canary results, agent reports) often contains the same paths: redact before copying it into a doc.
+- **Check before every commit**: `npm run lint:paths` (also part of `npm run lint`). It fails on the current account's home directory and on agent scratchpad folders. To check another account name too, run `LOCAL_PATH_EXTRA='/Users/name' npm run lint:paths`.
+- If a path was already pushed, fix the working tree and tell the maintainer. Removing it from history means rewriting the branch, which is the maintainer's call, never an agent's.
+
 ## Docker safety
 
 `docker/docker-compose.shared.yml` mounts the repo (`..:/app`) and publishes ports `8888` (backend) and `5273` (frontend). Before running `docker rm`, `docker compose down -v`, or anything that removes volumes/containers, check what the container holds (`docker ps`, `docker inspect`). A self-hosted `kairos` container (`npm run docker:run:selfhosted`) may be a live instance: do not stop, remove or replace it for a smoke test. Use a different `CONTAINER_NAME` and `HOST_PORT` instead.
