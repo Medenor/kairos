@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { DEFAULTS, SUPPORTED_SERVICE_IDS } from '../surplus/constants'
-import { autoRunBlockedReason, setServiceSurplus } from '../surplus/policy'
+import { autoRunBlockedReason, setServiceSurplus, shouldArmGlobalSwitch } from '../surplus/policy'
 import styles from './SurplusSettings.module.css'
 
 // Surplus settings (feature 006, T037). Pure view over the policy: every edit builds a new full
@@ -310,11 +310,14 @@ export default function SurplusSettings({
   // Surplus off also switches that service's automatic runs off, in the same policy update.
   const toggleSurplus = (id, on) => apply((cur) => setServiceSurplus(cur, id, on))
 
-  // The runner treats a missing control record as a global stop, so enabling a service also sets
-  // the global switch on (unless it already is).
+  const globalState = autoRunEnabled ? 'on' : stopIssued ? 'stopped' : 'unset'
+
+  // The runner treats a missing control record as a global stop, so the first enablement also sets
+  // the global switch on. A switch that was explicitly stopped stays stopped: only "Switch back on"
+  // resumes automatic runs, never a per-service toggle.
   const enableAuto = (id, changes) => {
     const result = updateService(id, { autoRunEnabled: true, ...changes })
-    if (result && result.ok !== false && !autoRunEnabled && typeof onSetAutoRunEnabled === 'function') onSetAutoRunEnabled(true)
+    if (result && result.ok !== false && shouldArmGlobalSwitch(globalState) && typeof onSetAutoRunEnabled === 'function') onSetAutoRunEnabled(true)
   }
 
   // Turning off is immediate. Turning on asks for the disclosure acknowledgement the first time
@@ -335,7 +338,6 @@ export default function SurplusSettings({
     if (id) enableAuto(id, { disclosuresAckAt: new Date().toISOString() })
   }
 
-  const globalState = autoRunEnabled ? 'on' : stopIssued ? 'stopped' : 'unset'
   const anyAuto = SUPPORTED_SERVICE_IDS.some((id) => policy.services?.[id]?.autoRunEnabled === true)
 
   const updateRange = (index, changes) =>

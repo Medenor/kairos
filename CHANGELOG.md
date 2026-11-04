@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Quota reading age and "still current" confirmation: a reading older than 12 h makes its service ineligible until the user updates or confirms it.
 - Reset-cycle history: per reset cycle, the quota left at reset and the part consumed by runs. Cycles whose last reading was old at reset are marked approximate.
 - Standing notice that provider rules on automated usage of subscriptions can change; automatic runs stay off by default and can be switched back to suggestion-only at any time.
-- Optional local runner CLI (`runner/`, `npm run runner`, Node built-ins only), for shared mode only. Runs are off by default per service, require approval on the runner device, and can be stopped globally. Not yet implemented: the entry point is pending.
+- Optional local runner CLI (`runner/`, `npm run runner`, Node built-ins only), for shared mode only. Runs are off by default per service, require approval on the runner device, and can be stopped globally. Claude runs are scoped to a disposable copy of the working folder; Codex writes are confined to the copy but its reads are not, so Codex ideas are skipped in the automatic loop unless `allowCodexAuto` is set (see `docs/SECURITY.md`).
 - Runner: an idea without a working folder can now be approved and run, limited to drafts that need no project files. It runs in an empty scratch directory (nothing copied from the user's disk), is approved with `resolvedFolder` null in the approval hash, and its created files appear as added files in the proposal.
 - Run review: each run record shows the idea, service, times, status, output as a draft, decision inputs and failure reason, with accept, discard and re-queue actions.
 - Weekly history (`specs/005-weekly-history`): one quota snapshot per workspace and local calendar week, recorded locally on load and on every change (works offline), updated in place within the week, 52 completed weeks retained.
@@ -43,7 +43,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Node baseline raised from 20 (end of life) to 26 LTS: `.nvmrc`, `engines`, the `Dockerfile` and `docker/docker-compose.shared.yml` images (`node:26-alpine`). Node 22 and later also run the backend test glob that Node 20 could not.
-- Forgejo CI and issue/PR templates moved from `.specify/.forgejo/` to `.forgejo/` so Codeberg picks them up; CI now runs `npm ci`, lint, test and build on Node 20; the weekly security audit now runs `npm audit` on runtime dependencies. Removed the unused docs-portal workflow.
+- Forgejo CI and issue/PR templates moved from `.specify/.forgejo/` to `.forgejo/` so Codeberg picks them up; CI now runs `npm ci`, lint, test and build on the Node version in `.nvmrc`; the weekly security audit now runs `npm audit` on runtime dependencies. Removed the unused docs-portal workflow.
 - `README.md` slimmed down: container deployment moved to `docs/DEPLOYMENT.md`, shared-stack ports corrected (frontend `5273`, backend `8888`), roadmap statuses refreshed.
 - `AGENTS.md` now carries commands, workflow and a reference table to `docs/agents/`.
 - Dev dependencies refreshed with `npm audit fix` (no runtime dependency changes).
@@ -54,6 +54,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Enabling automatic runs for a service no longer switches the global switch back on after "Stop all automatic runs". Only a switch that was never set is turned on automatically; after a stop, use "Switch back on".
 - Shared-state bootstrap no longer throws "Assignment to constant variable" when the server returns quota records.
 - Weekly history view no longer lags one render behind the stored history.
 - `getResetInfo` counts days on the user's local calendar day instead of UTC. For users far from UTC, "Resets in Nd" can change by one day near midnight; the day count shown and the one used by surplus rules now agree.

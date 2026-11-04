@@ -148,7 +148,7 @@ test('validatePolicy does not mutate its input', () => {
   assert.deepEqual(p, copy)
 })
 
-import { setServiceSurplus, autoRunBlockedReason, globalSwitchState } from './policy.js'
+import { setServiceSurplus, autoRunBlockedReason, globalSwitchState, shouldArmGlobalSwitch } from './policy.js'
 
 test('setServiceSurplus off also turns automatic runs off and stays valid', () => {
   const p = defaultPolicy()
@@ -181,4 +181,10 @@ test('globalSwitchState is stopped only for an explicit stop', () => {
   assert.equal(globalSwitchState(undefined), 'unset')
   assert.equal(globalSwitchState({ autoRunEnabled: false }), 'stopped')
   assert.equal(globalSwitchState({ autoRunEnabled: true }), 'on')
+})
+
+test('enabling a service arms the global switch only when it was never set, never after a stop', () => {
+  assert.equal(shouldArmGlobalSwitch(globalSwitchState(null)), true)
+  assert.equal(shouldArmGlobalSwitch(globalSwitchState({ autoRunEnabled: false })), false)
+  assert.equal(shouldArmGlobalSwitch(globalSwitchState({ autoRunEnabled: true })), false)
 })

@@ -183,3 +183,13 @@ export function globalSwitchState(control) {
   if (control && control.autoRunEnabled === true) return 'on'
   return 'unset'
 }
+
+/**
+ * Whether enabling a service's automatic runs may also switch the global switch on. Only a switch
+ * that was never set is armed this way: the runner treats a missing control record as a stop, so
+ * without it the first enablement would do nothing. An explicit stop is never overridden as a side
+ * effect of a per-service toggle; the user resumes with "Switch back on" (SC-007).
+ */
+export function shouldArmGlobalSwitch(switchState) {
+  return switchState === 'unset'
+}
