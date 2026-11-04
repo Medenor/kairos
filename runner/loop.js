@@ -656,7 +656,7 @@ export function createLoop({
   }
 
   async function executeRun(ctx) {
-    const { at, evaluation, policy, svc, adapter, idea, runId, runPayload, runRef, ideaRef, costPct, nextResetDate } = ctx
+    const { at, evaluation, svc, adapter, idea, runId, runPayload, runRef, ideaRef, costPct } = ctx
     const serviceId = svc.id
     const run = { runId, ideaId: idea.id, serviceId, startedAt: at.toISOString(), hardStopAt: null, stopCause: null, child: null, exited: false }
     activeRun = run
@@ -699,12 +699,15 @@ export function createLoop({
       if (!copy.ok) {
         outcome = { status: RUN_STATUS.FAILED, failureReason: { code: FAILURE_REASONS.FOLDER_ERROR, message: `The disposable copy could not be made (${copy.code}).` }, text: '', spawned: false }
       } else {
-        const spawnAt = now()
-        const cause = stopCauseFor(spawnAt, policy, nextResetDate)
-        run.hardStopAt = cause.at.toISOString()
-        const invocation = adapter.buildInvocation({ prompt: adapter.buildPrompt(idea), cwd: copy.workDir, env, toolPath: config.tools?.[adapter.tool] })
-        const exit = await supervise({ run, invocation, cause, spawnAt, serviceId, svc, policy, arm, requestStop, onLeaseLost: (r) => { leaseLost = r } })
-        outcome = decide(adapter, exit, run.stopCause)
+        const recheck = await recheckBeforeSpawn(serviceId)
+        if (!recheck.ok) {
+          outcome = { status: RUN_STATUS.INTERRUPTED, failureReason: recheck.failureReason, text: '', spawned: false }
+        } else {
+          run.hardStopAt = recheck.cause.at.toISOString()
+          const invocation = adapter.buildInvocation({ prompt: adapter.buildPrompt(idea), cwd: copy.workDir, env, toolPath: config.tools?.[adapter.tool] })
+          const exit = await supervise({ run, invocation, cause: recheck.cause, spawnAt: recheck.spawnAt, serviceId, svc, policy: recheck.policy, arm, requestStop, onLeaseLost: (r) => { leaseLost = r } })
+          outcome = decide(adapter, exit, run.stopCause)
+        }
       }
     } catch (error) {
       requestStop(FAILURE_REASONS.INTERRUPTED, `The runner failed: ${error?.message ?? error}`)
@@ -724,6 +727,28 @@ export function createLoop({
       return { ...result, terminal: true, exitCode: exit.exitCode, reason: exit.reason, detail: exit.detail }
     }
     return result
+  }
+
+  // A copy may take long enough for a stop or a time boundary to become active. Pull again before creating a child.
+  async function recheckBeforeSpawn(serviceId) {
+    if (existsSync(paths.stop)) {
+      return { ok: false, failureReason: { code: FAILURE_REASONS.STOPPED_BY_USER, message: 'The STOP file was created.' } }
+    }
+    await fullPull()
+    if (existsSync(paths.stop)) {
+      return { ok: false, failureReason: { code: FAILURE_REASONS.STOPPED_BY_USER, message: 'The STOP file was created.' } }
+    }
+    const { quota, surplus } = derive()
+    if (surplus.control?.autoRunEnabled !== true) {
+      return { ok: false, failureReason: { code: FAILURE_REASONS.STOPPED_BY_USER, message: 'Automatic runs were switched off (global stop).' } }
+    }
+    const currentPolicy = surplus.policy
+    const evaluation = evaluateSurplus({ now: now(), state: quota, services, policy: currentPolicy, ideas: [], runs: [], folderChecks: {}, mode: 'auto' })
+    const current = evaluation.services.find((entry) => entry.serviceId === serviceId)
+    const spawnAt = now()
+    const cause = stopCauseFor(spawnAt, currentPolicy, current?.inputs?.nextResetDate)
+    if (cause.at.getTime() <= spawnAt.getTime()) return { ok: false, failureReason: { code: cause.code, message: cause.message } }
+    return { ok: true, policy: currentPolicy, cause, spawnAt }
   }
 
   // Spawn the tool, arm the hard stop and both watchers, and resolve when the process is gone.

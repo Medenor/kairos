@@ -5,6 +5,7 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { cycleRecordKey, ideaKey, keyForLease, validateRunRecord } from '../src/surplus/records.js'
 import { localAt, withWorld } from './loop.testkit.js'
+import { prepareWorkdir } from './workdir.js'
 
 const KEY_LEASE = keyForLease()
 
@@ -183,3 +184,28 @@ test('a STOP file written after a run ends later ticks without evaluating', () =
     assert.equal(result.reason, 'stop_file')
     assert.equal(w.runs().length, 1)
   }))
+
+for (const { name, duringCopy, failureReason } of [
+  { name: 'a STOP file', duringCopy: (w) => writeFileSync(w.paths.stop, ''), failureReason: 'stopped_by_user' },
+  { name: 'the global stop', duringCopy: (w) => w.setControl(false), failureReason: 'stopped_by_user' },
+  { name: 'protected hours', duringCopy: (w) => w.setPolicy((policy) => { policy.protectedHours = [{ days: [0, 1, 2, 3, 4, 5, 6], start: '14:00', end: '15:00' }] }), failureReason: 'protected_hours' },
+  { name: 'the reset day', duringCopy: (w) => w.clock.set(localAt(6, 1, 1)), failureReason: 'reset_day' },
+]) {
+  test(`a guardrail activated while copying prevents the tool from starting: ${name}`, () =>
+    withWorld({}, async (w) => {
+      const loop = w.makeLoop({
+        deps: {
+          prepareWorkdir: async (options) => {
+            duringCopy(w)
+            return prepareWorkdir(options)
+          },
+        },
+      })
+      const result = await loop.tick()
+
+      assert.equal(result.started, true)
+      assert.equal(result.run.status, 'interrupted')
+      assert.equal(result.run.failureReason.code, failureReason)
+      assert.equal(w.cli.claude.calls().length, 0, 'the tool was never spawned')
+    }))
+}
