@@ -532,13 +532,15 @@ export function getResetInfo(lastResetDate, resetCycleDays, now = new Date()) {
 }
 
 // Returns a map of reset timing signals for all services.
-// Pure function — no side effects.
-export function getResetSignals(state, services) {
+// Pure function — no side effects. Pass the same `now` as the recommendation and the surplus
+// evaluation so every day count uses one local-day basis (FR-038).
+export function getResetSignals(state, services, now = new Date()) {
   const signals = {}
   for (const svc of services) {
     signals[svc.id] = getResetInfo(
       state[svc.id]?.[RESET_DATE_KEY] ?? null,
-      svc.resetCycleDays
+      svc.resetCycleDays,
+      now
     )
   }
   return signals

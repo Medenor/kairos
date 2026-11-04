@@ -1,0 +1,38 @@
+.box {
+  border: 1px dashed var(--color-border-md);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg);
+  padding: 1.5rem 1.25rem;
+  text-align: center;
+}
+
+.title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text);
+  margin-bottom: 6px;
+}
+
+.text {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  max-width: 520px;
+  margin: 0 auto 14px;
+}
+
+.button {
+  padding: 8px 16px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--color-green);
+  color: #fff;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.button:focus-visible {
+  outline: 2px solid var(--color-text);
+  outline-offset: 2px;
+}

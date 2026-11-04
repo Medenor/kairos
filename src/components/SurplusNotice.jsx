@@ -5,7 +5,7 @@
 // Props:
 //   evaluation       Evaluation | null | undefined  result of evaluateSurplus (null/undefined renders nothing)
 //   ideas            Idea[]                         all ideas, used to resolve candidate and skipped idea ids
-//   services         Service[]                      SERVICES (name and color lookup by id)
+//   services         Service[]                      runtime providers (name, color and tool lookup by id)
 //   onMarkLaunched   (ideaId, serviceId) => {ok, error?} | void
 //                                                   called after the inline two-step confirmation
 //                                                   (hook action markLaunchedManually)
@@ -222,11 +222,11 @@ function ServiceSection({ result, service, ideaById, selected, onMarkLaunched, o
   const instruction = useMemo(() => {
     if (!idea) return { text: null, error: null }
     try {
-      return { text: buildManualInstruction(idea, result.serviceId), error: null }
+      return { text: buildManualInstruction(idea, service), error: null }
     } catch (e) {
       return { text: null, error: e instanceof Error ? e.message : 'No instruction available.' }
     }
-  }, [idea, result.serviceId])
+  }, [idea, service])
 
   const runningIdea = runnerInfo
     ? ideas.find((i) => i.status === 'running' && i.serviceId === result.serviceId) ?? null

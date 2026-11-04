@@ -11,7 +11,8 @@
 //   workspaceId  string, overrides the detected workspace id
 //   quotaState   quota state from useSharedQuotaState (`state`, with `__ts_*` stamps). Enables the
 //                reset-cycle readings (T028) and `evaluation` (T038); without it evaluation is null
-//   services     defaults to SERVICES (src/data/services.js)
+//   services     runtime providers (src/providers/runtime.js); none by default
+//   now          the dashboard's shared Date (FR-038); defaults to reading the clock on each evaluation
 //
 // Return value (state fields come from one immutable snapshot, actions are stable):
 //   ideas[]            all ideas incl. archived, sorted by priority (high first), manual order, creation
@@ -53,13 +54,13 @@
 // Extension point: `engine.commit(nextState)` runs a pure update as a local edit (persisted and, in
 // shared mode, synced). The hook itself uses it for the cycle readings.
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
-import { SERVICES } from '../data/services'
 import { createSurplusEngine } from '../surplus/engine'
 import { applyCycleReadings, deriveCycleReadings } from '../surplus/cycleReadings'
 import { evaluateSurplus } from '../surplus/evaluation'
 import { makeUuid } from '../surplus/store'
 import { createRecord, deleteRecord, getWorkspaceId, syncPull, updateRecord } from '../services/sharedStateApi'
 
+const NO_SERVICES = []
 const POLL_MS = 3000
 const EVALUATION_REFRESH_MS = 60000
 const API = { createRecord, updateRecord, deleteRecord, syncPull }
@@ -117,7 +118,7 @@ export function useSurplusStore(options = {}) {
   useEffect(() => () => engine.dispose(), [engine])
 
   const quotaState = options.quotaState ?? null
-  const services = options.services ?? SERVICES
+  const services = options.services ?? NO_SERVICES
 
   // T028: a changed weekly-quota stamp (value entered or "still current") records the cycle reading.
   // The stamps seen last live in a ref, so the effect is idempotent and never loops: committing
@@ -160,14 +161,15 @@ export function useSurplusStore(options = {}) {
   }, [])
 
   const { ideas, policy, runs } = snapshot
+  const sharedNow = options.now ?? null
   const evaluation = useMemo(
     () => {
       void clockTick // dependency only: a tick asks for a new `now`
       return quotaState
-        ? evaluateSurplus({ now: new Date(), state: quotaState, services, policy, ideas, runs, folderChecks: null, mode: 'preview' })
+        ? evaluateSurplus({ now: sharedNow ?? new Date(), state: quotaState, services, policy, ideas, runs, folderChecks: null, mode: 'preview' })
         : null
     },
-    [quotaState, services, policy, ideas, runs, clockTick],
+    [quotaState, services, policy, ideas, runs, clockTick, sharedNow],
   )
 
   return useMemo(() => ({ ...snapshot, evaluation, ...engine.actions, engine }), [snapshot, evaluation, engine])

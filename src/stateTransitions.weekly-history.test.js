@@ -1,13 +1,12 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { SERVICES } from './data/services.js'
+import { LEGACY_SERVICES as SERVICES, legacyDefaultState } from './providers/fixtures/legacyServices.js'
 import {
   LOCAL_WORKSPACE_ID,
   applyQuotaUpdate,
   applyServerRecords,
   applySnapshotRecord,
-  buildDefaultState,
   recordCurrentWeek,
   scopeHistory,
 } from './stateTransitions.js'
@@ -38,7 +37,7 @@ const WEDNESDAY = new Date('2026-04-22T10:30:00')
 const FRIDAY = new Date('2026-04-24T18:00:00')
 
 function snapshotRecord({ workspaceId = 'ws-1', weekDate = FRIDAY, claudeWeekly = 77, recordWorkspace } = {}) {
-  const state = applyQuotaUpdate(buildDefaultState(), 'claude', 'weekly', claudeWeekly, STAMP_NOW)
+  const state = applyQuotaUpdate(legacyDefaultState(), 'claude', 'weekly', claudeWeekly, STAMP_NOW)
   const payload = createWeeklySnapshot({ workspaceId, state, services: SERVICES, now: weekDate })
   return {
     id: `rec-${payload.weekKey}`,
@@ -65,7 +64,7 @@ function quotaRecord(serviceId, quotaId, value) {
 // record, so shared state and weekly history never loaded.
 test('applyServerRecords folds quota_state and snapshot records without throwing', () => {
   const base = {
-    state: buildDefaultState(),
+    state: legacyDefaultState(),
     recordIndex: {},
     weeklyHistory: [],
     historyIndex: {},
@@ -91,13 +90,13 @@ test('hooks route all server records through the tested applyServerRecords', () 
 })
 
 test('snapshot records never change live quota values (FR-010)', () => {
-  const state = deepFreeze(buildDefaultState())
+  const state = deepFreeze(legacyDefaultState())
   const base = deepFreeze({ state, recordIndex: {}, weeklyHistory: [], historyIndex: {} })
 
   const next = applyServerRecords(base, [snapshotRecord({ claudeWeekly: 3 })], { now: FRIDAY })
 
   assert.equal(next.state, state)
-  assert.equal(next.state.claude.weekly, buildDefaultState().claude.weekly)
+  assert.equal(next.state.claude.weekly, legacyDefaultState().claude.weekly)
 })
 
 test('a shared snapshot is scoped to the workspace of the record that stored it', () => {
@@ -113,14 +112,14 @@ test('current week is recorded on load, updated in place, and reset records the 
   // Completed history from an earlier week must survive everything below.
   const lastWeek = createWeeklySnapshot({
     workspaceId: LOCAL_WORKSPACE_ID,
-    state: applyQuotaUpdate(buildDefaultState(), 'claude', 'weekly', 33, STAMP_NOW),
+    state: applyQuotaUpdate(legacyDefaultState(), 'claude', 'weekly', 33, STAMP_NOW),
     services: SERVICES,
     now: shiftLocalDays(MONDAY, -7),
   })
   const stored = JSON.stringify([lastWeek])
 
   // load
-  let state = deepFreeze(applyQuotaUpdate(buildDefaultState(), 'claude', 'weekly', 55, STAMP_NOW))
+  let state = deepFreeze(applyQuotaUpdate(legacyDefaultState(), 'claude', 'weekly', 55, STAMP_NOW))
   let history = recordCurrentWeek(loadWeeklyHistory(stored), {
     workspaceId: '',
     state,
@@ -142,7 +141,7 @@ test('current week is recorded on load, updated in place, and reset records the 
   assert.notEqual(current().capturedAt, loadedAt)
 
   // resetAll
-  state = deepFreeze(buildDefaultState())
+  state = deepFreeze(legacyDefaultState())
   history = recordCurrentWeek(history, { workspaceId: '', state, services: SERVICES, now: FRIDAY })
   assert.equal(history.length, 2)
   assert.equal(
@@ -157,7 +156,7 @@ test('current week is recorded on load, updated in place, and reset records the 
 })
 
 test('a new week creates a second snapshot and leaves the previous week intact', () => {
-  const state = buildDefaultState()
+  const state = legacyDefaultState()
   let history = recordCurrentWeek([], { workspaceId: 'ws-1', state, services: SERVICES, now: FRIDAY })
   history = recordCurrentWeek(history, {
     workspaceId: 'ws-1',
@@ -175,7 +174,7 @@ test('a new week creates a second snapshot and leaves the previous week intact',
 test('history is recorded locally without a workspace, then follows the workspace once it resolves', () => {
   const offline = recordCurrentWeek([], {
     workspaceId: '',
-    state: applyQuotaUpdate(buildDefaultState(), 'claude', 'weekly', 64, STAMP_NOW),
+    state: applyQuotaUpdate(legacyDefaultState(), 'claude', 'weekly', 64, STAMP_NOW),
     services: SERVICES,
     now: FRIDAY,
   })

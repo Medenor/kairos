@@ -10,7 +10,7 @@ import styles from './SurplusSettings.module.css'
 // Props:
 //   policy          surplus policy (see src/surplus/policy.js)
 //   onUpdatePolicy  (policyOrUpdater) => {ok, errors?: [{path, message}], error?: {message}}
-//   services        SERVICES array (only used for display names)
+//   services        runtime providers (display names; only providers able to run surplus get a section)
 //   sharedMode      boolean, true when a workspace id is set (automatic runs need it, FR-023)
 //   autoRunEnabled  boolean, the global switch `surplus-control` (useSurplusStore().autoRunEnabled)
 //   stopIssued      boolean, true only when a stop was issued (control record autoRunEnabled === false)
@@ -338,7 +338,9 @@ export default function SurplusSettings({
     if (id) enableAuto(id, { disclosuresAckAt: new Date().toISOString() })
   }
 
-  const anyAuto = SUPPORTED_SERVICE_IDS.some((id) => policy.services?.[id]?.autoRunEnabled === true)
+  // Until per-provider settings exist (policy v2), only legacy ids carry settings; providers never match them.
+  const eligibleIds = SUPPORTED_SERVICE_IDS.filter((id) => services.some((s) => s.id === id && s.surplus))
+  const anyAuto = eligibleIds.some((id) => policy.services?.[id]?.autoRunEnabled === true)
 
   const updateRange = (index, changes) =>
     apply((cur) => ({
@@ -362,12 +364,12 @@ export default function SurplusSettings({
   // FR-025: no dedicated policy field exists, so "suggestion-only" means autoRunEnabled=false on
   // every supported service. The switch is on when that is already true and can only be turned
   // on here; enabling a service happens per service in its own section (T058).
-  const supported = SUPPORTED_SERVICE_IDS.filter((id) => policy.services?.[id])
+  const supported = eligibleIds.filter((id) => policy.services?.[id])
   const suggestionOnly = supported.every((id) => policy.services[id].autoRunEnabled === false)
   const setAllSuggestionOnly = () =>
     apply((cur) => {
       const next = { ...cur.services }
-      for (const id of SUPPORTED_SERVICE_IDS) if (next[id]) next[id] = { ...next[id], autoRunEnabled: false }
+      for (const id of eligibleIds) if (next[id]) next[id] = { ...next[id], autoRunEnabled: false }
       return { ...cur, services: next }
     })
   const suggestionOnlyId = useId()
@@ -436,6 +438,8 @@ export default function SurplusSettings({
           : 'Some services have automatic runs enabled. Tick this to switch all of them back to suggestions.'}
         {!sharedMode && ' Automatic runs also need shared mode, which is off.'}
       </p>
+
+      {supported.length === 0 && <p className={styles.hint}>No provider is available for surplus use.</p>}
 
       {supported.map((id) => (
         <ServiceSection

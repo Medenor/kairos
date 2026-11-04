@@ -185,8 +185,8 @@ test('launching an idea manually on a service that is not supported anymore is r
 })
 
 test('a manual instruction for a service that is gone throws a TypeError that the notice catches', () => {
-  assert.throws(() => buildManualInstruction({ text: 'a' }, 'removed'), TypeError)
-  assert.throws(() => buildManualInstruction({ text: 'a' }, 'copilot'), TypeError)
+  assert.throws(() => buildManualInstruction({ text: 'a' }, undefined), TypeError)
+  assert.throws(() => buildManualInstruction({ text: 'a' }, { name: 'Gone', surplus: null }), TypeError)
 })
 
 test('review helpers cope with a run whose idea was deleted and a failure code that no longer exists', () => {

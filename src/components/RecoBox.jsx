@@ -1,9 +1,12 @@
-import { SERVICES } from '../data/services'
-import { RULES } from '../data/rules'
-import { getResetSignals } from '../utils'
+import { recommend } from '../routing/engine'
 import styles from './RecoBox.module.css'
 
-export default function RecoBox({ task, state }) {
+const CAUSE_LABELS = { not_suitable: 'not suitable', blocked: 'blocked', unread: 'no reading' }
+
+// Props: task (id or null), providers (runtime services), state (quota state), now (shared Date).
+// The recommendation is computed by the generic engine from what the user declared; this component
+// only displays it, including why each other provider was left out.
+export default function RecoBox({ task, providers, state, now }) {
   if (!task) {
     return (
       <div className={styles.box}>
@@ -12,29 +15,48 @@ export default function RecoBox({ task, state }) {
     )
   }
 
-  const rule = RULES[task]
-  if (!rule) return null
+  const result = recommend({ task, providers, state, now })
+  const colorOf = (id) => providers.find((p) => p.id === id)?.color || 'var(--color-border-md)'
 
-  const resetSignals = getResetSignals(state, SERVICES)
-  const result = rule(state, resetSignals)
-  const svc = SERVICES.find((s) => s.id === result.primary)
-  if (!svc) return null
+  if (!result.primary) {
+    return (
+      <div className={styles.box}>
+        <p className={styles.reason}>{result.reason}</p>
+        <Excluded excluded={result.excluded} />
+      </div>
+    )
+  }
 
   return (
     <div className={styles.box}>
       <div className={styles.primary}>
-        <span className={styles.dot} style={{ background: svc.color }} />
-        <span className={styles.svcName}>{svc.name}</span>
+        <span className={styles.dot} style={{ background: colorOf(result.primary.providerId) }} />
+        <span className={styles.svcName}>{result.primary.name}</span>
       </div>
       <p className={styles.reason}>{result.reason}</p>
-      {result.alts && result.alts.length > 0 && (
+      {result.alternatives.length > 0 && (
         <div className={styles.alts}>
           <span className={styles.altsLabel}>Alternatives</span>
-          {result.alts.map((a) => (
-            <div key={a} className={styles.altRow}>→ {a}</div>
+          {result.alternatives.map((alt) => (
+            <div key={alt.providerId} className={styles.altRow}>→ {alt.name} ({alt.role})</div>
           ))}
         </div>
       )}
+      <Excluded excluded={result.excluded} />
     </div>
+  )
+}
+
+function Excluded({ excluded }) {
+  if (excluded.length === 0) return null
+  return (
+    <details className={styles.excluded}>
+      <summary className={styles.altsLabel}>Left out ({excluded.length})</summary>
+      {excluded.map((item) => (
+        <div key={item.providerId} className={styles.altRow}>
+          {item.name}: {CAUSE_LABELS[item.cause]} — {item.detail}
+        </div>
+      ))}
+    </details>
   )
 }

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { createServer } from 'vite'
-import { SERVICES } from './data/services.js'
+import { LEGACY_SERVICES as SERVICES } from './providers/fixtures/legacyServices.js'
 import { createWeeklySnapshot } from './utils.js'
 
 // The panel is real JSX with a CSS module, so it is loaded through Vite's SSR

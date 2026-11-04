@@ -1,12 +1,12 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { SERVICES } from '../data/services.js'
-import { applyServerRecords, buildDefaultState, scopeHistory } from '../stateTransitions.js'
+import { LEGACY_SERVICES as SERVICES, legacyDefaultState } from '../providers/fixtures/legacyServices.js'
+import { applyServerRecords, scopeHistory } from '../stateTransitions.js'
 import { createWeeklySnapshot } from '../utils.js'
 import { buildWeeklyHistoryMigrationRecords } from './localExport.js'
 
 function snapshot(workspaceId, isoDate, claudeWeekly = 50) {
-  const state = buildDefaultState()
+  const state = legacyDefaultState()
   state.claude.weekly = claudeWeekly
   return createWeeklySnapshot({ workspaceId, state, services: SERVICES, now: new Date(isoDate) })
 }
@@ -57,7 +57,7 @@ test('migrated snapshots appear in the workspace-scoped history after sync', () 
   const items = records.map((record, index) => ({ ...record, id: `r${index}`, version: 1, workspace_id: 'ws-1' }))
 
   const next = applyServerRecords(
-    { state: buildDefaultState(), recordIndex: {}, weeklyHistory: [], historyIndex: {} },
+    { state: legacyDefaultState(), recordIndex: {}, weeklyHistory: [], historyIndex: {} },
     items,
     { now: new Date('2026-04-24T12:00:00') }
   )

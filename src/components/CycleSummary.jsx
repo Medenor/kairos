@@ -1,6 +1,4 @@
 import { useMemo } from 'react'
-import { SERVICES } from '../data/services'
-import { SUPPORTED_SERVICE_IDS } from '../surplus/constants'
 import { summariseCycles } from '../surplus/cycles'
 import styles from './CycleSummary.module.css'
 
@@ -66,8 +64,8 @@ function ServiceCycles({ service, summary }) {
   )
 }
 
-export default function CycleSummary({ cycles = [], runs = [], services = SERVICES, now }) {
-  const supported = useMemo(() => services.filter((s) => SUPPORTED_SERVICE_IDS.includes(s.id)), [services])
+export default function CycleSummary({ cycles = [], runs = [], services = [], now }) {
+  const supported = useMemo(() => services.filter((s) => s.surplus), [services])
   const summaries = useMemo(() => {
     const at = now ?? new Date()
     return supported.map((service) => ({

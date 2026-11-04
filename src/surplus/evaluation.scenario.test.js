@@ -5,7 +5,7 @@ import assert from 'node:assert/strict'
 import { evaluateSurplus } from './evaluation.js'
 import { defaultPolicy } from './policy.js'
 import { SERVICES } from '../data/services.js'
-import { RULES } from '../data/rules.js'
+import { RULES } from '../routing/fixtures/legacyRules.js'
 import { getResetInfo, getConsumedPct } from '../utils.js'
 
 // Fixed zone, set before any Date is built at module level; restored when the file is done.

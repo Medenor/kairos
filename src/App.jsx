@@ -1,10 +1,13 @@
 import { useState } from 'react'
-import { SERVICES } from './data/services'
 import { useSharedQuotaState } from './hooks/useSharedQuotaState'
+import { useCatalogue } from './hooks/useCatalogue'
+import { useNow } from './hooks/useNow'
 import ServiceCard from './components/ServiceCard'
 import TaskPicker from './components/TaskPicker'
 import RecoBox from './components/RecoBox'
 import SummaryBar from './components/SummaryBar'
+import EmptyState from './components/EmptyState'
+import ProviderManager from './components/ProviderManager'
 import MigrationPanel from './components/MigrationPanel'
 import BackupPanel from './components/BackupPanel'
 import WeeklyHistoryPanel from './components/WeeklyHistoryPanel.jsx'
@@ -19,10 +22,15 @@ import { globalSwitchState } from './surplus/policy'
 import styles from './App.module.css'
 
 export default function App() {
+  const now = useNow()
+  const catalogue = useCatalogue()
+  const providers = catalogue.runtimeProviders
+  const [openRequest, setOpenRequest] = useState(0)
   const {
     state,
     updateQuota,
     confirmQuotas,
+    applyStateEffects,
     resetAll,
     refreshSync,
     syncStatus,
@@ -31,9 +39,16 @@ export default function App() {
     weeklyHistory,
     refreshWeeklyHistory,
     getServiceHistory,
-  } = useSharedQuotaState()
+  } = useSharedQuotaState(providers)
   const [selectedTask, setSelectedTask] = useState(null)
-  const surplus = useSurplusStore({ workspaceId, quotaState: state })
+  const surplus = useSurplusStore({ workspaceId, quotaState: state, services: providers, now })
+
+  // Readings entered with the form are applied right after the catalogue persisted state then definition.
+  function handleAddProvider(input) {
+    const result = catalogue.addProvider(input, { state, now })
+    if (result.ok) applyStateEffects(result.effects)
+    return result
+  }
 
   return (
     <div className={styles.app}>
@@ -46,21 +61,24 @@ export default function App() {
       </header>
 
       <section>
-        <div className={styles.sectionLabel}>Service status</div>
-        {SERVICES.map((svc) => (
+        <div className={styles.sectionLabel}>Providers</div>
+        {providers.length === 0 && <EmptyState onAdd={() => setOpenRequest((n) => n + 1)} />}
+        {providers.map((svc) => (
           <ServiceCard
             key={svc.id}
             svc={svc}
             quotaState={state[svc.id]}
             onUpdate={updateQuota}
             onConfirm={confirmQuotas}
+            now={now}
           />
         ))}
+        <ProviderManager onAdd={handleAddProvider} openRequest={openRequest} />
       </section>
 
       <section className={styles.historySection}>
         <WeeklyHistoryPanel
-          services={SERVICES}
+          services={providers}
           weeklyHistory={weeklyHistory}
           onRefresh={refreshWeeklyHistory}
           getServiceHistory={getServiceHistory}
@@ -74,7 +92,7 @@ export default function App() {
 
       <section>
         <div className={styles.sectionLabel}>Recommendation</div>
-        <RecoBox task={selectedTask} state={state} />
+        <RecoBox task={selectedTask} providers={providers} state={state} now={now} />
       </section>
 
       <section>
@@ -82,7 +100,8 @@ export default function App() {
         <SurplusNotice
           evaluation={surplus.evaluation}
           ideas={surplus.ideas}
-          services={SERVICES}
+          services={providers}
+          now={now}
           onMarkLaunched={surplus.markLaunchedManually}
           onConfirmQuotas={confirmQuotas}
           lease={surplus.lease}
@@ -113,8 +132,8 @@ export default function App() {
 
       <section>
         <div className={styles.sectionLabel}>Run results</div>
-        <RunReview runs={surplus.runs} ideas={surplus.ideas} onDecision={surplus.decideRun} />
-        <CycleSummary cycles={surplus.cycles} runs={surplus.runs} services={SERVICES} />
+        <RunReview runs={surplus.runs} ideas={surplus.ideas} onDecision={surplus.decideRun} services={providers} />
+        <CycleSummary cycles={surplus.cycles} runs={surplus.runs} services={providers} now={now} />
       </section>
 
       <section>
@@ -122,7 +141,7 @@ export default function App() {
         <SurplusSettings
           policy={surplus.policy}
           onUpdatePolicy={surplus.updatePolicy}
-          services={SERVICES}
+          services={providers}
           sharedMode={surplus.sharedMode}
           autoRunEnabled={surplus.autoRunEnabled}
           stopIssued={globalSwitchState(surplus.control) === 'stopped'}
@@ -137,6 +156,7 @@ export default function App() {
       </section>
 
       <SummaryBar
+        providers={providers}
         state={state}
         onReset={resetAll}
         onSync={refreshSync}

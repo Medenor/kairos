@@ -1,3 +1,6 @@
+// REFERENCE DATA, NOT SHIPPED. Verbatim copy of the fixed-provider rule table that src/data/rules.js
+// held before feature 007 (ruleset version 1). Used only by src/routing/routing.reference.test.js to
+// show before/after recommendations (Constitution: routing changes need a before/after scenario).
 // Routing rules — pure functions that take quota state and return a recommendation.
 // state shape: { [serviceId]: { [quotaId]: number } }
 //

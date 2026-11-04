@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { SERVICES } from './data/services.js'
+import { LEGACY_SERVICES as SERVICES } from './providers/fixtures/legacyServices.js'
 import {
   adoptLocalSnapshots,
   createWeeklySnapshot,

@@ -180,3 +180,40 @@ export function sampleServices() {
     },
   ]
 }
+
+const B32 = 'abcdefghijklmnopqrstuvwxyz234567'
+function seqToken(n, length) {
+  let out = ''
+  let rest = n
+  for (let i = 0; i < length; i += 1) {
+    out = B32[rest % 32] + out
+    rest = Math.floor(rest / 32)
+  }
+  return out
+}
+
+// Deterministic id source for reducers: newId('provider') -> p_aaaaaaaaaaab, newId('quota') -> q_aaaaaaab.
+export function sequentialIds() {
+  let provider = 0
+  let quota = 0
+  return (kind) => (kind === 'provider' ? `p_${seqToken((provider += 1), 12)}` : `q_${seqToken((quota += 1), 8)}`)
+}
+
+// Form input for addProvider: quotas carry an entered `value` and a `ref` for surplus designations.
+export function sampleInput(overrides = {}) {
+  return {
+    name: 'Delta Weekly',
+    cost: { amount: 20, currency: '€' },
+    color: '#112233',
+    flags: ['premium'],
+    note: 'note',
+    schedule: { type: 'weekly' },
+    quotas: [
+      { ref: 'week', label: 'Weekly quota', type: 'consumed_pct', value: 30 },
+      { ref: 'session', label: '5h slot', type: 'consumed_pct', value: 10 },
+    ],
+    fits: { coding_hard: 'strong' },
+    surplus: { tool: 'claude', weeklyQuotaId: 'week', sessionQuotaId: 'session' },
+    ...overrides,
+  }
+}

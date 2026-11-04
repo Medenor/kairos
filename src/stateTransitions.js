@@ -1,7 +1,7 @@
 // Pure state transitions shared by useQuotaState and useSharedQuotaState.
 // Keeping them outside the hooks lets scenario tests exercise load, update, reset
 // and server-sync behavior in plain Node without a DOM renderer.
-import { SERVICES } from './data/services.js'
+export { applyProviderStateEffects } from './providers/stateEffects.js'
 import {
   RESET_DATE_KEY,
   quotaTimeKey,
@@ -12,15 +12,18 @@ import {
 
 export const LOCAL_WORKSPACE_ID = 'local'
 
-export function buildDefaultState(services = SERVICES) {
+// Nothing is pre-filled: with no provider the state is `{}`. A provider's quotas start unread
+// (`null` value and stamp) until a reading is entered. Entries of ids no provider defines (data written
+// by the previous fixed-provider build) are never read here and are preserved by every transition.
+export function buildDefaultState(providers = []) {
   const state = {}
-  services.forEach((service) => {
-    state[service.id] = {}
-    service.quotas.forEach((quota) => {
-      state[service.id][quota.id] = quota.value
-      state[service.id][quotaTimeKey(quota.id)] = null
+  providers.forEach((provider) => {
+    state[provider.id] = {}
+    provider.quotas.forEach((quota) => {
+      state[provider.id][quota.id] = null
+      state[provider.id][quotaTimeKey(quota.id)] = null
     })
-    state[service.id][RESET_DATE_KEY] = null
+    state[provider.id][RESET_DATE_KEY] = null
   })
   return state
 }
@@ -44,7 +47,7 @@ export function applyQuotaUpdate(prev, serviceId, quotaId, value, now) {
 }
 
 // Stamps every quota of a service as "still current" without changing any value.
-export function confirmQuotas(prev, serviceId, now, services = SERVICES) {
+export function confirmQuotas(prev, serviceId, now, services = []) {
   const service = services.find((item) => item.id === serviceId)
   if (!service) return prev
   const stamp = now.toISOString()
@@ -103,7 +106,9 @@ export function applyServerRecords(base, items = [], { now = new Date() } = {}) 
 
 // Records the current-week snapshot for the given state. Returns the same history
 // reference when nothing changed.
-export function recordCurrentWeek(history, { workspaceId, state, services = SERVICES, now = new Date() }) {
+export function recordCurrentWeek(history, { workspaceId, state, services = [], now = new Date() }) {
+  // With no provider there is nothing to record (FR-026).
+  if (!services.length) return history
   return recordWeeklySnapshot(history, {
     workspaceId: workspaceId || LOCAL_WORKSPACE_ID,
     state,

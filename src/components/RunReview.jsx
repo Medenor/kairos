@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react'
-import { SERVICES } from '../data/services'
 import { describeRunFailure, parseDiff, reviewState, sortRunsNewestFirst } from '../surplus/runs'
 import styles from './RunReview.module.css'
 
@@ -39,8 +38,8 @@ export function formatTime(iso) {
   return Number.isNaN(date.getTime()) ? '—' : date.toLocaleString()
 }
 
-function serviceName(serviceId) {
-  return SERVICES.find((s) => s.id === serviceId)?.name ?? serviceId
+function serviceName(serviceId, services) {
+  return services.find((s) => s.id === serviceId)?.name ?? serviceId
 }
 
 function ideaTitle(run, idea) {
@@ -141,7 +140,7 @@ function Diff({ proposal }) {
   )
 }
 
-function RunDetail({ run, idea, onDecision }) {
+function RunDetail({ run, idea, onDecision, services }) {
   const failure = describeRunFailure(run)
   const state = reviewState(run, idea)
   const reason = inputsReason(run.decisionInputs)
@@ -159,7 +158,7 @@ function RunDetail({ run, idea, onDecision }) {
       <dl className={styles.facts}>
         <div>
           <dt>Service</dt>
-          <dd>{serviceName(run.serviceId)}</dd>
+          <dd>{serviceName(run.serviceId, services)}</dd>
         </div>
         <div>
           <dt>Started</dt>
@@ -228,7 +227,7 @@ function RunDetail({ run, idea, onDecision }) {
   )
 }
 
-export default function RunReview({ runs = [], ideas = [], onDecision }) {
+export default function RunReview({ runs = [], ideas = [], onDecision, services = [] }) {
   const sorted = useMemo(() => sortRunsNewestFirst(runs), [runs])
   const ideaById = useMemo(() => new Map(ideas.map((idea) => [idea.id, idea])), [ideas])
   const [selectedId, setSelectedId] = useState(null)
@@ -262,7 +261,7 @@ export default function RunReview({ runs = [], ideas = [], onDecision }) {
                       <span className={`${styles.status} ${styles[STATUS_CLASS[run.status] ?? 'statusNeutral']}`}>
                         {STATUS_LABELS[run.status] ?? run.status}
                       </span>
-                      <span>{serviceName(run.serviceId)}</span>
+                      <span>{serviceName(run.serviceId, services)}</span>
                       <span>{formatTime(run.startedAt)}</span>
                       {state.decidable ? <span className={styles.pending}>To review</span> : null}
                       {state.decided ? <span>{DECISION_LABELS[state.decision]}</span> : null}
@@ -272,7 +271,7 @@ export default function RunReview({ runs = [], ideas = [], onDecision }) {
               )
             })}
           </ul>
-          <RunDetail run={selected} idea={ideaById.get(selected.ideaId)} onDecision={onDecision} />
+          <RunDetail run={selected} idea={ideaById.get(selected.ideaId)} onDecision={onDecision}  services={services} />
         </div>
       )}
     </section>
