@@ -90,7 +90,7 @@ The command surface is specified in [`specs/006-surplus-runner/contracts/runner-
 
 ### Prerequisites
 
-- Node.js 20 or newer, no extra npm packages
+- Node.js 26 or newer, no extra npm packages
 - Shared mode with a workspace (`Backend environment` above). Without shared mode, automatic runs are unavailable and the runner refuses to start
 - `claude` and/or `codex` on `PATH`, signed in with your subscription. Do not set `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` or `CODEX_API_KEY`: preflight fails with `billing_guard` if they are present, or if the login method is not the subscription sign-in
 - Shared store reachable from the runner device

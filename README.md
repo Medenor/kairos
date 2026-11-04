@@ -40,7 +40,7 @@ This tool tracks your quotas in one place and tells you which service to use rig
 
 ## Getting started
 
-Requires Node.js 20 or newer.
+Requires Node.js 26 or newer.
 
 ```bash
 git clone https://codeberg.org/medenor/kairos.git
@@ -70,7 +70,7 @@ The dashboard works without the runner. Without it, surplus is suggestion-only: 
 
 The runner is an optional local CLI (`runner/`, Node built-ins only) that can start approved ideas with your subscription-signed-in `claude` or `codex` CLI when surplus conditions hold. It needs:
 
-- Node.js 20 or newer
+- Node.js 26 or newer
 - Shared mode with a workspace (see the shared backend above). Automatic runs are unavailable in local-only mode
 - `claude` and/or `codex` on `PATH`, signed in with your subscription. Preflight fails if `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` or `CODEX_API_KEY` is set, so runs cannot bill the API
 

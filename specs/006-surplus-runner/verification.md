@@ -47,7 +47,7 @@ Note A. The 5 s test uses an injected clock (`loop.testkit.js`), so it proves th
 
 The two checks below were first written as instructions. On 2026-11-04 the containment canary and the login-status part of the billing check were run; see "Manual check results (2026-11-04)" below. E (API-key login) was run later the same day against a throwaway `CODEX_HOME` and gave `billing_guard`; `npm run runner -- start` itself was not used. The optional `fs_usage` observation (F) was skipped.
 
-- [ ] **Containment canary.** A real `claude -p` or `codex exec` run in the disposable copy must not be able to read or modify the original folder or read `~/.ssh`.
+- [x] **Containment canary.** (done 2026-11-04: Claude contained; Codex writes contained, reads accepted and gated; see "Manual check results (2026-11-04)") A real `claude -p` or `codex exec` run in the disposable copy must not be able to read or modify the original folder or read `~/.ssh`.
   1. Pick a throwaway original folder outside the repo, for example `~/kairos-canary/original`. Put in it `notes.txt` with the text `original`, and create `~/kairos-canary/outside.txt` with the text `outside`.
   2. Record checksums: `shasum -a 256 ~/kairos-canary/original/notes.txt ~/kairos-canary/outside.txt > ~/kairos-canary/before.sha`.
   3. Make the disposable copy the runner would make: `cp -R ~/kairos-canary/original ~/kairos-canary/copy`. Use a copy, never the original, for steps 4 and 5.
@@ -58,7 +58,7 @@ The two checks below were first written as instructions. On 2026-11-04 the conta
   6. Remove the test folders: `rm -rf ~/kairos-canary`. Write the result (pass or fail, with the tool and version) into this file under a new heading.
   7. If the tool can reach the original folder or `~/.ssh`, do not enable automatic runs. Record the finding in `docs/SECURITY.md` (residual containment risk).
 
-- [ ] **API-key-login billing check.** With a real signed-in tool, confirm preflight refuses when the tool is logged in through an API key.
+- [x] **API-key-login billing check.** (done 2026-11-04 with a throwaway `CODEX_HOME`; see check E) With a real signed-in tool, confirm preflight refuses when the tool is logged in through an API key.
   1. Confirm the API key variables are unset in the shell that starts the runner: `env | grep -c -i -E "ANTHROPIC_API_KEY|OPENAI_API_KEY"` must print `0`. Do not print the values.
   2. Check the current login: `claude auth status --json` (the preflight reads `authMethod`, which must be `claude.ai`) and `codex login status`. Record the output without any secret.
   3. Switch the tool to API-key login using that tool's own login command (for Claude, `claude /login` and choose the API-key option; for Codex, `codex login --with-api-key`). This changes the user's login state, so do it deliberately.
@@ -68,9 +68,7 @@ The two checks below were first written as instructions. On 2026-11-04 the conta
 
 ## Next steps
 
-- Mark T060 and T070 done only after the two manual checks above are recorded.
-- If the SC-001 time target is required as a measured number, run quickstart section 3 step 2 in a browser and record the elapsed time.
-- If the Node 20 target is required, install Node 20 and rerun the benchmark script.
+Status 2026-11-04: nothing is left to do for this feature. Both manual checks are recorded below, T060 and T070 are ticked, SC-001 was measured in a browser (see "Browser verification (SC-001)"), and the Node 20 target was run (T075) and then superseded by the Node 26 baseline. The one open item is a decision, not work: see "Closing pass (2026-11-04)".
 
 ## Browser verification (SC-001)
 
@@ -174,17 +172,17 @@ Seeded one completed, one failed and one interrupted run, three ideas, and two r
 
 ### Defects and observations (most severe first)
 
-1. Light mode contrast (medium, visual). Amber (`#EF9F27`) text on a pale amber tint is 1.7 to 1.8:1 and green pass badges are 2.7:1. Affects the surplus notice badge ("Not eligible"), R fail badges, the approval chip and the interrupted status badge in `SurplusNotice`, `IdeaQueue` and `RunReview` styles. Steps: remove the dark rule or use a light OS, open any section with those badges. Expected 4.5:1 for small text; actual 1.7 to 2.7:1. No console text.
+1. Light mode contrast (medium, visual). Amber (`#EF9F27`) text on a pale amber tint is 1.7 to 1.8:1 and green pass badges are 2.7:1. Affects the surplus notice badge ("Not eligible"), R fail badges, the approval chip and the interrupted status badge in `SurplusNotice`, `IdeaQueue` and `RunReview` styles. Steps: remove the dark rule or use a light OS, open any section with those badges. Expected 4.5:1 for small text; actual 1.7 to 2.7:1. No console text. **Fixed:** badge text now uses the `--color-green-text`, `--color-amber-text` and `--color-red-text` tokens (`src/index.css`). Measured on the tinted badge backgrounds over the three surfaces of each theme, 2026-11-04: light 4.81 to 6.76:1 (green 4.91 to 5.70, amber 5.80 to 6.76, red 4.81 to 5.59), dark 4.78 to 7.04:1 (green 5.63 to 7.04, amber 4.96 to 6.20, red 4.78 to 5.95). All at or above 4.5:1. Computed from the token values and the badge alpha tints, not re-rendered in a browser.
 2. Not tested, not a defect: the near-midnight day-count (needs another time zone) and the real tool steps of section 4.
 3. Dark mode contrast (low). Eleven small-text styles between 3.5 and 4.4:1 (lowest "Failed" badge 3.5:1); the stop button label is 3.93:1. **Fixed:** dark `--color-text-tertiary` raised from #888780 to #989690 (3.88 to 4.73:1 on the lightest dark surface, 4.31 to 5.26 on the secondary one); status text tokens already measured 4.72 to 8.18:1 on their badges; the stop button is now white on #c62f2d (3.93 to 5.46:1); light tertiary text moved from #888780 (3.2:1) to #6b6a65 (4.59:1).
 4. Phone width (low, test limit). Chrome cannot go below 500 px here, so 390 px was checked in an iframe; the layout passed, but the real browser window was not at 390 px.
 5. Global switch UX (low). After enabling automatic runs for a service the global switch is still off and the text reads "Global switch: off ... Switch back on", although it was never on. Not wrong, but the wording suggests a stop happened. Expected: a hint that the global switch must be turned on; actual: only a "Switch back on" link. **Fixed:** the display now distinguishes never set from stopped (`globalSwitchState`): it reads "not set yet. It turns on when you enable automatic runs", and enabling a service turns the switch on.
 6. Duplicate shared-store notice (cosmetic). In shared mode the unauthenticated-store sentence appears twice, once in "New idea" and once in "Idea queue". **Fixed:** the notice is shown once, in "New idea"; the queue no longer repeats it.
-7. Automatic-run toggle for a service with surplus off (low). The ChatGPT toggle was enabled although "Use surplus quota for queued ideas" was off for ChatGPT, so the disclosure dialog can be accepted for a service that rule R1 blocks anyway. Expected per spec: not stated; flagged for a decision.
+7. Automatic-run toggle for a service with surplus off (low). The ChatGPT toggle was enabled although "Use surplus quota for queued ideas" was off for ChatGPT, so the disclosure dialog can be accepted for a service that rule R1 blocks anyway. Expected per spec: not stated; flagged for a decision. **Fixed:** `autoRunBlockedReason` now refuses with "Turn on surplus use for this service first." and `setServiceSurplus` turns automatic runs off together with surplus (tests in `src/surplus/policy.test.js`).
 8. Run list at phone width shows a nested scroll box for the three records with a visible scrollbar (cosmetic). **Fixed:** at 720 px and below the run list has no height cap or scroll (`RunReview.module.css`).
 9. "Request approval" is offered on ideas that are completed or launched manually (cosmetic or logic, low); not verified whether that is intended. **Fixed:** the button is offered only for waiting ideas without a pending request (`canRequestApproval` in `runnerState.js`).
 10. R6 message wording when the reset day is already past: "a 60 min run would reach the reset day (2026-11-01 00:00)" refers to a date in the past (cosmetic). **Fixed:** an overdue reset now reads "the reset day (...) has already started: update the reset date".
-11. Docs: `architecture.md` and `CHANGELOG.md` omit the provider-rules notice (see section 6).
+11. Docs: `architecture.md` and `CHANGELOG.md` omit the provider-rules notice (see section 6). **Fixed:** both now state it (`docs/agents/architecture.md` line 53, `CHANGELOG.md` `[UNRELEASED]` Added).
 
 Tool-side events during the run: the Chrome tab group was closed by the browser mid-run (after the SC-001 and first checks) and a new tab was opened in a new group; the other agent's code changes did not break the dev server and behaviour did not shift.
 
@@ -220,7 +218,7 @@ Tool-side events during the run: the Chrome tab group was closed by the browser 
 
 ### Cleanup
 
-- The canary files were all inside `~/kairos-canary`. The first `rm -rf ~/kairos-canary` was held and cancelled by the blast-radius guard, so the folder may still exist; remove it with `rm -rf ~/kairos-canary` (it holds only `original/`, `outside.txt`, the decoy, two disposable copies and `before.sha`). No real `~/.ssh` file was involved.
+- The canary files were all inside `~/kairos-canary`. The first `rm -rf ~/kairos-canary` was held and cancelled by the blast-radius guard. Confirmed 2026-11-04 that `~/kairos-canary` no longer exists. No real `~/.ssh` file was involved.
 
 ### Follow-up (2026-11-04): Claude scoped to the copy, Codex root cause
 
@@ -252,3 +250,22 @@ Run with `volta run --node 20` (Node v20.20.2); the other results in this file a
 Consequence: `npm test` stops at the backend step on Node 20, so the runner suite did not run through the chain; it was run on its own. The backend script is unchanged by this feature (present since the shared-backend work), so this is an existing mismatch with the `>=20` engines field, not a regression. Fix when convenient, for example with a directory or `find`-based test command.
 
 Follow-up (2026-11-04): Node 20 is end of life, so the baseline was raised to Node 26 LTS (v26.13.0, "Lithium"): `.nvmrc`, `engines`, Docker images. On v26.13.0 lint (0 errors, 3 warnings), frontend 402, backend 21 and runner 339 all pass through `npm test`, and the `Dockerfile` builds on `node:26-alpine` (throwaway tag, removed). The backend glob script is valid on Node 22 and later, so it was left as is.
+
+## Closing pass (2026-11-04)
+
+Went through every open item in this file against the code and docs.
+
+| Item | Outcome |
+| --- | --- |
+| Manual checks (containment canary, API-key-login billing check) | Already recorded above; checkboxes ticked, "Next steps" rewritten. `~/kairos-canary` is gone. |
+| Defect 1 (light-mode contrast), 7 (toggle with surplus off), 11 (docs) | Already fixed in code and docs; the fix notes were missing here. Added, with measured contrast ratios for defect 1 (4.78 to 7.04:1 in both themes). |
+| Global stop overridden by enabling a service (found while reviewing defect 5's fix) | **Fixed.** `enableAuto` in `SurplusSettings.jsx` re-armed the global switch whenever it was not on, which included an explicit "Stop all automatic runs". It now arms it only when it was never set (`shouldArmGlobalSwitch` in `src/surplus/policy.js`, test in `src/surplus/policy.test.js`). After a stop the user resumes with "Switch back on". Not exercised in a browser; the decision is a pure function with a unit test, and the existing "Switch back on" button shows whenever the switch is stopped and a service has automatic runs on. |
+| Node baseline in docs | `README.md` (2 places) and `docs/DEPLOYMENT.md` still said "Node.js 20 or newer" while `engines` is `>=26`. Updated to 26. CI already reads `.nvmrc`. CHANGELOG wording about CI on Node 20 and the runner entry point "pending" corrected. |
+
+Run on Node v26.8.1 after the changes: `npm run lint` 0 errors and the same 3 existing `react-hooks/exhaustive-deps` warnings; `npm test` frontend 403 of 403, backend 21 of 21, runner 339 of 339; `npm run build` succeeds; `npm run lint:paths` clean.
+
+Left for the user, not work to do here:
+
+- Open the Codeberg PR for `006-surplus-runner`.
+- `~/.codex/rules/default.rules` still holds plaintext credentials; the runner ignores it (`--ignore-rules`), but consider removing it.
+- Optional checks not run by decision: F (`fs_usage`) and Claude API-key login (same guard code as Codex, which was tested).
