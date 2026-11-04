@@ -1,0 +1,360 @@
+.panel {
+  margin-top: 24px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg);
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+}
+
+.title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.muted {
+  margin: 0;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.empty {
+  margin: 0;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(200px, 280px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+  max-height: 520px;
+  overflow-y: auto;
+}
+
+.row {
+  width: 100%;
+  min-width: 0;
+  text-align: left;
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-secondary);
+  color: var(--color-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.row:hover {
+  border-color: var(--color-text-tertiary);
+}
+
+.rowActive {
+  border-color: var(--color-text);
+  background: var(--color-bg-tertiary);
+}
+
+.row:focus-visible,
+.button:focus-visible,
+.details summary:focus-visible,
+.diff:focus-visible,
+.text:focus-visible {
+  outline: 2px solid var(--color-green);
+  outline-offset: 1px;
+}
+
+.rowTitle {
+  font-size: 13px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.rowMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  align-items: center;
+  font-size: 11px;
+  color: var(--color-text-secondary);
+}
+
+.pending {
+  font-weight: 600;
+  color: var(--color-amber-text);
+}
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.statusOk {
+  background: rgba(29, 158, 117, 0.12);
+  color: var(--color-green-text);
+}
+
+.statusWarn {
+  background: rgba(239, 159, 39, 0.14);
+  color: var(--color-amber-text);
+}
+
+.statusBad {
+  background: rgba(226, 75, 74, 0.12);
+  color: var(--color-red-text);
+}
+
+.statusNeutral {
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+}
+
+.detail {
+  min-width: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.detailHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.detailTitle {
+  margin: 0;
+  min-width: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text);
+  overflow-wrap: anywhere;
+}
+
+.facts {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px 12px;
+}
+
+.facts dt {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-tertiary);
+}
+
+.facts dd {
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: var(--color-text);
+}
+
+.path {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.failure {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: var(--color-bg-secondary);
+  border-left: 3px solid var(--color-red);
+  font-size: 13px;
+  color: var(--color-text);
+}
+
+.code {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.block {
+  display: grid;
+  gap: 6px;
+}
+
+.blockTitle {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.draftTag {
+  padding: 2px 8px;
+  border: 1px dashed var(--color-amber);
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-amber-text);
+}
+
+.text,
+.diff {
+  margin: 0;
+  padding: 10px 12px;
+  max-height: 360px;
+  overflow: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-secondary);
+  color: var(--color-text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.diff {
+  padding: 8px 0;
+  white-space: pre;
+  overflow-wrap: normal;
+}
+
+.diffLine {
+  display: block;
+  padding: 0 12px;
+  min-width: max-content;
+}
+
+.diffAdd {
+  background: rgba(29, 158, 117, 0.16);
+  color: var(--color-green-text);
+}
+
+.diffDel {
+  background: rgba(226, 75, 74, 0.14);
+  color: var(--color-red-text);
+}
+
+.diffHunk {
+  color: var(--color-text-secondary);
+  background: var(--color-bg-tertiary);
+}
+
+.diffMeta {
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.diffContext {
+  color: var(--color-text);
+}
+
+.details summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.details > .text,
+.details > .reason {
+  margin-top: 8px;
+}
+
+.reason {
+  margin: 0;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.actions {
+  display: grid;
+  gap: 8px;
+}
+
+.buttons,
+.confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.confirmText {
+  flex: 1 1 100%;
+  margin: 0;
+  font-size: 13px;
+  color: var(--color-text);
+}
+
+.button {
+  padding: 8px 14px;
+  min-height: 36px;
+  border: 1px solid var(--color-border-md);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.button:hover {
+  border-color: var(--color-text-tertiary);
+}
+
+.primary {
+  border-color: var(--color-green);
+  color: var(--color-green-text);
+}
+
+.danger {
+  border-color: var(--color-red);
+  color: var(--color-red-text);
+}
+
+.decided {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: var(--color-bg-secondary);
+  border-left: 3px solid var(--color-green);
+  font-size: 13px;
+  color: var(--color-text);
+}
+
+@media (max-width: 720px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* Single column: let the list grow with the page instead of nesting a scroll box in it. */
+  .list {
+    max-height: none;
+    overflow-y: visible;
+  }
+
+  .buttons .button,
+  .confirm .button {
+    flex: 1 1 auto;
+  }
+}

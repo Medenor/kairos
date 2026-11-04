@@ -1,7 +1,7 @@
 # Implementation Plan: weekly-history
 
 **Branch**: `005-weekly-history` | **Date**: 2026-04-24 | **Spec**: [spec.md](spec.md)
-**Input**: Feature specification from `/Users/raphael/Programmation/kairos/specs/005-weekly-history/spec.md`
+**Input**: Feature specification from `specs/005-weekly-history/spec.md`
 
 ## Summary
 

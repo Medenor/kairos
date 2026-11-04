@@ -1,6 +1,7 @@
 import { SERVICES } from '../data/services.js'
 import {
   RESET_DATE_KEY,
+  quotaTimeKey,
   WEEKLY_HISTORY_LOGICAL_KEY_PREFIX,
   WEEKLY_HISTORY_STORAGE_KEY,
   loadWeeklyHistory,
@@ -55,6 +56,14 @@ export function exportLocalStateForMigration(workspaceId) {
         record_type: 'quota_state',
         payload: { value },
         source_fingerprint: `${svc.id}:${quota.id}:${value}`,
+      })
+      const stampKey = quotaTimeKey(quota.id)
+      const stamp = svcState[stampKey] ?? null
+      records.push({
+        logical_key: `${svc.id}:${stampKey}`,
+        record_type: 'quota_state',
+        payload: { value: stamp },
+        source_fingerprint: `${svc.id}:${stampKey}:${stamp ?? 'null'}`,
       })
     }
     const lastResetDate = svcState[RESET_DATE_KEY] ?? null

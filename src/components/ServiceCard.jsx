@@ -5,11 +5,15 @@ import {
   getResetInfo,
   getServicePressure,
   getStatusBadge,
+  quotaTimeKey,
 } from '../utils'
+import { formatQuotaAge } from '../surplus/quotaAge'
 import styles from './ServiceCard.module.css'
 
-function QuotaRow({ quota, value, onChange }) {
+function QuotaRow({ quota, value, onChange, stamp, now }) {
   const cPct = getConsumedPct(quota, value)
+  const ageLabel = formatQuotaAge(stamp, now)
+  const ageClass = `${styles.quotaAge} ${stamp ? '' : styles.quotaAgeNever}`
 
   const handleIncrement = (val) => {
     const newVal = Math.min(100, Math.max(0, value + val))
@@ -45,6 +49,7 @@ function QuotaRow({ quota, value, onChange }) {
             />
           </div>
         </div>
+        <div className={ageClass}>{ageLabel}</div>
       </div>
     )
   }
@@ -72,6 +77,7 @@ function QuotaRow({ quota, value, onChange }) {
           />
         </div>
       </div>
+      <div className={ageClass}>{ageLabel}</div>
     </div>
   )
 }
@@ -124,7 +130,7 @@ function ResetTrackingRow({ svc, quotaState, onUpdate }) {
   )
 }
 
-export default function ServiceCard({ svc, quotaState, onUpdate }) {
+export default function ServiceCard({ svc, quotaState, onUpdate, onConfirm, now = new Date() }) {
   const pressure = getServicePressure(svc, { [svc.id]: quotaState })
   const badge = getStatusBadge(pressure)
   const costDisplay =
@@ -149,8 +155,23 @@ export default function ServiceCard({ svc, quotaState, onUpdate }) {
           quota={q}
           value={quotaState[q.id] ?? q.value}
           onChange={(val) => onUpdate(svc.id, q.id, val)}
+          stamp={quotaState[quotaTimeKey(q.id)]}
+          now={now}
         />
       ))}
+
+      {onConfirm && svc.quotas.length > 0 && (
+        <div className={styles.confirmRow}>
+          <button
+            type="button"
+            className={styles.confirmBtn}
+            onClick={() => onConfirm(svc.id)}
+            title="Mark the displayed values as still current, without changing them"
+          >
+            Still current
+          </button>
+        </div>
+      )}
 
       {svc.resetType !== 'payg' && (
         <ResetTrackingRow svc={svc} quotaState={quotaState} onUpdate={onUpdate} />

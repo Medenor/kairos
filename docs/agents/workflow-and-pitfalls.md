@@ -22,3 +22,4 @@
 - **Ports differ by mode:** direct run is backend `8080` / frontend `5173`; the dev compose stack publishes `8888` / `5273`. The frontend probes `8888` then `8080` unless `VITE_SHARED_API_BASE_URL` is set.
 - **`AGENTS.md` is partly generated** by `.specify/scripts/bash/update-agent-context.sh`. Edit only inside the `MANUAL ADDITIONS` block; the rest is rewritten from feature plans.
 - **Never edit an already-applied SQL migration**; add a new one.
+- **No machine-specific paths in committed files.** Spec-kit and subagents emit absolute paths (home directory, `/private/tmp` scratchpads); use repo-relative paths, `~` or placeholders, and run `npm run lint:paths` before committing. See [git-workflow.md](git-workflow.md#no-machine-specific-paths-in-commits).

@@ -23,6 +23,10 @@ This tool tracks your quotas in one place and tells you which service to use rig
 - Optional shared backend for LAN-wide consistency across devices, one-click localStorage migration, backup and restore
 - Reset button to clear all quotas back to defaults
 - Dark mode support
+- Idea queue: capture ideas with optional context and working folder, prioritise and archive them
+- Surplus suggestions: flags a service whose quota will expire unused at its reset, with the rules that led to the suggestion
+- Reset-cycle history: quota left at each reset and the part consumed by runs
+- Optional surplus runner (local CLI, shared mode only), see [Optional: surplus runner](#optional-surplus-runner)
 
 ## Services tracked
 
@@ -36,7 +40,7 @@ This tool tracks your quotas in one place and tells you which service to use rig
 
 ## Getting started
 
-Requires Node.js 20 or newer.
+Requires Node.js 26 or newer.
 
 ```bash
 git clone https://codeberg.org/medenor/kairos.git
@@ -59,6 +63,27 @@ npm run dev
 Or run the whole stack with Docker: `scripts/docker/run-shared.sh` (frontend `http://localhost:5273`, backend health `http://localhost:8888/health`).
 
 > The shared backend is built for a trusted home network. Read [docs/SECURITY.md](docs/SECURITY.md) before exposing it.
+
+### Optional: surplus runner
+
+The dashboard works without the runner. Without it, surplus is suggestion-only: Kairos shows which service has quota expiring at its reset and which waiting idea fits, and you launch the idea yourself.
+
+The runner is an optional local CLI (`runner/`, Node built-ins only) that can start approved ideas with your subscription-signed-in `claude` or `codex` CLI when surplus conditions hold. It needs:
+
+- Node.js 26 or newer
+- Shared mode with a workspace (see the shared backend above). Automatic runs are unavailable in local-only mode
+- `claude` and/or `codex` on `PATH`, signed in with your subscription. Preflight fails if `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` or `CODEX_API_KEY` is set, so runs cannot bill the API
+
+The command surface is specified in [`specs/006-surplus-runner/contracts/runner-cli.md`](specs/006-surplus-runner/contracts/runner-cli.md). Setup and operation are described in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md#surplus-runner-optional).
+
+```bash
+npm run runner -- config     # device id and name, API base, workspace, projects base folder
+npm run runner -- approve    # approve ideas on this device (required before any run)
+npm run runner -- start      # begin the lease and evaluation loop
+npm run runner -- stop       # create the STOP file and disable automatic runs
+```
+
+Runs are off by default for each service. You enable them per service in the dashboard, after acknowledging the disclosures. Provider rules on automated usage of subscriptions can change; you can switch any service back to suggestion-only at any time.
 
 ### Commands
 

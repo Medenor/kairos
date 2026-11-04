@@ -11,6 +11,8 @@ Auto-generated from all feature plans. Last updated: 2026-04-24
 - localStorage — existing, via `useQuotaState.js` / `useSharedQuotaState.js`; reset dates already persisted at `state[serviceId][RESET_DATE_KEY]` (003-reset-date-tracking)
 - JavaScript (ES Modules), Node.js 20 LTS + React 18, React DOM 18, Vite 5, existing shared-state API client and backend services (no new runtime dependencies) (005-weekly-history)
 - localStorage for local-first state; optional SQLite-backed shared records through existing `record_type='snapshot'` support for workspace-scoped sync (005-weekly-history)
+- JavaScript (ES Modules), Node.js 20 LTS (frontend, backend and runner) + React 18, React DOM 18, Vite 5; new `runner/` CLI uses Node built-ins only (no new runtime dependency) (006-surplus-runner)
+- localStorage `kairos:surplus:*` for ideas, policy, runs and cycle records; shared mode syncs them as `routing_config` records (no schema change); runner-local files under `~/.kairos-runner/` (006-surplus-runner)
 
 - JavaScript (ES Modules), Node.js 20 LTS (build/runtime baseline) + React 18, React DOM 18, Vite 5, static web server in container runtime (001-docker-container)
 
@@ -34,6 +36,7 @@ npm run lint && npm test && npm run build
 JavaScript (ES Modules), Node.js 20 LTS (build/runtime baseline). ESLint flat config (`eslint.config.js`); unused variables must be prefixed `_`.
 
 ## Recent Changes
+- 006-surplus-runner: Added idea queue, pure surplus evaluation in `src/surplus/`, and an optional local `runner/` CLI (zero dependencies)
 - 005-weekly-history: Added JavaScript (ES Modules), Node.js 20 LTS + React 18, React DOM 18, Vite 5, existing shared-state API client and backend services (no new runtime dependencies)
 - 003-reset-date-tracking: Added JavaScript (ES Modules), Node 20 LTS + React 18, Vite 5 (no new runtime dependencies)
 - 002-shared-state-backend: Added JavaScript (ES Modules), Node.js 20 LTS, React 18, Vite 5 + React DOM, existing shared quota state services, existing backend/state sync layer
@@ -57,6 +60,7 @@ npm run build     # production bundle in dist/
 
 - Backend and its tests need the `sqlite3` CLI on `PATH`.
 - Do not stop, remove or replace a running `kairos` container to test something: see [git-workflow.md](docs/agents/git-workflow.md#docker-safety).
+- Never commit machine-specific paths (home directory with a real account name, `/private/tmp` scratchpads). Use repo-relative paths or `~`, and run `npm run lint:paths`: see [git-workflow.md](docs/agents/git-workflow.md#no-machine-specific-paths-in-commits).
 
 ## Before non-trivial work
 

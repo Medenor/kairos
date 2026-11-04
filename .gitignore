@@ -16,3 +16,4 @@ coverage/
 .vscode/
 .idea/
 Thumbs.db
+.test-tmp/

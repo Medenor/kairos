@@ -32,12 +32,13 @@ function shiftLocalDays(date, days) {
   return next
 }
 
+const STAMP_NOW = new Date('2026-04-20T08:00:00Z')
 const MONDAY = new Date('2026-04-20T08:00:00')
 const WEDNESDAY = new Date('2026-04-22T10:30:00')
 const FRIDAY = new Date('2026-04-24T18:00:00')
 
 function snapshotRecord({ workspaceId = 'ws-1', weekDate = FRIDAY, claudeWeekly = 77, recordWorkspace } = {}) {
-  const state = applyQuotaUpdate(buildDefaultState(), 'claude', 'weekly', claudeWeekly)
+  const state = applyQuotaUpdate(buildDefaultState(), 'claude', 'weekly', claudeWeekly, STAMP_NOW)
   const payload = createWeeklySnapshot({ workspaceId, state, services: SERVICES, now: weekDate })
   return {
     id: `rec-${payload.weekKey}`,
@@ -112,14 +113,14 @@ test('current week is recorded on load, updated in place, and reset records the 
   // Completed history from an earlier week must survive everything below.
   const lastWeek = createWeeklySnapshot({
     workspaceId: LOCAL_WORKSPACE_ID,
-    state: applyQuotaUpdate(buildDefaultState(), 'claude', 'weekly', 33),
+    state: applyQuotaUpdate(buildDefaultState(), 'claude', 'weekly', 33, STAMP_NOW),
     services: SERVICES,
     now: shiftLocalDays(MONDAY, -7),
   })
   const stored = JSON.stringify([lastWeek])
 
   // load
-  let state = deepFreeze(applyQuotaUpdate(buildDefaultState(), 'claude', 'weekly', 55))
+  let state = deepFreeze(applyQuotaUpdate(buildDefaultState(), 'claude', 'weekly', 55, STAMP_NOW))
   let history = recordCurrentWeek(loadWeeklyHistory(stored), {
     workspaceId: '',
     state,
@@ -134,7 +135,7 @@ test('current week is recorded on load, updated in place, and reset records the 
   const loadedAt = current().capturedAt
 
   // updateQuota later in the same week
-  state = deepFreeze(applyQuotaUpdate(state, 'claude', 'weekly', 91))
+  state = deepFreeze(applyQuotaUpdate(state, 'claude', 'weekly', 91, STAMP_NOW))
   history = recordCurrentWeek(history, { workspaceId: '', state, services: SERVICES, now: WEDNESDAY })
   assert.equal(history.length, 2, 'same-week update must not add a snapshot')
   assert.equal(current().services.claude.quotas.weekly.value, 91)
@@ -160,7 +161,7 @@ test('a new week creates a second snapshot and leaves the previous week intact',
   let history = recordCurrentWeek([], { workspaceId: 'ws-1', state, services: SERVICES, now: FRIDAY })
   history = recordCurrentWeek(history, {
     workspaceId: 'ws-1',
-    state: applyQuotaUpdate(state, 'claude', 'weekly', 5),
+    state: applyQuotaUpdate(state, 'claude', 'weekly', 5, STAMP_NOW),
     services: SERVICES,
     now: shiftLocalDays(FRIDAY, 7),
   })
@@ -174,7 +175,7 @@ test('a new week creates a second snapshot and leaves the previous week intact',
 test('history is recorded locally without a workspace, then follows the workspace once it resolves', () => {
   const offline = recordCurrentWeek([], {
     workspaceId: '',
-    state: applyQuotaUpdate(buildDefaultState(), 'claude', 'weekly', 64),
+    state: applyQuotaUpdate(buildDefaultState(), 'claude', 'weekly', 64, STAMP_NOW),
     services: SERVICES,
     now: FRIDAY,
   })
