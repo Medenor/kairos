@@ -23,6 +23,7 @@ export default function App() {
   const now = useNow()
   const catalogue = useCatalogue()
   const providers = catalogue.runtimeProviders
+  const removed = catalogue.removedTombstones
   const {
     state,
     updateQuota,
@@ -35,8 +36,8 @@ export default function App() {
     workspaceId,
     weeklyHistory,
     refreshWeeklyHistory,
-    getServiceHistory,
-  } = useSharedQuotaState(providers)
+    getProviderHistory,
+  } = useSharedQuotaState(providers, { catalogue: catalogue.catalogue, removed })
   const [selectedTask, setSelectedTask] = useState(null)
   const surplus = useSurplusStore({ workspaceId, quotaState: state, services: providers, now })
 
@@ -86,10 +87,12 @@ export default function App() {
 
       <section className={styles.historySection}>
         <WeeklyHistoryPanel
-          services={providers}
+          providers={providers}
+          removedProviders={removed}
+          catalogue={catalogue.catalogue}
           weeklyHistory={weeklyHistory}
           onRefresh={refreshWeeklyHistory}
-          getServiceHistory={getServiceHistory}
+          getProviderHistory={getProviderHistory}
         />
       </section>
 

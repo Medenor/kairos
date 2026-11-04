@@ -66,6 +66,6 @@ test('the result is accepted unchanged by evaluateSurplus and createWeeklySnapsh
     services, state: sampleState(), ideas: [], policy: undefined, now,
   })
   assert.ok(evaluation)
-  const snap = createWeeklySnapshot({ workspaceId: 'local', state: sampleState(), services, now })
-  assert.deepEqual(Object.keys(snap.services).sort(), [MONTHLY_ID, PAYG_ID, WEEKLY_ID].sort())
+  const snap = createWeeklySnapshot({ workspaceId: 'local', state: sampleState(), providers: services, now })
+  assert.deepEqual(Object.keys(snap.providers).sort(), [MONTHLY_ID, PAYG_ID, WEEKLY_ID].sort())
 })

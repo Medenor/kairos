@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { deriveServiceHistorySeries } from '../utils.js'
+import { deriveProviderHistorySeries } from '../utils.js'
 import styles from './WeeklyHistoryPanel.module.css'
 
 const STATUS_LABELS = {
@@ -23,29 +23,31 @@ export function formatQuotaValue(quota) {
   return normalized
 }
 
-function buildServiceOptions(services, weeklyHistory) {
-  const current = services.map((service) => ({
-    id: service.id,
-    label: service.name,
-    archived: false,
-  }))
+// Options: live providers, then removed ones (tombstones, entries only found in snapshots) and former
+// service ids of the previous version (read-only). Removed and legacy ones are marked in the label.
+function buildProviderOptions(providers, removedProviders, weeklyHistory) {
+  const options = providers.map((provider) => ({ id: provider.id, label: provider.name, kind: 'live' }))
+  const known = new Set(options.map((option) => option.id))
 
-  const archived = new Map()
+  for (const tombstone of removedProviders) {
+    if (known.has(tombstone.id)) continue
+    known.add(tombstone.id)
+    options.push({ id: tombstone.id, label: `${tombstone.name} (removed)`, kind: 'removed' })
+  }
   for (const snapshot of weeklyHistory || []) {
-    for (const [serviceId, serviceSnapshot] of Object.entries(snapshot.services || {})) {
-      if (services.some((service) => service.id === serviceId) || archived.has(serviceId)) continue
-      archived.set(serviceId, {
-        id: serviceId,
-        label:
-          serviceSnapshot?.capturedServiceMeta?.serviceName ||
-          serviceSnapshot?.serviceName ||
-          serviceId,
-        archived: true,
-      })
+    for (const [providerId, entry] of Object.entries(snapshot.providers || {})) {
+      if (known.has(providerId)) continue
+      known.add(providerId)
+      options.push({ id: providerId, label: `${entry?.name || providerId} (removed)`, kind: 'removed' })
+    }
+    for (const [serviceId, entry] of Object.entries(snapshot.services || {})) {
+      if (known.has(serviceId)) continue
+      known.add(serviceId)
+      const name = entry?.capturedServiceMeta?.serviceName || entry?.serviceName || serviceId
+      options.push({ id: serviceId, label: `${name} (previous version)`, kind: 'legacy' })
     }
   }
-
-  return [...current, ...Array.from(archived.values())]
+  return options
 }
 
 function getHistorySummary(series) {
@@ -97,16 +99,18 @@ function HistoryRow({ entry }) {
 }
 
 export default function WeeklyHistoryPanel({
-  services = [],
+  providers = [],
+  removedProviders = [],
+  catalogue = null,
   weeklyHistory = [],
-  selectedServiceId: controlledSelectedServiceId,
-  onSelectService,
+  selectedProviderId: controlledSelectedServiceId,
+  onSelectProvider,
   onRefresh,
-  getServiceHistory,
+  getProviderHistory,
 }) {
   const serviceOptions = useMemo(
-    () => buildServiceOptions(services, weeklyHistory),
-    [services, weeklyHistory]
+    () => buildProviderOptions(providers, removedProviders, weeklyHistory),
+    [providers, removedProviders, weeklyHistory]
   )
   const [internalSelectedServiceId, setInternalSelectedServiceId] = useState(
     serviceOptions[0]?.id || ''
@@ -135,21 +139,22 @@ export default function WeeklyHistoryPanel({
       }
     }
 
-    if (typeof getServiceHistory === 'function') {
-      return getServiceHistory(selectedServiceId)
+    if (typeof getProviderHistory === 'function') {
+      return getProviderHistory(selectedServiceId)
     }
 
-    return deriveServiceHistorySeries({
+    return deriveProviderHistorySeries({
       history: weeklyHistory,
-      serviceId: selectedServiceId,
-      services,
+      providerId: selectedServiceId,
+      providers,
+      catalogue,
     })
-  }, [getServiceHistory, selectedServiceId, services, weeklyHistory])
+  }, [getProviderHistory, selectedServiceId, providers, catalogue, weeklyHistory])
 
   const handleChange = (event) => {
     const nextServiceId = event.target.value
-    if (typeof onSelectService === 'function') {
-      onSelectService(nextServiceId)
+    if (typeof onSelectProvider === 'function') {
+      onSelectProvider(nextServiceId)
       return
     }
     setInternalSelectedServiceId(nextServiceId)
@@ -165,7 +170,7 @@ export default function WeeklyHistoryPanel({
         </div>
         <div className={styles.controls}>
           <label className={styles.control}>
-            <span className={styles.controlLabel}>Service</span>
+            <span className={styles.controlLabel}>Provider</span>
             <select className={styles.select} value={selectedServiceId} onChange={handleChange}>
               {serviceOptions.map((option) => (
                 <option key={option.id} value={option.id}>
@@ -181,9 +186,14 @@ export default function WeeklyHistoryPanel({
           ) : null}
         </div>
       </div>
-      {selectedOption?.archived ? (
+      {selectedOption?.kind === 'removed' ? (
         <p className={styles.archivedNotice}>
-          Archived service data is preserved from captured snapshot metadata.
+          This provider was removed. Its history is preserved from the snapshots recorded while it existed.
+        </p>
+      ) : null}
+      {selectedOption?.kind === 'legacy' ? (
+        <p className={styles.archivedNotice}>
+          Data from the previous version of Kairos (fixed providers). It is read-only and kept as recorded.
         </p>
       ) : null}
       {!series.entries.length ? (
@@ -195,7 +205,7 @@ export default function WeeklyHistoryPanel({
               <tr>
                 <th scope="col">Week</th>
                 <th scope="col">Status</th>
-                <th scope="col">Service values</th>
+                <th scope="col">Provider values</th>
               </tr>
             </thead>
             <tbody>

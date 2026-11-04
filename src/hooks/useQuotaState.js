@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   WEEKLY_HISTORY_STORAGE_KEY,
-  deriveServiceHistorySeries,
+  deriveProviderHistorySeries,
   loadWeeklyHistory,
 } from '../utils'
 import {
@@ -15,6 +15,7 @@ import {
 } from '../stateTransitions'
 
 const STORAGE_KEY = 'kairos-ai-quota-router:state'
+const NO_REMOVED = []
 
 // The stored state is returned as it is, including entries of ids no provider defines (data of the
 // previous fixed-provider build): they are never read and are written back unchanged (FR-022).
@@ -36,7 +37,7 @@ function loadHistory() {
   }
 }
 
-export function useQuotaState(providers = []) {
+export function useQuotaState(providers = [], { catalogue = null, removed = NO_REMOVED } = {}) {
   const [state, setState] = useState(loadState)
   const [weeklyHistory, setWeeklyHistory] = useState(loadHistory)
   const stateRef = useRef(state)
@@ -66,11 +67,12 @@ export function useQuotaState(providers = []) {
       recordCurrentWeek(prev, {
         workspaceId: LOCAL_WORKSPACE_ID,
         state,
-        services: providers,
+        providers,
+        removed,
         now: new Date(),
       })
     )
-  }, [state, providers])
+  }, [state, providers, removed])
 
   const updateQuota = useCallback((serviceId, quotaId, value) => {
     setState((prev) => applyQuotaUpdate(prev, serviceId, quotaId, value, new Date()))
@@ -95,24 +97,26 @@ export function useQuotaState(providers = []) {
     const next = recordCurrentWeek(persisted, {
       workspaceId: LOCAL_WORKSPACE_ID,
       state: stateRef.current,
-      services: providers,
+      providers,
+      removed,
       now: new Date(),
     })
     setWeeklyHistory(next)
     return next
-  }, [providers])
+  }, [providers, removed])
 
   // Depends on `weeklyHistory` itself so the series is never one render stale.
-  const getServiceHistory = useCallback(
-    (serviceId, range = {}) =>
-      deriveServiceHistorySeries({
+  const getProviderHistory = useCallback(
+    (providerId, range = {}) =>
+      deriveProviderHistorySeries({
         history: scopeHistory(weeklyHistory, LOCAL_WORKSPACE_ID),
-        serviceId,
-        services: providers,
+        providerId,
+        providers,
+        catalogue,
         fromWeekKey: range.fromWeekKey || undefined,
         toWeekKey: range.toWeekKey || undefined,
       }),
-    [weeklyHistory, providers]
+    [weeklyHistory, providers, catalogue]
   )
 
   return useMemo(
@@ -124,8 +128,8 @@ export function useQuotaState(providers = []) {
       resetAll,
       weeklyHistory,
       refreshWeeklyHistory,
-      getServiceHistory,
+      getProviderHistory,
     }),
-    [state, updateQuota, confirmQuotas, applyStateEffects, resetAll, weeklyHistory, refreshWeeklyHistory, getServiceHistory]
+    [state, updateQuota, confirmQuotas, applyStateEffects, resetAll, weeklyHistory, refreshWeeklyHistory, getProviderHistory]
   )
 }

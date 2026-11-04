@@ -104,15 +104,15 @@ export function applyServerRecords(base, items = [], { now = new Date() } = {}) 
   return { state, recordIndex, weeklyHistory, historyIndex }
 }
 
-// Records the current-week snapshot for the given state. Returns the same history
-// reference when nothing changed.
-export function recordCurrentWeek(history, { workspaceId, state, services = [], now = new Date() }) {
-  // With no provider there is nothing to record (FR-026).
-  if (!services.length) return history
+// Records the current-week snapshot for the given state. Returns the same history reference when nothing
+// changed (including when there is no provider and nothing recorded yet, FR-026). `removed` lists the
+// tombstones ({ id, removedAt }) so entries of deleted providers are kept and marked.
+export function recordCurrentWeek(history, { workspaceId, state, providers = [], removed = [], now = new Date() }) {
   return recordWeeklySnapshot(history, {
     workspaceId: workspaceId || LOCAL_WORKSPACE_ID,
     state,
-    services,
+    providers,
+    removed,
     now,
   })
 }

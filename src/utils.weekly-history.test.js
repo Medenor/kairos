@@ -4,7 +4,7 @@ import { LEGACY_SERVICES as SERVICES } from './providers/fixtures/legacyServices
 import {
   adoptLocalSnapshots,
   createWeeklySnapshot,
-  deriveServiceHistorySeries,
+  deriveProviderHistorySeries,
   getLocalWeekKey,
   loadWeeklyHistory,
   recordWeeklySnapshot,
@@ -39,11 +39,11 @@ function shiftLocalDays(date, days) {
   return next
 }
 
-function makeSnapshot({ weekDate, workspaceId = 'workspace-1', stateOverrides = {}, services = SERVICES }) {
+function makeSnapshot({ weekDate, workspaceId = 'workspace-1', stateOverrides = {}, providers = SERVICES }) {
   return createWeeklySnapshot({
     workspaceId,
     state: makeState(stateOverrides),
-    services,
+    providers,
     now: weekDate,
   })
 }
@@ -69,23 +69,23 @@ test('createWeeklySnapshot deep-copies quota state and reset metadata', () => {
   const snapshot = createWeeklySnapshot({
     workspaceId: 'workspace-1',
     state,
-    services: SERVICES,
+    providers: SERVICES,
     now,
   })
 
   assert.equal(snapshot.workspaceId, 'workspace-1')
   assert.equal(snapshot.weekKey, getLocalWeekKey(now).weekKey)
-  assert.equal(snapshot.services.claude.lastResetDate, '2026-04-21')
-  assert.equal(snapshot.services.claude.quotas.weekly.value, 71)
-  assert.equal(snapshot.services.chatgpt.quotas.codex_remaining.value, 64)
+  assert.equal(snapshot.providers.claude.lastResetDate, '2026-04-21')
+  assert.equal(snapshot.providers.claude.quotas.weekly.value, 71)
+  assert.equal(snapshot.providers.chatgpt.quotas.codex_remaining.value, 64)
 
   state.claude.weekly = 5
   state.claude.__last_reset_date = '2026-04-01'
   state.chatgpt.codex_remaining = 12
 
-  assert.equal(snapshot.services.claude.quotas.weekly.value, 71)
-  assert.equal(snapshot.services.claude.lastResetDate, '2026-04-21')
-  assert.equal(snapshot.services.chatgpt.quotas.codex_remaining.value, 64)
+  assert.equal(snapshot.providers.claude.quotas.weekly.value, 71)
+  assert.equal(snapshot.providers.claude.lastResetDate, '2026-04-21')
+  assert.equal(snapshot.providers.chatgpt.quotas.codex_remaining.value, 64)
 })
 
 test('upsertCurrentWeekSnapshot replaces the matching workspace week without mutating input history', () => {
@@ -100,10 +100,10 @@ test('upsertCurrentWeekSnapshot replaces the matching workspace week without mut
 
   const updated = upsertCurrentWeekSnapshot(history, replacement)
 
-  assert.equal(history[0].services.claude.quotas.weekly.value, 70)
+  assert.equal(history[0].providers.claude.quotas.weekly.value, 70)
   assert.equal(updated.length, 2)
-  assert.equal(updated[0].services.claude.quotas.weekly.value, 92)
-  assert.equal(updated[1].services.claude.quotas.weekly.value, 33)
+  assert.equal(updated[0].providers.claude.quotas.weekly.value, 92)
+  assert.equal(updated[1].providers.claude.quotas.weekly.value, 33)
 })
 
 test('retainWeeklySnapshots keeps the current week plus 52 completed weeks', () => {
@@ -135,29 +135,29 @@ test('recordWeeklySnapshot creates the current week on load and replaces the sam
     state: makeState({
       claude: { weekly: 67, __last_reset_date: '2026-04-21' },
     }),
-    services: SERVICES,
+    providers: SERVICES,
     now,
   })
 
   assert.equal(first.length, 1)
-  assert.equal(first[0].services.claude.quotas.weekly.value, 67)
-  assert.equal(first[0].services.claude.lastResetDate, '2026-04-21')
+  assert.equal(first[0].providers.claude.quotas.weekly.value, 67)
+  assert.equal(first[0].providers.claude.lastResetDate, '2026-04-21')
 
   const second = recordWeeklySnapshot(first, {
     workspaceId: 'workspace-1',
     state: makeState({
       claude: { weekly: 91, __last_reset_date: '2026-04-23' },
     }),
-    services: SERVICES,
+    providers: SERVICES,
     now,
   })
 
   assert.equal(second.length, 1)
-  assert.equal(second[0].services.claude.quotas.weekly.value, 91)
-  assert.equal(second[0].services.claude.lastResetDate, '2026-04-23')
+  assert.equal(second[0].providers.claude.quotas.weekly.value, 91)
+  assert.equal(second[0].providers.claude.lastResetDate, '2026-04-23')
 })
 
-test('deriveServiceHistorySeries returns ordered recorded rows and quota values for a service', () => {
+test('deriveProviderHistorySeries returns ordered recorded rows and quota values for a service', () => {
   const currentWeek = new Date('2026-04-24T12:00:00')
   const twoWeeksAgo = shiftLocalDays(currentWeek, -14)
   const oneWeekAgo = shiftLocalDays(currentWeek, -7)
@@ -168,10 +168,10 @@ test('deriveServiceHistorySeries returns ordered recorded rows and quota values 
   const fromWeekKey = getLocalWeekKey(twoWeeksAgo).weekKey
   const toWeekKey = getLocalWeekKey(currentWeek).weekKey
 
-  const series = deriveServiceHistorySeries({
+  const series = deriveProviderHistorySeries({
     history,
-    serviceId: 'claude',
-    services: SERVICES,
+    providerId: 'claude',
+    providers: SERVICES,
     fromWeekKey,
     toWeekKey,
   })
@@ -186,7 +186,7 @@ test('deriveServiceHistorySeries returns ordered recorded rows and quota values 
   void oneWeekAgo
 })
 
-test('deriveServiceHistorySeries distinguishes missing weeks, missing services, and removed-service metadata', () => {
+test('deriveProviderHistorySeries distinguishes missing weeks, missing services, and removed-service metadata', () => {
   const currentWeek = new Date('2026-04-24T12:00:00')
   const retiredWeek = shiftLocalDays(currentWeek, -14)
 
@@ -196,9 +196,10 @@ test('deriveServiceHistorySeries distinguishes missing weeks, missing services, 
         weekDate: retiredWeek,
         stateOverrides: { claude: { weekly: 81 } },
       }),
+      providers: {},
       services: {
         archived_ai: {
-          serviceId: 'archived_ai',
+          providerId: 'archived_ai',
           serviceName: 'Legacy Writer',
           capturedServiceMeta: {
             serviceName: 'Legacy Writer',
@@ -225,10 +226,10 @@ test('deriveServiceHistorySeries distinguishes missing weeks, missing services, 
     }),
   ]
 
-  const retiredSeries = deriveServiceHistorySeries({
+  const retiredSeries = deriveProviderHistorySeries({
     history,
-    serviceId: 'archived_ai',
-    services: SERVICES,
+    providerId: 'archived_ai',
+    providers: SERVICES,
     fromWeekKey: getLocalWeekKey(retiredWeek).weekKey,
     toWeekKey: getLocalWeekKey(currentWeek).weekKey,
   })
@@ -240,10 +241,10 @@ test('deriveServiceHistorySeries distinguishes missing weeks, missing services, 
   assert.equal(retiredSeries.entries[1].status, 'missing_week')
   assert.equal(retiredSeries.entries[2].status, 'missing_service')
 
-  const claudeSeries = deriveServiceHistorySeries({
+  const claudeSeries = deriveProviderHistorySeries({
     history,
-    serviceId: 'claude',
-    services: SERVICES,
+    providerId: 'claude',
+    providers: SERVICES,
     fromWeekKey: getLocalWeekKey(retiredWeek).weekKey,
     toWeekKey: getLocalWeekKey(currentWeek).weekKey,
   })
@@ -259,14 +260,14 @@ test('gap entries expose an empty quota array, never zero-valued quotas (data-mo
   const twoWeeksAgo = shiftLocalDays(currentWeek, -14)
   const servicesWithoutCopilot = SERVICES.filter((service) => service.id !== 'copilot')
   const history = [
-    makeSnapshot({ weekDate: twoWeeksAgo, services: servicesWithoutCopilot }),
+    makeSnapshot({ weekDate: twoWeeksAgo, providers: servicesWithoutCopilot }),
     makeSnapshot({ weekDate: currentWeek }),
   ]
 
-  const series = deriveServiceHistorySeries({
+  const series = deriveProviderHistorySeries({
     history,
-    serviceId: 'copilot',
-    services: SERVICES,
+    providerId: 'copilot',
+    providers: SERVICES,
     fromWeekKey: getLocalWeekKey(twoWeeksAgo).weekKey,
     toWeekKey: getLocalWeekKey(currentWeek).weekKey,
   })
@@ -284,7 +285,7 @@ test('capturedAt is the real capture time and moves when a same-week snapshot is
   const created = recordWeeklySnapshot([], {
     workspaceId: 'workspace-1',
     state: makeState({ claude: { weekly: 50 } }),
-    services: SERVICES,
+    providers: SERVICES,
     now: first,
   })
   assert.equal(created[0].capturedAt, first.toISOString())
@@ -292,7 +293,7 @@ test('capturedAt is the real capture time and moves when a same-week snapshot is
   const updated = recordWeeklySnapshot(created, {
     workspaceId: 'workspace-1',
     state: makeState({ claude: { weekly: 51 } }),
-    services: SERVICES,
+    providers: SERVICES,
     now: later,
   })
   assert.equal(updated.length, 1)
@@ -305,7 +306,7 @@ test('recording unchanged state keeps the same history and capturedAt', () => {
   const input = {
     workspaceId: 'workspace-1',
     state: makeState({ claude: { weekly: 50 } }),
-    services: SERVICES,
+    providers: SERVICES,
   }
 
   const created = recordWeeklySnapshot([], { ...input, now: first })
@@ -344,8 +345,8 @@ test('adoptLocalSnapshots moves local history into the workspace without overwri
     getLocalWeekKey(lastWeek).weekKey,
     getLocalWeekKey(currentWeek).weekKey,
   ])
-  assert.equal(mine[0].services.claude.quotas.weekly.value, 30)
-  assert.equal(mine[1].services.claude.quotas.weekly.value, 99)
+  assert.equal(mine[0].providers.claude.quotas.weekly.value, 30)
+  assert.equal(mine[1].providers.claude.quotas.weekly.value, 99)
   assert.equal(adopted.filter((entry) => entry.workspaceId === 'local').length, 0)
   assert.equal(adopted.filter((entry) => entry.workspaceId === 'workspace-2').length, 1)
 })

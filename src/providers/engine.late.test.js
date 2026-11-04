@@ -36,7 +36,7 @@ test('readings and a snapshot mentioning provider P arrive before provider:P: no
   assert.equal(reco.primary, null)
   assert.equal(reco.excluded[0].cause, 'unread')
   assert.match(reco.excluded[0].detail, /5h slot/)
-  assert.equal(createWeeklySnapshot({ workspaceId: 'ws', state, services, now: new Date(2026, 2, 4, 12) }).services[WEEKLY_ID].serviceId, WEEKLY_ID)
+  assert.equal(createWeeklySnapshot({ workspaceId: 'ws', state, providers: services, now: new Date(2026, 2, 4, 12) }).providers[WEEKLY_ID].providerId, WEEKLY_ID)
   assert.equal(state[WEEKLY_ID][WEEKLY_Q_SESSION], undefined)
 })
 

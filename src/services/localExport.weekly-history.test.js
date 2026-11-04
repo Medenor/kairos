@@ -8,7 +8,7 @@ import { buildWeeklyHistoryMigrationRecords } from './localExport.js'
 function snapshot(workspaceId, isoDate, claudeWeekly = 50) {
   const state = legacyDefaultState()
   state.claude.weekly = claudeWeekly
-  return createWeeklySnapshot({ workspaceId, state, services: SERVICES, now: new Date(isoDate) })
+  return createWeeklySnapshot({ workspaceId, state, providers: SERVICES, now: new Date(isoDate) })
 }
 
 test('local snapshots are re-scoped to the target workspace for migration', () => {
@@ -45,7 +45,7 @@ test('one record per week: the most recently captured snapshot wins', () => {
   const records = buildWeeklyHistoryMigrationRecords([newer, older], 'ws-1')
 
   assert.equal(records.length, 1)
-  assert.equal(records[0].payload.services.claude.quotas.weekly.value, 20)
+  assert.equal(records[0].payload.providers.claude.quotas.weekly.value, 20)
 })
 
 test('no workspace means nothing is exported', () => {
@@ -64,5 +64,5 @@ test('migrated snapshots appear in the workspace-scoped history after sync', () 
 
   const visible = scopeHistory(next.weeklyHistory, 'ws-1')
   assert.equal(visible.length, 1)
-  assert.equal(visible[0].services.claude.quotas.weekly.value, 42)
+  assert.equal(visible[0].providers.claude.quotas.weekly.value, 42)
 })

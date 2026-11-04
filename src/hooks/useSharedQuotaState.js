@@ -4,8 +4,8 @@ import {
   WEEKLY_HISTORY_LOGICAL_KEY_PREFIX,
   WEEKLY_HISTORY_STORAGE_KEY,
   adoptLocalSnapshots,
-  createWeeklySnapshot,
-  deriveServiceHistorySeries,
+  deriveProviderHistorySeries,
+  getLocalWeekKey,
   loadWeeklyHistory,
   quotaTimeKey,
   retainWeeklySnapshots,
@@ -34,6 +34,7 @@ import {
 
 const FALLBACK_STORAGE_KEY = 'kairos-ai-quota-router:state'
 const FALLBACK_WORKSPACE_KEY = 'kairos:workspace-id'
+const NO_REMOVED = []
 
 // Records that clear every reading of the given providers (a reading is unread when its value is null).
 function buildDefaultEntries(providers) {
@@ -68,7 +69,7 @@ function loadFallbackHistory() {
   }
 }
 
-export function useSharedQuotaState(providers = []) {
+export function useSharedQuotaState(providers = [], { catalogue = null, removed = NO_REMOVED } = {}) {
   const [state, setState] = useState(loadFallbackState)
   const [recordIndex, setRecordIndex] = useState({})
   const [weeklyHistory, setWeeklyHistory] = useState(loadFallbackHistory)
@@ -83,6 +84,7 @@ export function useSharedQuotaState(providers = []) {
   const adoptedRef = useRef(false)
   const stateRef = useRef(state)
   const providersRef = useRef(providers)
+  const removedRef = useRef(removed)
   const recordIndexRef = useRef(recordIndex)
   const weeklyHistoryRef = useRef(weeklyHistory)
   const historyIndexRef = useRef(historyIndex)
@@ -97,7 +99,8 @@ export function useSharedQuotaState(providers = []) {
 
   useEffect(() => {
     providersRef.current = providers
-  }, [providers])
+    removedRef.current = removed
+  }, [providers, removed])
 
   useEffect(() => {
     recordIndexRef.current = recordIndex
@@ -332,18 +335,16 @@ export function useSharedQuotaState(providers = []) {
   // change, whether or not a workspace or the backend is reachable.
   useEffect(() => {
     setWeeklyHistory((prev) =>
-      recordCurrentWeek(prev, { workspaceId, state, services: providers, now: new Date() })
+      recordCurrentWeek(prev, { workspaceId, state, providers, removed, now: new Date() })
     )
-  }, [state, workspaceId, providers])
+  }, [state, workspaceId, providers, removed])
 
+  // The stored current-week snapshot (which keeps entries of removed providers) is what gets synced.
   useEffect(() => {
-    if (!workspaceId || providers.length === 0) return undefined
-    const snapshot = createWeeklySnapshot({
-      workspaceId,
-      state,
-      services: providers,
-      now: new Date(),
-    })
+    if (!workspaceId) return undefined
+    const { weekKey } = getLocalWeekKey(new Date())
+    const snapshot = weeklyHistory.find((entry) => entry.workspaceId === workspaceId && entry.weekKey === weekKey)
+    if (!snapshot) return undefined
     if (historyWriteTimerRef.current) {
       clearTimeout(historyWriteTimerRef.current)
     }
@@ -356,7 +357,7 @@ export function useSharedQuotaState(providers = []) {
         clearTimeout(historyWriteTimerRef.current)
       }
     }
-  }, [state, workspaceId, providers, persistWeeklySnapshot])
+  }, [weeklyHistory, workspaceId, persistWeeklySnapshot])
 
   const scheduleQuotaWrite = useCallback(
     (logicalKey, value) => {
@@ -481,25 +482,27 @@ export function useSharedQuotaState(providers = []) {
     const next = recordCurrentWeek(persisted, {
       workspaceId,
       state: stateRef.current,
-      services: providers,
+      providers,
+      removed,
       now: new Date(),
     })
     setWeeklyHistory(next)
     return next
-  }, [workspaceId, providers])
+  }, [workspaceId, providers, removed])
 
   // Depends on `weeklyHistory` itself (not a ref) so the derived series is never
   // one render behind the history it describes.
-  const getServiceHistory = useCallback(
-    (serviceId, range = {}) =>
-      deriveServiceHistorySeries({
+  const getProviderHistory = useCallback(
+    (providerId, range = {}) =>
+      deriveProviderHistorySeries({
         history: scopeHistory(weeklyHistory, workspaceId),
-        serviceId,
-        services: providers,
+        providerId,
+        providers,
+        catalogue,
         fromWeekKey: range.fromWeekKey || undefined,
         toWeekKey: range.toWeekKey || undefined,
       }),
-    [weeklyHistory, workspaceId, providers]
+    [weeklyHistory, workspaceId, providers, catalogue]
   )
 
   return useMemo(
@@ -515,7 +518,7 @@ export function useSharedQuotaState(providers = []) {
       workspaceId,
       weeklyHistory,
       refreshWeeklyHistory,
-      getServiceHistory,
+      getProviderHistory,
     }),
     [
       state,
@@ -529,7 +532,7 @@ export function useSharedQuotaState(providers = []) {
       workspaceId,
       weeklyHistory,
       refreshWeeklyHistory,
-      getServiceHistory,
+      getProviderHistory,
     ]
   )
 }

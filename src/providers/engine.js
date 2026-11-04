@@ -10,7 +10,7 @@
 import { addProvider, removeProvider, updateProvider } from './catalogue.js'
 import { ORDER_KEY, RECORD_TYPE, applyCatalogueRecords, nameConflicts, parseCatalogueKey, providerKey } from './records.js'
 import { loadCatalogue, saveCatalogue } from './storage.js'
-import { activeProviders, toRuntimeServices } from './runtime.js'
+import { activeProviders, removedProviders, toRuntimeServices } from './runtime.js'
 import { createRecordSync } from '../sync/recordSync.js'
 
 const DIRTY_STORAGE_KEY = 'kairos:providers:dirty'
@@ -65,6 +65,7 @@ export function createCatalogueEngine({
       catalogue,
       providers: activeProviders(catalogue),
       runtimeProviders: toRuntimeServices(catalogue),
+      removedTombstones: removedProviders(catalogue).map((t) => ({ id: t.id, name: t.name, removedAt: t.removedAt })),
       order: catalogue.order,
       invalid: catalogue.invalid,
       conflicts: [...conflicts.values()],
