@@ -49,7 +49,7 @@ Same input must give a deep-equal output (SC-002). `Evaluation` is stored verbat
 | R6 | Time bound: `now + maxRunMinutes` is before both the next protected-hours start and the local start of the reset day | would reach either |
 | R7 | At least one waiting idea passes folder and retry checks | none |
 
-For `mode: 'auto'` the runner adds guardrails outside this pure function: `autoRunEnabled` for the service, `control.autoRunEnabled`, local `allowServices`, lease held, no other active run, local approval hash equal. Each failure is recorded with a reason; none can be bypassed by data in the shared store.
+For `mode: 'auto'` the runner adds guardrails outside this pure function: `autoRunEnabled` for the service, `control.autoRunEnabled`, local `allowServices`, `allowCodexAuto` for a Codex service (skip reason `codex_reads_uncontained`), lease held, no other active run, local approval hash equal. Each failure is recorded with a reason; none can be bypassed by data in the shared store.
 
 ## Selection (FR-008)
 

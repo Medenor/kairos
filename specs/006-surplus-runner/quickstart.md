@@ -57,7 +57,7 @@ Checks, each with its expected outcome:
 | Run `config --take-over` on the second device, then `start` | The second device becomes the designated runner; the first one exits on its next heartbeat |
 | Kill the runner mid-run and restart | Run finalised as interrupted; idea retriable; not started twice |
 
-Containment canary (manual, documented residual-risk check): approve an idea that asks the tool to modify a file in the original folder and to read a file outside the copy. Expected: the original is unchanged (compare checksums), the file outside is not read, and the proposal appears only as a diff in the run record. `runner clean` removes the copy.
+Containment canary (manual, documented residual-risk check): approve an idea that asks the tool to modify a file in the original folder and to read a file outside the copy. Expected for Claude: the original is unchanged (compare checksums), the file outside is not read or modified (contained), and the proposal appears only as a diff in the run record. Expected for Codex: the original is unchanged and writes outside the copy are blocked, but reads outside the copy are not contained (the file outside can be read and printed). Codex ideas are skipped with `codex_reads_uncontained` unless `"allowCodexAuto": true` is set in `~/.kairos-runner/config.json` (default `false`), so run the Codex canary only after opting in (FR-017). `runner clean` removes the copy.
 
 ## 5. Review and measurement (User Story 4)
 

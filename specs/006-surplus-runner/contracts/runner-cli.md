@@ -23,7 +23,7 @@ Exit codes: 0 ok; 1 usage or config error; 2 preflight failure; 3 another device
 3. Pull records; build `state`, `policy`, `ideas`, `runs`.
 4. Run `folderChecks` locally for waiting ideas (exists, readable, not refused, size under limit). Relative path without a base folder is `folder_missing_base`. An idea without a working folder passes with `resolvedFolder: null` and runs in an empty scratch directory (FR-017).
 5. `evaluateSurplus({ mode: 'auto', ... })`.
-6. If an idea is selected: verify local guardrails (service `autoRunEnabled` and `disclosuresAckAt`, `allowServices`, approval hash equal, no active run, preflight ok). On any failure record the reason in the status output and in an `evaluation-skipped` line of the journal; start nothing.
+6. If an idea is selected: verify local guardrails (service `autoRunEnabled` and `disclosuresAckAt`, `allowServices`, for a Codex service `allowCodexAuto` true in `config.json`, approval hash equal, no active run, preflight ok). On any failure record the reason in the status output and in an `evaluation-skipped` line of the journal; start nothing.
 7. Claim: `PUT idea waiting->running` (409 aborts), `POST run` (status `running`), journal `start`.
 8. Build the disposable copy (an empty scratch directory for an idea without a working folder); spawn the adapter command with the allowlisted environment; arm the hard-stop timer; start the **stop watcher (every 5 s: `STOP` file and `surplus-control`)** and the **quota watcher (every 60 s: reserve rule, lease and designation)**.
 9. On exit, stop signal or timer: capture output (capped), compute the diff, `PUT run` once with final status, `PUT idea` to the matching status, upsert the cycle record, journal `end`.
@@ -39,12 +39,12 @@ export function parseResult({ code, stdout, stderr }): { status, needsInput, fai
 ```
 
 - `prompt` is built from the idea text and context only. It states that the session is non-interactive, that no information can be requested, and that results are drafts. No quota data and no other ideas are included (FR-024).
-- Claude: print mode with JSON output, permission mode that denies anything not allowed, an explicit allow-list of file tools without a shell, a turn limit. Codex: `exec` with workspace-write sandbox, approvals never, working directory set to the copy.
+- Claude: print mode with JSON output, `--permission-mode dontAsk` (denies anything not allowed), path-scoped `--allowedTools Read(./**),Edit(./**)` (anchored at the copy, no bare tool names, no shell), `--disallowedTools` Read denies for credential folders reachable through `HOME` (`~/.ssh`, `~/.aws`, `~/.gnupg`, `~/.config`, `~/.claude`, `~/.codex`, `~/.netrc`, `~/.npmrc`), a turn limit. Codex: `exec --ignore-user-config --ignore-rules -c approval_policy="never" -c approvals_reviewer="user" --sandbox workspace-write --cd <copy> --skip-git-repo-check`, so the user's config and rules cannot bypass the sandbox. Writes outside the copy are blocked for Codex but reads are not contained (`workspace-write` grants read on `/`), hence the `allowCodexAuto` gate in tick step 6.
 - `env` is built from an allowlist. Preflight fails with `billing_guard` if `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` or `CODEX_API_KEY` is present, or if `claude auth status --json` / `codex login status` reports a login method other than the subscription sign-in (or cannot be parsed: fail closed), and with `not_signed_in` or `tool_missing` per tool check.
 
 ## Preflight reasons
 
-`tool_missing`, `flags_unsupported`, `not_signed_in`, `billing_guard`, `folder_error`, `no_shared_mode`, `lease_held`, `not_approved`, `service_not_allowed`, `disclosures_missing`. Each maps to a human-readable message shown by `status` and stored in the evaluation that triggered the attempt.
+`tool_missing`, `flags_unsupported`, `not_signed_in`, `billing_guard`, `folder_error`, `no_shared_mode`, `lease_held`, `not_approved`, `service_not_allowed`, `disclosures_missing`, `codex_reads_uncontained` (a Codex idea while `allowCodexAuto` is not true; Claude is unaffected). Each maps to a human-readable message shown by `status` and stored in the evaluation that triggered the attempt.
 
 ## Local file safety
 
