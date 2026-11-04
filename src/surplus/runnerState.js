@@ -48,3 +48,9 @@ export function isApprovedOnRunner(lease, idea) {
   if (!isObject(lease) || !isObject(lease.approved) || !isObject(idea)) return false
   return Number.isInteger(idea.contentVersion) && lease.approved[idea.id] === idea.contentVersion
 }
+
+// Approval only makes sense for an idea that can still be picked up: waiting (a failed, needs-input
+// or completed idea goes back to waiting first). Display only, like the rest of this file.
+export function canRequestApproval(idea) {
+  return isObject(idea) && idea.status === 'waiting' && idea.approvalRequested !== true
+}

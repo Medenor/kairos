@@ -250,7 +250,8 @@ function evaluateService({ svc, state, policy, ideas, runs, folderChecks, mode, 
   const r6Problems = []
   if (isInProtectedHours(protectedHours, now)) r6Problems.push('inside protected hours now')
   else if (protectedStart && end >= protectedStart) r6Problems.push(`a ${num(maxRunMinutes)} min run would reach protected hours at ${localStamp(protectedStart)}`)
-  if (resetStart && end >= resetStart) r6Problems.push(`a ${num(maxRunMinutes)} min run would reach the reset day (${localStamp(resetStart)})`)
+  if (resetStart && resetStart <= now) r6Problems.push(`the reset day (${localStamp(resetStart)}) has already started: update the reset date`)
+  else if (resetStart && end >= resetStart) r6Problems.push(`a ${num(maxRunMinutes)} min run would reach the reset day (${localStamp(resetStart)})`)
   const r6 = r6Problems.length === 0
   rules.push({
     id: 'R6',

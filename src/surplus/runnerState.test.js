@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { leaseAgeSeconds, formatAge, describeLease, isApprovedOnRunner } from './runnerState.js'
+import { leaseAgeSeconds, formatAge, describeLease, isApprovedOnRunner, canRequestApproval } from './runnerState.js'
 
 const now = new Date('2026-11-03T12:00:00.000Z')
 const lease = (over = {}) => ({
@@ -58,4 +58,13 @@ test('isApprovedOnRunner matches the exact contentVersion only', () => {
   assert.equal(isApprovedOnRunner(lease(), { id: 'b', contentVersion: 2 }), false)
   assert.equal(isApprovedOnRunner(null, { id: 'a', contentVersion: 2 }), false)
   assert.equal(isApprovedOnRunner(lease(), { id: 'a' }), false)
+})
+
+test('canRequestApproval only for waiting ideas without a request', () => {
+  assert.equal(canRequestApproval({ status: 'waiting' }), true)
+  assert.equal(canRequestApproval({ status: 'waiting', approvalRequested: true }), false)
+  for (const status of ['completed', 'launched_manually', 'running', 'failed', 'needs_input', 'archived']) {
+    assert.equal(canRequestApproval({ status }), false, status)
+  }
+  assert.equal(canRequestApproval(null), false)
 })

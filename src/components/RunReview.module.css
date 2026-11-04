@@ -347,8 +347,10 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
+  /* Single column: let the list grow with the page instead of nesting a scroll box in it. */
   .list {
-    max-height: 240px;
+    max-height: none;
+    overflow-y: visible;
   }
 
   .buttons .button,

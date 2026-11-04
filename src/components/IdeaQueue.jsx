@@ -1,7 +1,6 @@
 import { useId, useState } from 'react'
 import { DEFAULTS } from '../surplus/constants.js'
-import { SHARED_STORE_NOTICE } from './IdeaCapture.jsx'
-import { APPROVAL_INFO_ONLY, describeLease, isApprovedOnRunner } from '../surplus/runnerState.js'
+import { APPROVAL_INFO_ONLY, canRequestApproval, describeLease, isApprovedOnRunner } from '../surplus/runnerState.js'
 import styles from './IdeaQueue.module.css'
 
 const LIMIT = DEFAULTS.CONTEXT_LIMIT_CHARS
@@ -311,7 +310,7 @@ function IdeaItem({ idea, canMoveUp, canMoveDown, actions, onMove, withdrawn, on
             >
               Edit
             </button>
-            {!archived && !idea.approvalRequested && (
+            {canRequestApproval(idea) && (
               <button
                 type="button"
                 className={styles.button}
@@ -394,12 +393,11 @@ function AwaitingApproval({ ideas }) {
 // Props:
 //   ideas[]       all ideas incl. archived, already sorted (useSurplusStore().ideas)
 //   invalid[]     unusable shared records {logicalKey, kind, recordId, version, errors}
-//   sharedMode    boolean, shows the shared-store visibility notice (FR-024)
 //   actions       {updateIdea, reorder, archiveIdea, deleteIdea, requestApproval} from useSurplusStore
 //   lease         runner lease payload | null (optional, T059, display only): device name, heartbeat age,
 //                 `approved` map shown as an informational "approved on runner" marker, never an authorisation
 //   now           Date, optional (defaults to the render time): used only for the heartbeat age
-export default function IdeaQueue({ ideas = [], invalid = [], sharedMode = false, actions, lease = null, now }) {
+export default function IdeaQueue({ ideas = [], invalid = [], actions, lease = null, now }) {
   const uid = useId()
   const [showArchived, setShowArchived] = useState(false)
   const [withdrawnIds, setWithdrawnIds] = useState(() => new Set())
@@ -440,12 +438,6 @@ export default function IdeaQueue({ ideas = [], invalid = [], sharedMode = false
           {showArchived ? `Show queue (${active.length})` : `Show archived (${archived.length})`}
         </button>
       </div>
-
-      {sharedMode && (
-        <p className={styles.sharedNotice} role="note">
-          {SHARED_STORE_NOTICE}
-        </p>
-      )}
 
       <RunnerStatus info={runnerInfo} />
 

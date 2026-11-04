@@ -230,6 +230,13 @@ test('R6 fails when the run would reach the start of the reset day', () => {
   assert.equal(rule('R6').pass, false)
   assert.match(rule('R6').detail, /reset day/i)
 })
+test('R6 explains an overdue reset date instead of saying a run would reach it', () => {
+  const now = new Date(2026, 10, 4, 12, 0)
+  const { rule } = evalClaude({ now, state: claudeState({ now, daysToReset: -3 }) })
+  assert.equal(rule('R6').pass, false)
+  assert.match(rule('R6').detail, /already started: update the reset date/)
+  assert.doesNotMatch(rule('R6').detail, /would reach the reset day/)
+})
 test('R6 passes when the run ends strictly before the reset day', () => {
   const now = new Date(2026, 10, 4, 22, 59) // ends 23:59
   const { rule } = evalClaude({ now, state: claudeState({ now, daysToReset: 1 }) })

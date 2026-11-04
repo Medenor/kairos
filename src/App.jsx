@@ -100,7 +100,6 @@ export default function App() {
         <IdeaQueue
           ideas={surplus.ideas}
           invalid={surplus.invalid}
-          sharedMode={surplus.sharedMode}
           lease={surplus.lease}
           actions={{
             updateIdea: surplus.updateIdea,
