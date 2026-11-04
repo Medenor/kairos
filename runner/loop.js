@@ -522,8 +522,11 @@ export function createLoop({
     try {
       await fullPull()
       // No run is active here (ticks are serialised), so a `running` run or idea is left over from a crash.
-      const leftover = () => derive().surplus.runs.some((r) => r.status === RUN_STATUS.RUNNING) || derive().surplus.ideas.some((i) => i.status === STATUS.RUNNING)
-      if (!recovered || leftover()) {
+      const hasLeftover = () => {
+        const { runs, ideas } = derive().surplus
+        return runs.some((r) => r.status === RUN_STATUS.RUNNING) || ideas.some((i) => i.status === STATUS.RUNNING)
+      }
+      if (!recovered || hasLeftover()) {
         await recover(at)
         recovered = true
         await fullPull()
@@ -548,21 +551,7 @@ export function createLoop({
     const policy = surplus.policy
 
     const folderChecks = await checkFolders(surplus.ideas)
-    const blocked = new Map()
-    let evaluation
-    let go = false
-    for (let attempt = 0; attempt <= SUPPORTED_SERVICE_IDS.length; attempt += 1) {
-      const effective = { ...policy, services: { ...policy.services } }
-      for (const id of blocked.keys()) effective.services[id] = { ...effective.services[id], surplusEnabled: false }
-      evaluation = evaluateSurplus({ now: at, state: quota, services, policy: effective, ideas: surplus.ideas, runs: surplus.runs, folderChecks, mode: 'auto' })
-      if (!evaluation.selected) break
-      const problem = await guardService(evaluation.selected.serviceId, policy)
-      if (!problem) {
-        go = true
-        break
-      }
-      blocked.set(evaluation.selected.serviceId, problem)
-    }
+    const { evaluation, go, blocked } = await selectRunnable({ at, quota, surplus, policy, folderChecks })
 
     if (!go) {
       if (blocked.size > 0) {
@@ -574,6 +563,22 @@ export function createLoop({
     }
 
     return claimAndRun({ at, evaluation, policy, quota })
+  }
+
+  // Evaluate, and when the selected service fails its local guard, block it and evaluate again with the next candidate.
+  async function selectRunnable({ at, quota, surplus, policy, folderChecks }) {
+    const blocked = new Map()
+    let evaluation
+    for (let attempt = 0; attempt <= SUPPORTED_SERVICE_IDS.length; attempt += 1) {
+      const effective = { ...policy, services: { ...policy.services } }
+      for (const id of blocked.keys()) effective.services[id] = { ...effective.services[id], surplusEnabled: false }
+      evaluation = evaluateSurplus({ now: at, state: quota, services, policy: effective, ideas: surplus.ideas, runs: surplus.runs, folderChecks, mode: 'auto' })
+      if (!evaluation.selected) break
+      const problem = await guardService(evaluation.selected.serviceId, policy)
+      if (!problem) return { evaluation, go: true, blocked }
+      blocked.set(evaluation.selected.serviceId, problem)
+    }
+    return { evaluation, go: false, blocked }
   }
 
   // --- claim and run ---------------------------------------------------------------------------
@@ -613,8 +618,9 @@ export function createLoop({
       throw error
     }
 
-    const costPct = evaluation.services.find((s) => s.serviceId === serviceId)?.candidate?.costPct ?? 0
-    const nextResetDate = evaluation.services.find((s) => s.serviceId === serviceId)?.inputs?.nextResetDate ?? null
+    const serviceEvaluation = evaluation.services.find((s) => s.serviceId === serviceId)
+    const costPct = serviceEvaluation?.candidate?.costPct ?? 0
+    const nextResetDate = serviceEvaluation?.inputs?.nextResetDate ?? null
     const runPayload = {
       id: runId,
       ideaId,
@@ -656,7 +662,7 @@ export function createLoop({
   }
 
   async function executeRun(ctx) {
-    const { at, evaluation, policy, svc, adapter, idea, runId, runPayload, runRef, ideaRef, costPct, nextResetDate } = ctx
+    const { at, evaluation, svc, adapter, idea, runId, runPayload, runRef, ideaRef, costPct } = ctx
     const serviceId = svc.id
     const run = { runId, ideaId: idea.id, serviceId, startedAt: at.toISOString(), hardStopAt: null, stopCause: null, child: null, exited: false }
     activeRun = run
@@ -699,12 +705,7 @@ export function createLoop({
       if (!copy.ok) {
         outcome = { status: RUN_STATUS.FAILED, failureReason: { code: FAILURE_REASONS.FOLDER_ERROR, message: `The disposable copy could not be made (${copy.code}).` }, text: '', spawned: false }
       } else {
-        const spawnAt = now()
-        const cause = stopCauseFor(spawnAt, policy, nextResetDate)
-        run.hardStopAt = cause.at.toISOString()
-        const invocation = adapter.buildInvocation({ prompt: adapter.buildPrompt(idea), cwd: copy.workDir, env, toolPath: config.tools?.[adapter.tool] })
-        const exit = await supervise({ run, invocation, cause, spawnAt, serviceId, svc, policy, arm, requestStop, onLeaseLost: (r) => { leaseLost = r } })
-        outcome = decide(adapter, exit, run.stopCause)
+        outcome = await spawnAndSupervise({ run, adapter, idea, svc, workDir: copy.workDir, arm, requestStop, onLeaseLost: (r) => { leaseLost = r } })
       }
     } catch (error) {
       requestStop(FAILURE_REASONS.INTERRUPTED, `The runner failed: ${error?.message ?? error}`)
@@ -724,6 +725,35 @@ export function createLoop({
       return { ...result, terminal: true, exitCode: exit.exitCode, reason: exit.reason, detail: exit.detail }
     }
     return result
+  }
+
+  // Re-check the stop conditions, then spawn the tool under supervision. A run that must not start ends as `interrupted`.
+  async function spawnAndSupervise({ run, adapter, idea, svc, workDir, arm, requestStop, onLeaseLost }) {
+    const recheck = await recheckBeforeSpawn(svc.id)
+    if (!recheck.ok) return { status: RUN_STATUS.INTERRUPTED, failureReason: recheck.failureReason, text: '', spawned: false }
+    run.hardStopAt = recheck.cause.at.toISOString()
+    const invocation = adapter.buildInvocation({ prompt: adapter.buildPrompt(idea), cwd: workDir, env, toolPath: config.tools?.[adapter.tool] })
+    const exit = await supervise({ run, invocation, cause: recheck.cause, spawnAt: recheck.spawnAt, serviceId: svc.id, svc, policy: recheck.policy, arm, requestStop, onLeaseLost })
+    return decide(adapter, exit, run.stopCause)
+  }
+
+  // A copy may take long enough for a stop or a time boundary to become active. Pull again before creating a child.
+  async function recheckBeforeSpawn(serviceId) {
+    const stopFileCreated = { ok: false, failureReason: { code: FAILURE_REASONS.STOPPED_BY_USER, message: 'The STOP file was created.' } }
+    if (existsSync(paths.stop)) return stopFileCreated
+    await fullPull()
+    if (existsSync(paths.stop)) return stopFileCreated
+    const { quota, surplus } = derive()
+    if (surplus.control?.autoRunEnabled !== true) {
+      return { ok: false, failureReason: { code: FAILURE_REASONS.STOPPED_BY_USER, message: 'Automatic runs were switched off (global stop).' } }
+    }
+    const currentPolicy = surplus.policy
+    const evaluation = evaluateSurplus({ now: now(), state: quota, services, policy: currentPolicy, ideas: [], runs: [], folderChecks: {}, mode: 'auto' })
+    const current = evaluation.services.find((entry) => entry.serviceId === serviceId)
+    const spawnAt = now()
+    const cause = stopCauseFor(spawnAt, currentPolicy, current?.inputs?.nextResetDate)
+    if (cause.at.getTime() <= spawnAt.getTime()) return { ok: false, failureReason: { code: cause.code, message: cause.message } }
+    return { ok: true, policy: currentPolicy, cause, spawnAt }
   }
 
   // Spawn the tool, arm the hard stop and both watchers, and resolve when the process is gone.
