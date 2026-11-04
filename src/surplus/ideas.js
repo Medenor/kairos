@@ -1,6 +1,7 @@
 // Pure idea operations for the surplus runner: create, edit, transition, reorder, validate.
 // No clock: callers pass `now` (Date) and ids.
-import { DEFAULTS, PRIORITY, SIZE, STATUS, SUPPORTED_SERVICE_IDS } from './constants.js'
+import { DEFAULTS, PRIORITY, SIZE, STATUS } from './constants.js'
+import { isKnownServiceRef } from '../providers/ids.js'
 import { isoOrNull } from './records.js'
 
 export const CONTEXT_LIMIT_CHARS = DEFAULTS.CONTEXT_LIMIT_CHARS
@@ -121,7 +122,7 @@ export function transitionIdea(idea, toStatus, options = {}) {
   const updatedAt = requireNow(options.now)
   const next = { ...idea, status: toStatus, updatedAt }
   if (toStatus === STATUS.LAUNCHED_MANUALLY || toStatus === STATUS.RUNNING) {
-    if (!SUPPORTED_SERVICE_IDS.includes(options.serviceId)) throw new Error(`transition to ${toStatus} needs a supported serviceId`)
+    if (!isKnownServiceRef(options.serviceId)) throw new Error(`transition to ${toStatus} needs a supported serviceId`)
     next.serviceId = options.serviceId
   }
   if (toStatus === STATUS.WAITING) next.serviceId = null

@@ -1,6 +1,7 @@
 // Logical keys and payload validators for the surplus-runner shared records.
 // Pure ES module: no browser or Node-only globals other than TextEncoder/TextDecoder, no clock.
-import { DEFAULTS, SUPPORTED_SERVICE_IDS } from './constants.js'
+import { DEFAULTS } from './constants.js'
+import { isKnownServiceRef } from '../providers/ids.js'
 
 export const RUN_STATUS = Object.freeze({
   RUNNING: 'running',
@@ -50,7 +51,7 @@ function requireId(value, label) {
 }
 
 function requireService(serviceId) {
-  if (!SUPPORTED_SERVICE_IDS.includes(serviceId)) throw new Error(`Invalid serviceId: ${String(serviceId)}`)
+  if (!isKnownServiceRef(serviceId)) throw new Error(`Invalid serviceId: ${String(serviceId)}`)
   return serviceId
 }
 
@@ -77,7 +78,7 @@ export function parseRecordKey(key) {
   if (key.startsWith('run:') && key.length > 4) return { kind: 'run', id: key.slice(4) }
   if (key.startsWith('cycle:')) {
     const parts = key.slice(6).split(':')
-    if (parts.length === 2 && SUPPORTED_SERVICE_IDS.includes(parts[0]) && isValidDateKey(parts[1])) {
+    if (parts.length === 2 && isKnownServiceRef(parts[0]) && isValidDateKey(parts[1])) {
       return { kind: 'cycle', serviceId: parts[0], resetDate: parts[1] }
     }
   }
@@ -117,7 +118,7 @@ export function validateRunRecord(record) {
   const bad = (field, message) => errors.push({ field, message })
   if (!isNonEmptyString(record.id)) bad('id', 'id must be a non-empty string')
   if (!isNonEmptyString(record.ideaId)) bad('ideaId', 'ideaId must be a non-empty string')
-  if (!SUPPORTED_SERVICE_IDS.includes(record.serviceId)) bad('serviceId', 'serviceId is not a supported service')
+  if (!isKnownServiceRef(record.serviceId)) bad('serviceId', 'serviceId is not a provider id')
   const snap = record.ideaSnapshot
   if (
     !isObject(snap) ||
@@ -133,11 +134,14 @@ export function validateRunRecord(record) {
   if (record.mode !== 'auto') bad('mode', "mode must be 'auto'")
   if (
     !isString(record.cycleKey) ||
-    !SUPPORTED_SERVICE_IDS.includes(record.serviceId) ||
+    !isKnownServiceRef(record.serviceId) ||
     !record.cycleKey.startsWith(`${record.serviceId}:`) ||
     !isValidDateKey(record.cycleKey.slice(record.serviceId.length + 1))
   ) {
     bad('cycleKey', "cycleKey must be '{serviceId}:{YYYY-MM-DD}' for the run's service")
+  }
+  if (record.providerName !== undefined && !(isString(record.providerName) && record.providerName.length <= 60)) {
+    bad('providerName', 'providerName must be a string of at most 60 characters')
   }
   if (isoOrNull(record.startedAt) === null) bad('startedAt', 'startedAt must be an ISO timestamp')
   if (record.endedAt !== null && isoOrNull(record.endedAt) === null) bad('endedAt', 'endedAt must be an ISO timestamp or null')
@@ -169,7 +173,10 @@ export function validateCycleRecord(record) {
   if (!isObject(record)) return notObject('Cycle record')
   const errors = []
   const bad = (field, message) => errors.push({ field, message })
-  if (!SUPPORTED_SERVICE_IDS.includes(record.serviceId)) bad('serviceId', 'serviceId is not a supported service')
+  if (!isKnownServiceRef(record.serviceId)) bad('serviceId', 'serviceId is not a provider id')
+  if (record.providerName !== undefined && !(isString(record.providerName) && record.providerName.length <= 60)) {
+    bad('providerName', 'providerName must be a string of at most 60 characters')
+  }
   if (!isValidDateKey(record.resetDate)) bad('resetDate', 'resetDate must be a valid YYYY-MM-DD date')
   const pct = record.lastWeeklyRemainingPct
   if (typeof pct !== 'number' || !Number.isFinite(pct) || pct < 0 || pct > 100) {

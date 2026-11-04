@@ -1,7 +1,8 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { DEFAULTS, SUPPORTED_SERVICE_IDS } from '../surplus/constants'
-import { autoRunBlockedReason, setServiceSurplus, shouldArmGlobalSwitch } from '../surplus/policy'
+import { DEFAULTS } from '../surplus/constants'
+import { activeRunFor } from '../providers/activeRun'
+import { autoRunBlockedReason, defaultProviderSurplus, setProviderSurplus, shouldArmGlobalSwitch } from '../surplus/policy'
 import styles from './SurplusSettings.module.css'
 
 // Surplus settings (feature 006, T037). Pure view over the policy: every edit builds a new full
@@ -11,13 +12,16 @@ import styles from './SurplusSettings.module.css'
 //   policy          surplus policy (see src/surplus/policy.js)
 //   onUpdatePolicy  (policyOrUpdater) => {ok, errors?: [{path, message}], error?: {message}}
 //   services        runtime providers (display names; only providers able to run surplus get a section)
+//   runs            run records: switching surplus or automatic runs off while a run is in progress asks first
+//   inactiveProviders  [{ id, name, problems }] providers whose surplus settings are kept but whose profile no longer
+//                      holds (shown as inactive with the reason, never erased)
 //   sharedMode      boolean, true when a workspace id is set (automatic runs need it, FR-023)
 //   autoRunEnabled  boolean, the global switch `surplus-control` (useSurplusStore().autoRunEnabled)
 //   stopIssued      boolean, true only when a stop was issued (control record autoRunEnabled === false)
 //   onStopAutoRuns  () => void, the global stop (useSurplusStore().stopAutoRuns), always available (SC-007)
 //   onSetAutoRunEnabled  optional (bool) => void, shows "Resume" after a stop (useSurplusStore().setAutoRunEnabled)
 //
-// T058: per-service "Automatic runs" toggle (needs declared protected hours and shared mode), a
+// T058: per-provider "Automatic runs" toggle (needs declared protected hours and shared mode), a
 // disclosure dialog before the first activation (FR-012) that sets `disclosuresAckAt` in the same
 // policy update, and an always-visible global stop.
 
@@ -274,6 +278,8 @@ export default function SurplusSettings({
   policy,
   onUpdatePolicy,
   services = [],
+  inactiveProviders = [],
+  runs = [],
   sharedMode = false,
   autoRunEnabled = false,
   stopIssued = false,
@@ -282,10 +288,12 @@ export default function SurplusSettings({
 }) {
   const [errors, setErrors] = useState([])
   const [pendingAuto, setPendingAuto] = useState(null)
+  const [pendingOff, setPendingOff] = useState(null) // { id, kind: 'surplus' | 'auto' } awaiting confirmation
   const folderId = useId()
   const [folderDraft, setFolderDraft] = useState(null)
 
   const nameOf = (id) => services.find((s) => s.id === id)?.name || id
+  const configOf = (id) => policy.providers?.[id] ?? defaultProviderSurplus()
 
   // Applies `edit(current) -> next` through the store and surfaces its validation errors.
   const apply = (edit) => {
@@ -302,13 +310,26 @@ export default function SurplusSettings({
   }
 
   const updateService = (id, changes) =>
-    apply((cur) => ({ ...cur, services: { ...cur.services, [id]: { ...cur.services[id], ...changes } } }))
+    apply((cur) => ({ ...cur, providers: { ...cur.providers, [id]: { ...(cur.providers?.[id] ?? defaultProviderSurplus()), ...changes } } }))
 
   // Reasons the automatic-run toggle cannot be switched on (validatePolicy enforces the first).
   const blockedReasonFor = (id) => autoRunBlockedReason(policy, id, sharedMode)
 
   // Surplus off also switches that service's automatic runs off, in the same policy update.
-  const toggleSurplus = (id, on) => apply((cur) => setServiceSurplus(cur, id, on))
+  const toggleSurplus = (id, on) => {
+    if (!on && activeRunFor(id, runs)) {
+      setPendingOff({ id, kind: 'surplus' })
+      return
+    }
+    apply((cur) => setProviderSurplus(cur, id, on))
+  }
+
+  const confirmOff = () => {
+    const { id, kind } = pendingOff
+    setPendingOff(null)
+    if (kind === 'surplus') apply((cur) => setProviderSurplus(cur, id, false))
+    else updateService(id, { autoRunEnabled: false })
+  }
 
   const globalState = autoRunEnabled ? 'on' : stopIssued ? 'stopped' : 'unset'
 
@@ -324,11 +345,12 @@ export default function SurplusSettings({
   // only; the timestamp is read here, at the edge, and written together with autoRunEnabled.
   const toggleAuto = (id, on) => {
     if (!on) {
-      updateService(id, { autoRunEnabled: false })
+      if (activeRunFor(id, runs)) setPendingOff({ id, kind: 'auto' })
+      else updateService(id, { autoRunEnabled: false })
       return
     }
     if (blockedReasonFor(id)) return
-    if (policy.services[id]?.disclosuresAckAt) enableAuto(id)
+    if (policy.providers?.[id]?.disclosuresAckAt) enableAuto(id)
     else setPendingAuto(id)
   }
 
@@ -338,9 +360,9 @@ export default function SurplusSettings({
     if (id) enableAuto(id, { disclosuresAckAt: new Date().toISOString() })
   }
 
-  // Until per-provider settings exist (policy v2), only legacy ids carry settings; providers never match them.
-  const eligibleIds = SUPPORTED_SERVICE_IDS.filter((id) => services.some((s) => s.id === id && s.surplus))
-  const anyAuto = eligibleIds.some((id) => policy.services?.[id]?.autoRunEnabled === true)
+  // Only providers whose surplus profile holds get a section (the runtime mapping withholds `surplus` otherwise).
+  const eligibleIds = services.filter((s) => s.surplus).map((s) => s.id)
+  const anyAuto = eligibleIds.some((id) => policy.providers?.[id]?.autoRunEnabled === true)
 
   const updateRange = (index, changes) =>
     apply((cur) => ({
@@ -364,13 +386,13 @@ export default function SurplusSettings({
   // FR-025: no dedicated policy field exists, so "suggestion-only" means autoRunEnabled=false on
   // every supported service. The switch is on when that is already true and can only be turned
   // on here; enabling a service happens per service in its own section (T058).
-  const supported = eligibleIds.filter((id) => policy.services?.[id])
-  const suggestionOnly = supported.every((id) => policy.services[id].autoRunEnabled === false)
+  const supported = eligibleIds
+  const suggestionOnly = supported.every((id) => configOf(id).autoRunEnabled === false)
   const setAllSuggestionOnly = () =>
     apply((cur) => {
-      const next = { ...cur.services }
+      const next = { ...cur.providers }
       for (const id of eligibleIds) if (next[id]) next[id] = { ...next[id], autoRunEnabled: false }
-      return { ...cur, services: next }
+      return { ...cur, providers: next }
     })
   const suggestionOnlyId = useId()
 
@@ -383,7 +405,7 @@ export default function SurplusSettings({
 
       <p className={styles.notice} role="note">
         Provider rules on automated usage of subscriptions can change. Suggestions never use a
-        provider on their own, and you can switch every service back to suggestion-only below at any time.
+        provider on their own, and you can switch every provider back to suggestion-only below at any time.
       </p>
 
       <div className={styles.stopBar}>
@@ -412,6 +434,17 @@ export default function SurplusSettings({
         </p>
       </div>
 
+      {pendingOff && (
+        <div className={styles.errors} role="alertdialog" aria-label="Confirm stopping the run">
+          <p>
+            A run is in progress for {nameOf(pendingOff.id)}. Turning {pendingOff.kind === 'surplus' ? 'surplus use' : 'automatic runs'} off
+            stops it: partial output is kept and the idea goes back to waiting.
+          </p>
+          <button type="button" className={styles.button} onClick={confirmOff}>Turn off and stop the run</button>{' '}
+          <button type="button" className={styles.button} onClick={() => setPendingOff(null)}>Cancel</button>
+        </div>
+      )}
+
       {errors.length > 0 && (
         <ul className={styles.errors} role="alert">
           {errors.map((e, i) => (
@@ -430,23 +463,28 @@ export default function SurplusSettings({
           disabled={suggestionOnly}
           onChange={() => setAllSuggestionOnly()}
         />
-        <label htmlFor={suggestionOnlyId}>Suggestion-only for all services</label>
+        <label htmlFor={suggestionOnlyId}>Suggestion-only for all providers</label>
       </div>
       <p className={styles.hint}>
         {suggestionOnly
           ? 'Nothing runs automatically: ideas are only suggested for you to launch yourself.'
-          : 'Some services have automatic runs enabled. Tick this to switch all of them back to suggestions.'}
+          : 'Some providers have automatic runs enabled. Tick this to switch all of them back to suggestions.'}
         {!sharedMode && ' Automatic runs also need shared mode, which is off.'}
       </p>
 
-      {supported.length === 0 && <p className={styles.hint}>No provider is available for surplus use.</p>}
+      {supported.length === 0 && <p className={styles.hint}>No provider is available for surplus use. Declare a terminal tool, a weekly schedule and the weekly and session quotas on a provider to enable it here.</p>}
+      {inactiveProviders.map((item) => (
+        <p key={item.id} className={styles.hint}>
+          {item.name}: surplus settings are kept but inactive. {item.problems.join(' ')}
+        </p>
+      ))}
 
       {supported.map((id) => (
         <ServiceSection
           key={id}
           id={id}
           name={nameOf(id)}
-          config={policy.services[id]}
+          config={configOf(id)}
           onChange={updateService}
           onToggleSurplus={toggleSurplus}
           onToggleAuto={toggleAuto}

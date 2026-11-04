@@ -20,6 +20,9 @@ import {
   saveRuns,
   saveSurplusState,
 } from './storage.js'
+import { defaultProviderSurplus } from './policy.js'
+
+const PA = 'p_claudeaaaaaa'
 
 const T0 = new Date('2026-11-03T10:00:00.000Z')
 const T1 = new Date('2026-11-03T11:00:00.000Z')
@@ -97,7 +100,7 @@ test('ideas, policy, runs and cycles round-trip through an injected storage', ()
   const storage = memoryStorage()
   const ideas = [makeIdea(), makeIdea({ id: 'i2', text: 'Other' })]
   const policy = defaultPolicy()
-  policy.services.claude.surplusEnabled = true
+  policy.providers[PA] = { ...defaultProviderSurplus(), surplusEnabled: true }
   const runs = [runRecord()]
   const cycles = [cycleRecord()]
 
@@ -220,7 +223,7 @@ test('applySurplusRecords ignores routing_config keys outside the known namespac
 test('applySurplusRecords applies every known namespace and indexes the shared records', () => {
   const idea = makeIdea()
   const policy = defaultPolicy()
-  policy.services.chatgpt.surplusEnabled = true
+  policy.providers[PA] = { ...defaultProviderSurplus(), surplusEnabled: true }
   const control = { autoRunEnabled: true, updatedAt: '2026-11-03T10:00:00.000Z' }
   const lease = {
     designatedDeviceId: 'd1',
@@ -389,10 +392,10 @@ test('mergeIdeaAfterConflict withdraws approval when contents diverged on the sa
 
 test('stale shared policy, control and lease do not replace newer applied versions', () => {
   const policyV2 = defaultPolicy()
-  policyV2.services.claude.surplusEnabled = true
+  policyV2.providers[PA] = { ...defaultProviderSurplus(), surplusEnabled: true }
   const first = applySurplusRecords(emptySurplusState(), [item('surplus-policy', policyV2, { version: 2 })])
   const second = applySurplusRecords(first, [item('surplus-policy', defaultPolicy(), { version: 1 })])
-  assert.equal(second.policy.services.claude.surplusEnabled, true)
+  assert.equal(second.policy.providers[PA].surplusEnabled, true)
 
   const control = applySurplusRecords(emptySurplusState(), [
     item('surplus-control', { autoRunEnabled: false, updatedAt: '2026-11-03T12:00:00.000Z' }, { version: 3 }),

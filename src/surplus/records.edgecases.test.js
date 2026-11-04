@@ -9,10 +9,11 @@ import { applyResultDecision, describeRunFailure, reviewState } from './runs.js'
 import { SURPLUS_STORAGE_KEYS, applySurplusRecords, emptySurplusState, loadSurplusState, saveSurplusState } from './storage.js'
 import { addIdea, archiveIdea, decideRun, markLaunchedManually, updateIdea, updatePolicy } from './store.js'
 import { evaluateSurplus } from './evaluation.js'
-import { defaultPolicy } from './policy.js'
+import { defaultPolicy, defaultProviderSurplus } from './policy.js'
 import { buildManualInstruction } from './instruction.js'
-import { SERVICES } from '../data/services.js'
+import { LEGACY_SERVICES as SERVICES } from '../providers/fixtures/legacyServices.js'
 
+const PA = 'p_claudeaaaaaa'
 const CAP = 256 * 1024
 const NOW = new Date('2026-11-03T10:00:00.000Z')
 const bytes = (s) => Buffer.byteLength(s, 'utf8')
@@ -156,19 +157,19 @@ test('the queue, the policy and the evaluation work with no shared state at all'
   let state = emptySurplusState()
   state = addIdea(state, { text: 'draft the release notes', size: 'small' }, { id: 'i1', now: NOW }).state
   state = updateIdea(state, 'i1', { priority: 'high' }, NOW).state
-  const policy = updatePolicy(state, (p) => ({ ...p, services: { ...p.services, claude: { ...p.services.claude, surplusEnabled: true } } }))
+  const policy = updatePolicy(state, (p) => ({ ...p, providers: { ...p.providers, [PA]: { ...defaultProviderSurplus(), surplusEnabled: true } } }))
   assert.equal(policy.ok, true)
   const evaluation = evaluateSurplus({
-    now: NOW, state: {}, services: SERVICES, policy: policy.state.policy, ideas: policy.state.ideas, runs: [], folderChecks: null, mode: 'preview',
+    now: NOW, state: {}, services: SERVICES.map((svc) => (svc.id === 'claude' ? { ...svc, id: PA } : svc)), policy: policy.state.policy, ideas: policy.state.ideas, runs: [], folderChecks: null, mode: 'preview',
   })
   assert.equal(evaluation.selected, null)
   assert.ok(evaluation.reason.length > 0)
-  assert.equal(evaluation.services.find((s) => s.serviceId === 'claude').rules.find((r) => r.id === 'R1').pass, true)
+  assert.equal(evaluation.services.find((s) => s.serviceId === PA).rules.find((r) => r.id === 'R1').pass, true)
 })
 
 test('automatic runs cannot be enabled in a policy without declared protected hours and acknowledged disclosures', () => {
   const state = emptySurplusState()
-  const enable = (extra) => updatePolicy(state, (p) => ({ ...p, ...extra, services: { ...p.services, claude: { ...p.services.claude, autoRunEnabled: true, ...extra.claude } } }))
+  const enable = (extra) => updatePolicy(state, (p) => ({ ...p, ...extra, providers: { ...p.providers, [PA]: { ...defaultProviderSurplus(), autoRunEnabled: true, ...extra.claude } } }))
   assert.equal(enable({ claude: { disclosuresAckAt: NOW.toISOString() } }).ok, false, 'no protected hours')
   assert.equal(enable({ protectedHours: [{ days: [0], start: '23:00', end: '06:00' }] }).ok, false, 'no acknowledgement')
 })
@@ -177,7 +178,7 @@ test('automatic runs cannot be enabled in a policy without declared protected ho
 
 test('launching an idea manually on a service that is not supported anymore is refused, not thrown', () => {
   const state = addIdea(emptySurplusState(), { text: 'a' }, { id: 'i1', now: NOW }).state
-  for (const serviceId of ['copilot', 'removed', '', null, undefined]) {
+  for (const serviceId of ['unknown', 'removed', '', null, undefined]) {
     const result = markLaunchedManually(state, 'i1', serviceId, NOW)
     assert.equal(result.ok, false, String(serviceId))
     assert.equal(result.error.code, 'transition_invalid')

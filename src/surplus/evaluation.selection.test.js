@@ -2,8 +2,8 @@
 import { test, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { evaluateSurplus } from './evaluation.js'
-import { defaultPolicy } from './policy.js'
-import { SERVICES } from '../data/services.js'
+import { legacyPolicy as defaultPolicy } from '../providers/fixtures/legacyServices.js'
+import { LEGACY_SERVICES as SERVICES } from '../providers/fixtures/legacyServices.js'
 
 // Fixed zone, set before any Date is built at module level; restored when the file is done.
 const savedTz = process.env.TZ
@@ -34,7 +34,7 @@ function stateFor({ claudeDays = 2, chatgptDays = 2, claudeWeeklyConsumed = 40, 
 
 function policyOn(ids = ['claude']) {
   const p = defaultPolicy()
-  for (const id of ids) p.services[id].surplusEnabled = true
+  for (const id of ids) p.providers[id].surplusEnabled = true
   return p
 }
 
@@ -91,7 +91,8 @@ test('input order never changes the choice', () => {
   ]
   const forward = evaluate({ ideas })
   const backward = evaluate({ ideas: [...ideas].reverse() })
-  assert.deepEqual(forward, backward)
+  assert.deepEqual(forward.selected, backward.selected)
+  assert.equal(forward.reason, backward.reason)
 })
 
 test('services: soonest reset first, others become alternatives', () => {
@@ -101,10 +102,16 @@ test('services: soonest reset first, others become alternatives', () => {
   assert.deepEqual(result.selected.alternatives, ['claude'])
 })
 
-test('services: equal reset day falls back to SERVICES order', () => {
-  const result = evaluate({ state: stateFor(), policy: policyOn(['claude', 'chatgpt']) })
-  assert.equal(result.selected.serviceId, 'claude')
-  assert.deepEqual(result.selected.alternatives, ['chatgpt'])
+test('services: equal reset day is broken by name, whatever the list order (FR-034)', () => {
+  const forward = evaluate({ state: stateFor(), policy: policyOn(['claude', 'chatgpt']) })
+  const backward = evaluate({ state: stateFor(), policy: policyOn(['claude', 'chatgpt']), services: [...SERVICES].reverse() })
+  for (const result of [forward, backward]) {
+    assert.equal(result.selected.serviceId, 'chatgpt', '"ChatGPT" sorts before "Claude"')
+    assert.deepEqual(result.selected.alternatives, ['claude'])
+    assert.match(result.reason, /tie broken by name/)
+  }
+  assert.deepEqual(forward.selected, backward.selected)
+  assert.equal(forward.reason, backward.reason)
 })
 
 test('a service that is not eligible is neither selected nor an alternative', () => {

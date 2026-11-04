@@ -3,6 +3,7 @@ import DeleteProviderDialog from './DeleteProviderDialog.jsx'
 import EmptyState from './EmptyState.jsx'
 import ProviderForm from './ProviderForm.jsx'
 import ServiceCard from './ServiceCard.jsx'
+import { activeRunFor, describeDeletion } from '../providers/activeRun.js'
 import { draftFromProvider } from './providerDraft.js'
 import styles from './ProviderManager.module.css'
 
@@ -124,6 +125,7 @@ export default function ProviderManager({
               onSubmit={(input) => submitEdit(svc.id, input)}
               onCancel={() => { setEditingId(null); setFocusName(false) }}
               focusName={focusName}
+              runWarning={activeRunFor(svc.id, runs) ? describeDeletion(stored[svc.id], runs).runWarning : null}
             />
           )
         }

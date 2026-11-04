@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { summariseCycles } from '../surplus/cycles'
+import { resolveProviderName } from '../providers/names'
 import styles from './CycleSummary.module.css'
 
 // Per reset cycle: quota left at reset and the part consumed by automatic runs (FR-022, SC-003).
@@ -64,15 +65,23 @@ function ServiceCycles({ service, summary }) {
   )
 }
 
-export default function CycleSummary({ cycles = [], runs = [], services = [], now }) {
+export default function CycleSummary({ cycles = [], runs = [], services = [], catalogue = null, now }) {
   const supported = useMemo(() => services.filter((s) => s.surplus), [services])
   const summaries = useMemo(() => {
     const at = now ?? new Date()
-    return supported.map((service) => ({
+    const live = new Set(supported.map((s) => s.id))
+    // Cycle records of providers that no longer exist (removed, or from the previous version) stay readable.
+    const gone = new Map()
+    for (const cycle of cycles) {
+      if (live.has(cycle.serviceId) || gone.has(cycle.serviceId)) continue
+      const resolved = resolveProviderName(cycle.serviceId, { catalogue, capturedName: cycle.providerName })
+      gone.set(cycle.serviceId, { id: cycle.serviceId, name: `${resolved.name} (removed)` })
+    }
+    return [...supported, ...gone.values()].map((service) => ({
       service,
       summary: summariseCycles({ cycles, runs, serviceId: service.id, now: at }),
     }))
-  }, [supported, cycles, runs, now])
+  }, [supported, cycles, runs, now, catalogue])
 
   if (summaries.length === 0) return null
 

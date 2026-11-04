@@ -16,7 +16,8 @@ import SurplusSettings from './components/SurplusSettings'
 import RunReview from './components/RunReview'
 import CycleSummary from './components/CycleSummary'
 import { useSurplusStore } from './hooks/useSurplusStore'
-import { globalSwitchState } from './surplus/policy'
+import { globalSwitchState, pruneProvider } from './surplus/policy'
+import { surplusProblems } from './providers/surplusProfile'
 import styles from './App.module.css'
 
 export default function App() {
@@ -40,6 +41,10 @@ export default function App() {
   } = useSharedQuotaState(providers, { catalogue: catalogue.catalogue, removed })
   const [selectedTask, setSelectedTask] = useState(null)
   const surplus = useSurplusStore({ workspaceId, quotaState: state, services: providers, now })
+  // Providers that keep surplus settings but whose profile no longer holds are shown as inactive, not erased.
+  const inactiveProviders = catalogue.providers
+    .filter((p) => surplus.policy.providers?.[p.id] && surplusProblems(p).length > 0)
+    .map((p) => ({ id: p.id, name: p.name, problems: surplusProblems(p) }))
 
   // The catalogue persists state then definition; readings entered in a form are applied to the live
   // state right after, in the same event.
@@ -49,7 +54,12 @@ export default function App() {
   }
   const handleAddProvider = (input) => afterChange(catalogue.addProvider(input, { state, now }))
   const handleUpdateProvider = (id, input) => afterChange(catalogue.updateProvider(id, input, { state, now }))
-  const handleDeleteProvider = (id) => afterChange(catalogue.removeProvider(id, { state, now }))
+  const handleDeleteProvider = (id) => {
+    const result = afterChange(catalogue.removeProvider(id, { state, now }))
+    // The deleted provider's surplus settings go with it (a run in progress is stopped by the runner).
+    if (result.ok && surplus.policy.providers?.[id]) surplus.updatePolicy((cur) => pruneProvider(cur, id))
+    return result
+  }
 
   return (
     <div className={styles.app}>
@@ -143,8 +153,8 @@ export default function App() {
 
       <section>
         <div className={styles.sectionLabel}>Run results</div>
-        <RunReview runs={surplus.runs} ideas={surplus.ideas} onDecision={surplus.decideRun} services={providers} />
-        <CycleSummary cycles={surplus.cycles} runs={surplus.runs} services={providers} now={now} />
+        <RunReview runs={surplus.runs} ideas={surplus.ideas} onDecision={surplus.decideRun} services={providers} catalogue={catalogue.catalogue} />
+        <CycleSummary cycles={surplus.cycles} runs={surplus.runs} services={providers} catalogue={catalogue.catalogue} now={now} />
       </section>
 
       <section>
@@ -153,6 +163,8 @@ export default function App() {
           policy={surplus.policy}
           onUpdatePolicy={surplus.updatePolicy}
           services={providers}
+          inactiveProviders={inactiveProviders}
+          runs={surplus.runs}
           sharedMode={surplus.sharedMode}
           autoRunEnabled={surplus.autoRunEnabled}
           stopIssued={globalSwitchState(surplus.control) === 'stopped'}

@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { STATUS } from './constants.js'
-import { defaultPolicy } from './policy.js'
+import { defaultPolicy, defaultProviderSurplus } from './policy.js'
 import { emptySurplusState } from './storage.js'
 import {
   addIdea,
@@ -24,6 +24,8 @@ import {
   updateIdea,
   updatePolicy,
 } from './store.js'
+
+const PA = 'p_claudeaaaaaa'
 
 const T0 = new Date('2026-11-03T10:00:00.000Z')
 const T1 = new Date('2026-11-03T11:00:00.000Z')
@@ -116,10 +118,10 @@ test('deleteIdea removes the idea and refuses a running one', () => {
 
 test('updatePolicy validates, accepts an updater and keeps the reference when nothing changed', () => {
   const s = emptySurplusState()
-  const ok = updatePolicy(s, (p) => ({ ...p, services: { ...p.services, claude: { ...p.services.claude, reservePct: 30 } } }))
+  const ok = updatePolicy(s, (p) => ({ ...p, providers: { ...p.providers, [PA]: { ...defaultProviderSurplus(), reservePct: 30 } } }))
   assert.equal(ok.ok, true)
-  assert.equal(ok.state.policy.services.claude.reservePct, 30)
-  const bad = updatePolicy(s, (p) => ({ ...p, services: { ...p.services, claude: { ...p.services.claude, autoRunEnabled: true } } }))
+  assert.equal(ok.state.policy.providers[PA].reservePct, 30)
+  const bad = updatePolicy(s, (p) => ({ ...p, providers: { ...p.providers, [PA]: { ...defaultProviderSurplus(), autoRunEnabled: true } } }))
   assert.equal(bad.ok, false)
   assert.equal(bad.error.code, 'policy_invalid')
   assert.ok(bad.errors.length > 0)

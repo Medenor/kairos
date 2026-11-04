@@ -3,11 +3,11 @@
 import { test, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { evaluateSurplus } from './evaluation.js'
-import { defaultPolicy } from './policy.js'
+import { legacyPolicy as defaultPolicy } from '../providers/fixtures/legacyServices.js'
 import { deriveCycleReadings } from './cycleReadings.js'
 import { summariseCycles } from './cycles.js'
 import { hardStopAt, isInProtectedHours, nextProtectedStart } from './time.js'
-import { SERVICES } from '../data/services.js'
+import { LEGACY_SERVICES as SERVICES } from '../providers/fixtures/legacyServices.js'
 
 const savedTz = process.env.TZ
 process.env.TZ = 'Europe/Paris'
@@ -33,7 +33,7 @@ function claudeState(now, { daysToReset = 2, lastReset, extra = {} } = {}) {
 
 function policyWith(extra = {}) {
   const p = defaultPolicy()
-  p.services.claude = { ...p.services.claude, surplusEnabled: true }
+  p.providers.claude = { ...p.providers.claude, surplusEnabled: true }
   return { ...p, ...extra }
 }
 
@@ -87,7 +87,7 @@ test('a service whose quota ids were renamed is not eligible, with reasons, and 
 
 test('policy and records naming unknown services are ignored', () => {
   const policy = policyWith()
-  policy.services.gone = { surplusEnabled: true, reservePct: 20, windowDays: 2, autoRunEnabled: true, disclosuresAckAt: null }
+  policy.providers.gone = { surplusEnabled: true, reservePct: 20, windowDays: 2, autoRunEnabled: true, disclosuresAckAt: null }
   const runs = [{ id: 'r', ideaId: 'x', serviceId: 'gone', status: 'running', cycleKey: 'gone:2026-11-05', ideaSnapshot: null }]
   const ideas = [idea(), idea({ id: 'i2', status: 'running', serviceId: 'gone', lastRunId: 'missing' })]
   const evaluation = run({ policy, runs, ideas })
@@ -97,7 +97,7 @@ test('policy and records naming unknown services are ignored', () => {
 
 test('a policy without the service entry fails R1 only', () => {
   const policy = policyWith()
-  delete policy.services.claude
+  delete policy.providers.claude
   const svc = claudeOf(run({ policy }))
   assert.equal(svc.rules[0].id, 'R1')
   assert.equal(svc.rules[0].pass, false)

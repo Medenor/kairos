@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { TASKS } from '../data/tasks.js'
 import { FIT_LEVELS, LIMITS } from '../providers/schema.js'
+import { SUPPORTED_TOOLS, surplusProblems } from '../providers/surplusProfile.js'
 import { draftToInput, emptyDraft, emptyQuotaDraft, errorMap } from './providerDraft.js'
 import styles from './ProviderForm.module.css'
 
@@ -22,7 +23,8 @@ function Field({ id, label, error, children, hint }) {
 // The form holds no rules: it builds an input, hands it to `onSubmit(input)` and shows the
 // `{path, message}` errors that come back next to the field they name. Cancel never calls the handler.
 // Props: initial (draft), mode 'create' | 'edit', onSubmit(input) -> {ok, errors?}, onCancel(), extra (render slot).
-export default function ProviderForm({ initial, mode = 'create', onSubmit, onCancel, submitLabel, focusName = false }) {
+// runWarning: set when a run is in progress for this provider (changing its tool or surplus use stops it).
+export default function ProviderForm({ initial, mode = 'create', onSubmit, onCancel, submitLabel, focusName = false, runWarning = null }) {
   const uid = useId()
   const nameRef = useRef(null)
   useEffect(() => {
@@ -31,6 +33,7 @@ export default function ProviderForm({ initial, mode = 'create', onSubmit, onCan
   const [draft, setDraft] = useState(() => initial ?? emptyDraft())
   const [errors, setErrors] = useState({})
   const [notice, setNotice] = useState('')
+  const [runConfirm, setRunConfirm] = useState(false)
   const [confirm, setConfirm] = useState(null) // schedule change awaiting confirmation: { lastResetDate, date }
 
   const set = (patch) => setDraft((d) => ({ ...d, ...patch }))
@@ -85,10 +88,29 @@ export default function ProviderForm({ initial, mode = 'create', onSubmit, onCan
     }
   }
 
+  // Changing the tool or switching surplus off while a run is in progress stops that run: ask first.
+  const startingTool = initial?.surplus?.tool ?? ''
+  const toolChanges = mode === 'edit' && Boolean(runWarning) && startingTool !== '' && draft.surplus.tool !== startingTool
+
   function submit(event) {
     event.preventDefault()
+    if (toolChanges && !runConfirm) {
+      setRunConfirm(true)
+      return
+    }
+    setRunConfirm(false)
     send()
   }
+
+  // What is missing for surplus use, from the draft as it stands (live, SC-013).
+  const draftProvider = {
+    schedule: { type: draft.scheduleType },
+    quotas: draft.quotas.map((q) => ({ id: q.ref, type: q.type })),
+    surplus: draft.surplus.tool ? { tool: draft.surplus.tool, weeklyQuotaId: draft.surplus.weeklyRef || null, sessionQuotaId: draft.surplus.sessionRef || null } : null,
+  }
+  const problems = draft.surplus.tool ? surplusProblems(draftProvider) : []
+  const percentQuotas = draft.quotas.filter((q) => q.type !== 'currency')
+  const setSurplus = (patch) => setDraft((d) => ({ ...d, surplus: { ...d.surplus, ...patch } }))
 
   const id = (name) => `${uid}-${name}`
 
@@ -217,6 +239,54 @@ export default function ProviderForm({ initial, mode = 'create', onSubmit, onCan
         </div>
       </fieldset>
 
+      <fieldset className={styles.fieldset}>
+        <legend className={styles.legend}>Surplus use (optional)</legend>
+        <p className={styles.hint}>
+          Lets Kairos suggest spending quota that would expire unused. Needs a terminal tool, a weekly schedule and two
+          percentage quotas: the weekly one and the current session window.
+        </p>
+        <div className={styles.row}>
+          <Field id={id('tool')} label="Terminal tool">
+            <select id={id('tool')} className={styles.input} value={draft.surplus.tool} onChange={(e) => setSurplus({ tool: e.target.value })}>
+              <option value="">None (no surplus use)</option>
+              {SUPPORTED_TOOLS.map((tool) => <option key={tool} value={tool}>{tool}</option>)}
+            </select>
+          </Field>
+          {draft.surplus.tool && (
+            <>
+              <Field id={id('swk')} label="Weekly quota">
+                <select id={id('swk')} className={styles.input} value={draft.surplus.weeklyRef} onChange={(e) => setSurplus({ weeklyRef: e.target.value })}>
+                  <option value="">Choose…</option>
+                  {percentQuotas.map((q) => <option key={q.ref} value={q.ref}>{q.label || 'Unnamed quota'}</option>)}
+                </select>
+              </Field>
+              <Field id={id('sse')} label="Session window quota">
+                <select id={id('sse')} className={styles.input} value={draft.surplus.sessionRef} onChange={(e) => setSurplus({ sessionRef: e.target.value })}>
+                  <option value="">Choose…</option>
+                  {percentQuotas.map((q) => <option key={q.ref} value={q.ref}>{q.label || 'Unnamed quota'}</option>)}
+                </select>
+              </Field>
+            </>
+          )}
+        </div>
+        {draft.surplus.tool && (
+          problems.length === 0
+            ? <p className={styles.hint}>Surplus use is available for this provider once saved.</p>
+            : (
+              <ul className={styles.problems} aria-label="What is missing for surplus use">
+                {problems.map((problem) => <li key={problem}>{problem}</li>)}
+              </ul>
+            )
+        )}
+      </fieldset>
+
+      {runConfirm && (
+        <div className={styles.confirmBox} role="alertdialog" aria-label="Confirm tool change">
+          <p className={styles.notice}>{runWarning}</p>
+          <p className={styles.hint}>Saving will change the terminal tool, which stops the run. Submit again to confirm.</p>
+        </div>
+      )}
+
       {confirm && (
         <div className={styles.confirmBox} role="alertdialog" aria-label="Confirm schedule change">
           <p className={styles.notice}>
@@ -236,7 +306,7 @@ export default function ProviderForm({ initial, mode = 'create', onSubmit, onCan
       )}
 
       <div className={styles.actions}>
-        <button type="submit" className={styles.primary}>{submitLabel ?? (mode === 'edit' ? 'Save changes' : 'Add provider')}</button>
+        <button type="submit" className={styles.primary}>{runConfirm ? 'Save and stop the run' : (submitLabel ?? (mode === 'edit' ? 'Save changes' : 'Add provider'))}</button>
         <button type="button" className={styles.secondary} onClick={onCancel}>Cancel</button>
       </div>
     </form>

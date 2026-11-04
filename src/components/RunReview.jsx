@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { describeRunFailure, parseDiff, reviewState, sortRunsNewestFirst } from '../surplus/runs'
+import { resolveProviderName } from '../providers/names'
 import styles from './RunReview.module.css'
 
 // Run review (feature 006, US4). Output and proposed changes are drafts: they are shown as plain text
@@ -38,8 +39,13 @@ export function formatTime(iso) {
   return Number.isNaN(date.getTime()) ? '—' : date.toLocaleString()
 }
 
-function serviceName(serviceId, services) {
-  return services.find((s) => s.id === serviceId)?.name ?? serviceId
+// Live providers show their current name. A run of a provider that no longer exists shows the name it had
+// when it started (captured on the run), else the tombstone or legacy name, marked as removed.
+function serviceName(run, services, catalogue) {
+  const live = services.find((s) => s.id === run.serviceId)
+  if (live) return live.name
+  const resolved = resolveProviderName(run.serviceId, { catalogue, capturedName: run.providerName })
+  return `${resolved.name} (removed)`
 }
 
 function ideaTitle(run, idea) {
@@ -140,7 +146,7 @@ function Diff({ proposal }) {
   )
 }
 
-function RunDetail({ run, idea, onDecision, services }) {
+function RunDetail({ run, idea, onDecision, services, catalogue }) {
   const failure = describeRunFailure(run)
   const state = reviewState(run, idea)
   const reason = inputsReason(run.decisionInputs)
@@ -158,7 +164,7 @@ function RunDetail({ run, idea, onDecision, services }) {
       <dl className={styles.facts}>
         <div>
           <dt>Service</dt>
-          <dd>{serviceName(run.serviceId, services)}</dd>
+          <dd>{serviceName(run, services, catalogue)}</dd>
         </div>
         <div>
           <dt>Started</dt>
@@ -227,7 +233,7 @@ function RunDetail({ run, idea, onDecision, services }) {
   )
 }
 
-export default function RunReview({ runs = [], ideas = [], onDecision, services = [] }) {
+export default function RunReview({ runs = [], ideas = [], onDecision, services = [], catalogue = null }) {
   const sorted = useMemo(() => sortRunsNewestFirst(runs), [runs])
   const ideaById = useMemo(() => new Map(ideas.map((idea) => [idea.id, idea])), [ideas])
   const [selectedId, setSelectedId] = useState(null)
@@ -261,7 +267,7 @@ export default function RunReview({ runs = [], ideas = [], onDecision, services 
                       <span className={`${styles.status} ${styles[STATUS_CLASS[run.status] ?? 'statusNeutral']}`}>
                         {STATUS_LABELS[run.status] ?? run.status}
                       </span>
-                      <span>{serviceName(run.serviceId, services)}</span>
+                      <span>{serviceName(run, services, catalogue)}</span>
                       <span>{formatTime(run.startedAt)}</span>
                       {state.decidable ? <span className={styles.pending}>To review</span> : null}
                       {state.decided ? <span>{DECISION_LABELS[state.decision]}</span> : null}
@@ -271,7 +277,7 @@ export default function RunReview({ runs = [], ideas = [], onDecision, services 
               )
             })}
           </ul>
-          <RunDetail run={selected} idea={ideaById.get(selected.ideaId)} onDecision={onDecision}  services={services} />
+          <RunDetail run={selected} idea={ideaById.get(selected.ideaId)} onDecision={onDecision} services={services} catalogue={catalogue} />
         </div>
       )}
     </section>

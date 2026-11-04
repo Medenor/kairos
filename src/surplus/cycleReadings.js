@@ -38,7 +38,13 @@ export function deriveCycleReadings(prevStamps, state, services, now) {
     if (!nextResetDate) continue
 
     const weeklyRemainingPct = Math.min(100, Math.max(0, 100 - getConsumedPct(quota, value)))
-    readings.push({ serviceId: svc.id, nextResetDate, weeklyRemainingPct, readAt: new Date(readMs).toISOString() })
+    readings.push({
+      serviceId: svc.id,
+      ...(typeof svc.name === 'string' && svc.name !== '' ? { providerName: svc.name.slice(0, 60) } : {}),
+      nextResetDate,
+      weeklyRemainingPct,
+      readAt: new Date(readMs).toISOString(),
+    })
   }
   return { readings, stamps }
 }

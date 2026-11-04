@@ -1,3 +1,5 @@
+import { defaultPolicy, defaultProviderSurplus } from '../../surplus/policy.js'
+
 // REFERENCE DATA, NOT SHIPPED. Verbatim copy of the fixed service list (features 001 to 006) kept as test
 // input for the weekly-history and export suites, whose logic does not depend on which providers exist.
 // `legacyDefaultState()` rebuilds the state the former `buildDefaultState()` produced from it.
@@ -89,4 +91,13 @@ export function legacyDefaultState() {
     state[service.id].__last_reset_date = null
   }
   return state
+}
+
+// Policy for evaluation tests that use the legacy fixture ids: a v2 policy whose per-provider map holds
+// the default (all off) entries for 'claude' and 'chatgpt'. Evaluation never validates ids, so these keys
+// are fine here; real policies only accept provider ids.
+export function legacyPolicy() {
+  const policy = defaultPolicy()
+  policy.providers = { claude: defaultProviderSurplus(), chatgpt: defaultProviderSurplus() }
+  return policy
 }

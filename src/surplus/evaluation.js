@@ -2,6 +2,7 @@
 // unused, and which waiting idea to suggest for it. Importable by the browser and by the runner.
 // No clock (callers inject `now`), no browser or Node-only globals, no mutation of the inputs.
 import { DEFAULTS, PRIORITY, RULESET_VERSION, STATUS } from './constants.js'
+import { compareByName } from '../providers/tiebreak.js'
 import { resolveFolder } from './paths.js'
 import { isInProtectedHours, nextProtectedStart, resetDayStart } from './time.js'
 import { RESET_DATE_KEY, getConsumedPct, getResetInfo, quotaTimeKey } from '../utils.js'
@@ -143,7 +144,7 @@ function summariseSkips(skipped) {
 }
 
 function evaluateService({ svc, state, policy, ideas, runs, folderChecks, mode, now }) {
-  const sp = policy?.services?.[svc.id]
+  const sp = policy?.providers?.[svc.id]
   const serviceState = state?.[svc.id]
   const weeklyQuota = svc.quotas.find((q) => q.id === svc.surplus.weeklyQuotaId)
   const sessionQuota = svc.quotas.find((q) => q.id === svc.surplus.sessionQuotaId)
@@ -325,10 +326,11 @@ export function evaluateSurplus({ now, state, services, policy, ideas, runs, fol
   const results = supported.map((svc) =>
     evaluateService({ svc, state, policy, ideas: ideaList, runs: runList, folderChecks: folderChecks ?? null, mode, now }))
 
-  const order = new Map(supported.map((s, i) => [s.id, i]))
+  // Soonest reset first; ties are broken by normalised name then id, never by display or creation order.
+  const nameOf = new Map(supported.map((s) => [s.id, s]))
   const ranked = results
     .filter((r) => r.eligible)
-    .sort((a, b) => a.inputs.daysToReset - b.inputs.daysToReset || order.get(a.serviceId) - order.get(b.serviceId))
+    .sort((a, b) => a.inputs.daysToReset - b.inputs.daysToReset || compareByName(nameOf.get(a.serviceId), nameOf.get(b.serviceId)))
 
   let selected = null
   let reason
@@ -336,9 +338,12 @@ export function evaluateSurplus({ now, state, services, policy, ideas, runs, fol
     const first = ranked[0]
     selected = { serviceId: first.serviceId, ideaId: first.candidate.ideaId, alternatives: ranked.slice(1).map((r) => r.serviceId) }
     reason = `${first.reason}; suggested idea ${first.candidate.ideaId} (${first.candidate.size}, priority ${ideaList.find((i) => i.id === first.candidate.ideaId)?.priority ?? 'normal'})`
+    if (ranked.length > 1 && ranked[1].inputs.daysToReset === first.inputs.daysToReset) {
+      reason += '; tie broken by name (same days to reset)'
+    }
     if (selected.alternatives.length > 0) reason += `; alternatives: ${selected.alternatives.join(', ')}`
   } else if (results.length === 0) {
-    reason = 'No suggestion: no service supports surplus runs'
+    reason = 'No suggestion: no provider supports surplus use'
   } else {
     reason = `No suggestion. ${results.map((r) => r.reason).join('. ')}`
   }
