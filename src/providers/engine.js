@@ -7,7 +7,7 @@
 // back with sync/pull. One record per provider (`provider:{id}`, a tombstone on deletion) plus one
 // `catalogue-order` record. A 409 never overwrites the other device's version: it is listed in
 // `conflicts` and the user keeps theirs or reapplies mine. A tombstone always wins over an edit.
-import { addProvider, removeProvider, updateProvider } from './catalogue.js'
+import { addProvider, duplicateProvider, removeProvider, reorderProviders, updateProvider } from './catalogue.js'
 import { ORDER_KEY, RECORD_TYPE, applyCatalogueRecords, nameConflicts, parseCatalogueKey, providerKey } from './records.js'
 import { loadCatalogue, saveCatalogue } from './storage.js'
 import { activeProviders, removedProviders, toRuntimeServices } from './runtime.js'
@@ -188,6 +188,9 @@ export function createCatalogueEngine({
     addProvider: (input, opts = {}) => run(addProvider({ catalogue, state: opts.state ?? {}, input, now: stamp(opts), newId })),
     updateProvider: (id, patch, opts = {}) => run(updateProvider({ catalogue, state: opts.state ?? {}, id, patch, now: stamp(opts), newId })),
     removeProvider: (id, opts = {}) => run(removeProvider({ catalogue, state: opts.state ?? {}, id, now: stamp(opts) })),
+    duplicateProvider: (id, opts = {}) => run(duplicateProvider({ catalogue, state: opts.state ?? {}, id, now: stamp(opts), newId })),
+    // One `catalogue-order` write: the display order never feeds a rule.
+    reorderProviders: (ids) => run(reorderProviders({ catalogue, ids })),
 
     // 'theirs': take the other device's version. 'mine': push my version over theirs (current server version).
     resolveConflict(key, choice) {

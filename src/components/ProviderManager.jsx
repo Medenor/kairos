@@ -14,7 +14,7 @@ import styles from './ProviderManager.module.css'
 //   providers  runtime services in display order       stored   stored providers by id (for edit drafts)
 //   state      quota state                              runs     run records (active-run warning)
 //   now        shared Date                              onUpdateQuota(id, quotaId, value), onConfirmQuotas(id)
-//   onAdd(input), onUpdate(id, input), onDelete(id)  -> reducer result
+//   onAdd(input), onUpdate(id, input), onDelete(id), onDuplicate(id)  -> reducer result;  onReorder(ids)
 //   notices    shared-mode state: { conflicts, invalid, nameConflicts, removedElsewhere }
 //   onResolveConflict(key, 'theirs' | 'mine'), onDismissRemoved(id)
 export default function ProviderManager({
@@ -28,6 +28,8 @@ export default function ProviderManager({
   onAdd,
   onUpdate,
   onDelete,
+  onDuplicate,
+  onReorder,
   notices = {},
   onResolveConflict,
   onDismissRemoved,
@@ -58,8 +60,30 @@ export default function ProviderManager({
     setDeletingId(null)
   }
 
-  const cardActions = (svc) => [
+  // The copy opens in edit mode with the name focused, so it can be renamed right away.
+  function duplicate(id) {
+    const result = onDuplicate?.(id)
+    if (result?.ok && result.effects?.providerId) {
+      setDeletingId(null)
+      setFocusName(true)
+      setEditingId(result.effects.providerId)
+    }
+  }
+
+  // Keyboard-operable move buttons (no drag dependency); the order never feeds a rule.
+  function move(index, delta) {
+    const ids = providers.map((p) => p.id)
+    const target = index + delta
+    if (target < 0 || target >= ids.length) return
+    ;[ids[index], ids[target]] = [ids[target], ids[index]]
+    onReorder?.(ids)
+  }
+
+  const cardActions = (svc, index) => [
     { label: 'Edit', onClick: () => { setDeletingId(null); setEditingId(svc.id) } },
+    { label: 'Duplicate', onClick: () => duplicate(svc.id), title: 'Create a copy with the same settings' },
+    { label: 'Move up', onClick: () => move(index, -1), disabled: index === 0, title: 'Show this provider earlier in the list' },
+    { label: 'Move down', onClick: () => move(index, 1), disabled: index === providers.length - 1, title: 'Show this provider later in the list' },
     { label: 'Delete', onClick: () => { setEditingId(null); setDeletingId(svc.id) } },
   ]
 
@@ -115,7 +139,7 @@ export default function ProviderManager({
 
       {providers.length === 0 && !adding && <EmptyState onAdd={() => setAdding(true)} />}
 
-      {providers.map((svc) => {
+      {providers.map((svc, index) => {
         if (editingId === svc.id && stored[svc.id]) {
           return (
             <ProviderForm
@@ -145,7 +169,7 @@ export default function ProviderManager({
               onUpdate={onUpdateQuota}
               onConfirm={onConfirmQuotas}
               now={now}
-              actions={cardActions(svc)}
+              actions={cardActions(svc, index)}
             />
           </div>
         )

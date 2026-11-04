@@ -5,7 +5,8 @@
 import { isProviderId, isQuotaId, newProviderId, newQuotaId } from './ids.js'
 import { toTombstone } from './records.js'
 import { activeProviders } from './runtime.js'
-import { CYCLE_DAYS, PROVIDER_SCHEMA_VERSION, validateProvider } from './schema.js'
+import { CYCLE_DAYS, LIMITS, PROVIDER_SCHEMA_VERSION, validateProvider } from './schema.js'
+import { normalizeName } from './tiebreak.js'
 import { applyProviderStateEffects, readingWrites, resetDateWrite } from './stateEffects.js'
 
 const refuse = (catalogue, state, errors) => ({ ok: false, errors, catalogue, state })
@@ -251,4 +252,96 @@ export function removeProvider({ catalogue, state, id, now }) {
     state,
     effects: { providerId: id, stateWrites: [], stateKept: true, policyPrune: id },
   }
+}
+
+// --- duplicate and reorder (feature 007, US6) --------------------------------------------------
+
+const COPY_SUFFIX = ' (copy)'
+
+// "X (copy)", then "X (copy 2)", ... made unique among the active names; the base is shortened so the
+// result still fits the name limit.
+function copyName(name, taken) {
+  const wanted = new Set(taken.map(normalizeName))
+  for (let n = 1; ; n += 1) {
+    const suffix = n === 1 ? COPY_SUFFIX : ` (copy ${n})`
+    const candidate = `${name.slice(0, LIMITS.NAME_MAX - suffix.length)}${suffix}`
+    if (!wanted.has(normalizeName(candidate))) return candidate
+  }
+}
+
+/**
+ * Duplicate a provider: new provider and quota ids, the same settings, quota readings copied with a fresh stamp and
+ * the recorded reset date copied. The copy has no surplus policy entry (everything off, disclosures to acknowledge
+ * again) and no history or runner allowance: those are keyed by the new id and start empty (FR-010).
+ */
+export function duplicateProvider({ catalogue, state, id, now, newId = defaultNewId }) {
+  const source = catalogue.providers[id]
+  if (!source || source.status !== 'active') {
+    return refuse(catalogue, state, [{ path: 'id', message: 'This provider no longer exists.' }])
+  }
+
+  const takenProviders = new Set(Object.keys(catalogue.providers))
+  const providerId = freshId('provider', newId, takenProviders, isProviderId)
+  const takenQuotas = new Set()
+  const idMap = new Map()
+  const quotas = source.quotas.map((q) => {
+    const quotaId = freshId('quota', newId, takenQuotas, isQuotaId)
+    idMap.set(q.id, quotaId)
+    return { ...q, id: quotaId, gates: q.gates ? [...q.gates] : null }
+  })
+
+  const stamp = now.toISOString()
+  const provider = {
+    ...source,
+    id: providerId,
+    name: copyName(source.name, activeNames(catalogue)),
+    cost: source.cost ? { ...source.cost } : null,
+    flags: [...source.flags],
+    schedule: { ...source.schedule },
+    quotas,
+    fits: { ...source.fits },
+    surplus: source.surplus
+      ? {
+          tool: source.surplus.tool,
+          weeklyQuotaId: idMap.get(source.surplus.weeklyQuotaId) ?? null,
+          sessionQuotaId: idMap.get(source.surplus.sessionQuotaId) ?? null,
+        }
+      : null,
+    createdAt: stamp,
+    updatedAt: stamp,
+  }
+
+  const sourceState = state?.[id] ?? {}
+  const stateWrites = []
+  for (const q of source.quotas) {
+    const value = sourceState[q.id]
+    if (typeof value === 'number' && Number.isFinite(value)) stateWrites.push(...readingWrites(providerId, idMap.get(q.id), value, now))
+  }
+  stateWrites.push(resetDateWrite(providerId, sourceState.__last_reset_date ?? null))
+
+  const effects = { providerId, stateWrites }
+  // Insert the copy right after the original in the display order.
+  const at = catalogue.order.indexOf(id)
+  const order = at === -1 ? [...catalogue.order, providerId] : [...catalogue.order.slice(0, at + 1), providerId, ...catalogue.order.slice(at + 1)]
+  return {
+    ok: true,
+    catalogue: { ...catalogue, providers: { ...catalogue.providers, [providerId]: provider }, order },
+    state: applyProviderStateEffects(state, effects),
+    effects,
+  }
+}
+
+/**
+ * Set the display order. Unknown and duplicate ids are ignored, removed providers never come back, and active
+ * providers missing from `ids` are appended in their current order. The order never feeds a rule (FR-014).
+ */
+export function reorderProviders({ catalogue, ids }) {
+  const active = new Set(activeProviders(catalogue).map((p) => p.id))
+  const wanted = []
+  for (const candidate of ids ?? []) if (active.has(candidate) && !wanted.includes(candidate)) wanted.push(candidate)
+  for (const known of catalogue.order) if (active.has(known) && !wanted.includes(known)) wanted.push(known)
+  for (const p of activeProviders(catalogue)) if (!wanted.includes(p.id)) wanted.push(p.id)
+  const same = wanted.length === catalogue.order.length && wanted.every((entry, i) => entry === catalogue.order[i])
+  if (same) return { ok: true, catalogue, effects: { stateWrites: [] } }
+  return { ok: true, catalogue: { ...catalogue, order: wanted }, effects: { stateWrites: [] } }
 }

@@ -84,7 +84,7 @@ See the variable table in [agents/backend.md](agents/backend.md#configuration). 
 
 ## Surplus runner (optional)
 
-The runner starts approved ideas with your subscription-signed-in `claude` or `codex` CLI when a service has quota that would expire unused at its reset. It runs on one device, is optional, and is not needed by the dashboard: without it, the dashboard only suggests ideas.
+The runner starts approved ideas with your subscription-signed-in `claude` or `codex` CLI when a provider you declared has quota that would expire unused at its reset. It runs on one device, is optional, and is not needed by the dashboard: without it, the dashboard only suggests ideas.
 
 The command surface is specified in [`specs/006-surplus-runner/contracts/runner-cli.md`](../specs/006-surplus-runner/contracts/runner-cli.md).
 
@@ -103,10 +103,10 @@ npm run runner -- approve    # review each requested idea, then type "yes"
 npm run runner -- start
 ```
 
-- `config` asks for the device id and name, API base, workspace id, the projects base folder (needed for relative working folders), the services this device may run, and the copy exclusions. Copy exclusions are shown and editable before approval.
-- The first `start` on a workspace designates that device as the runner and prints the disclosures for each service.
+- `config` asks for the device id and name, API base, workspace id, the projects base folder (needed for relative working folders) and the copy exclusions. Providers are allowed separately with `allow <name-or-id>`, which pins the provider to its tool on this device. Copy exclusions are shown and editable before approval.
+- The first `start` on a workspace designates that device as the runner and prints the disclosures for each allowed provider.
 - Another device that calls `start` exits with code 3 while the first one is designated, even after the first runner stopped and its lease expired. To move the role, run `npm run runner -- config --take-over` on the new device, then `start`. The old runner exits on its next heartbeat.
-- Automatic runs stay off per service until you enable them in the dashboard and acknowledge the disclosures.
+- Automatic runs stay off per provider until you enable them in the dashboard and acknowledge the disclosures.
 - `$KAIROS_RUNNER_HOME` changes the runner's base directory from `~/.kairos-runner/`.
 
 Approval happens only on the runner device. An idea requested from another device, or edited after approval, does not run until you run `approve` on the runner device.
@@ -115,7 +115,7 @@ Approval happens only on the runner device. An idea requested from another devic
 
 - `npm run runner -- stop` creates `~/.kairos-runner/STOP` and sets `autoRunEnabled=false` in the shared store. A running process is terminated within 5 seconds.
 - The global stop control in the dashboard does the same from any device. No new run starts until automatic runs are re-enabled.
-- Deleting `STOP` alone does not re-enable runs; re-enable each service in the dashboard.
+- Deleting `STOP` alone does not re-enable runs; re-enable each provider in the dashboard.
 
 ### Local files and clean-up
 
@@ -125,4 +125,4 @@ Config, approvals and the journal are stored in `~/.kairos-runner/` (directory m
 
 - Idea text, context and the disposable copy of the working folder (minus exclusions) are sent to the chosen provider when a run starts.
 - The shared store is **not authenticated** on the local network. Any device on the LAN can read ideas stored in shared mode, including their text. Do not put secrets in ideas. See [SECURITY.md](SECURITY.md).
-- Provider rules on automated usage of subscriptions can change. If a provider stops covering automated use, switch every service back to suggestion-only in the dashboard.
+- Provider rules on automated usage of subscriptions can change. If a provider stops covering automated use, switch every provider back to suggestion-only in the dashboard.

@@ -7,7 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [UNRELEASED]
 
+### Changed
+
+- **Breaking:** providers are no longer a fixed list (`specs/007-dynamic-providers`). Kairos starts empty and you declare your own providers; the five former services (Claude, ChatGPT, Copilot, OpenRouter, Kilocode) and their live readings are no longer shown. Data from the previous version is not modified: weekly history, run and cycle records still open, labelled as providers of the previous version.
+- Recommendations come from generic, deterministic rules in `src/routing/` instead of five hand-written ones: score = declared fit minus a pressure-band penalty, then pressure bucket, sooner reset, pressure, fit and name, independent of creation or display order. Intended differences from the former rules (pressure buckets of 15 points replace the pairwise 15-point band; the `daily_chat` redirect and the one-dollar cut-off are gone; free-text advice is replaced by the declared fit) are listed in `src/routing/routing.reference.test.js`.
+- Runner: `config.json` is version 2. `allowServices` is replaced by `allowProviders`, written by the new `allow` command and pinned to the provider id and its tool; the old list is kept as `legacyAllowServices` and ignored, so nothing is allowed until you run `allow` again.
+- Surplus: the rule-set version is 2 (ties between providers with the same days to reset are broken by name, not display order); the surplus policy is version 2, keyed by provider id (the former per-service settings are kept inert).
+- Constitution 1.1.0: the product scope is the providers the user declares; no fixed provider list.
+
 ### Added
+
+- Provider management: add (name, cost, colour, flags, note, reset schedule, quotas with their own type, fit per task, optional surplus profile), edit, duplicate, reorder and delete with a confirmation that says what is removed and kept. Invalid input is refused next to the field and nothing is half-created.
+- Providers sync in shared mode as `provider:{id}` records (a tombstone on deletion) plus `catalogue-order`, with conflict handling (keep theirs or reapply mine), backup and restore, and the local export; no backend change.
+- Weekly history by provider identity (schema v2): a rename continues one series, a removed provider keeps its entries marked removed, a provider created later shows "no history recorded" for earlier weeks, and snapshots of the same week merge across devices instead of replacing each other.
+- Currency quotas have a per-quota low-balance level (default 5, which reproduces the former bands).
+- Runner: `allow` and `disallow` commands, `status` listing allowed providers with `ok`, `tool changed`, `removed` or `not eligible`, and a stop watcher that also stops a run when its provider is removed, switched off or re-tooled. Run and cycle records keep the provider name as captured.
+- Shared record-sync core (`src/sync/recordSync.js`), extracted from the surplus engine without a behaviour change.
 
 - Idea queue (`specs/006-surplus-runner`): capture ideas with text, optional context, working folder, priority, size and archive/delete. Ideas sync in shared mode.
 - Expiring-surplus suggestions: for a service enabled for surplus use, shows the quota expected to expire at reset, the best-fitting waiting idea, a copyable instruction and the rule outcomes behind it. Services with stale data, unknown reset dates or no waiting idea are reported with the reason.
@@ -72,4 +87,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Summary bar showing monthly costs and services under pressure.
 - `App.module.css` and component-scoped CSS modules for styling.
 - Comprehensive `README.md` with project vision and roadmap.
-- Initial set of routing rules in `src/data/rules.js`.
+- Initial set of routing rules (replaced by the generic rules in `src/routing/` in feature 007).

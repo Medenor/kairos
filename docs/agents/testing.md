@@ -43,3 +43,12 @@ There is no coverage gate yet; keep new code covered by the tests above.
 - **Temporary folders go under `<repo>/.test-tmp/`** (gitignored), not `os.tmpdir()`: on macOS the OS temp dir is under `/var`, which the runner refuses as a working folder, so a test using it would fail the folder check. Clean up what you create.
 - Tests never touch the real `~/.kairos-runner/`: pass a `baseDir` inside `.test-tmp/`.
 - A guardrail change (billing guard, approval hash, refused folders, stop) needs a test that proves the refusal.
+
+## Feature 007 suites (dynamic providers)
+
+- Fixtures: `src/providers/fixtures/sampleProviders.js` (valid providers, `sequentialIds`, `sampleInput`), `legacyData.js` (stored shapes of the fixed-provider build: state, policy v1, snapshot v1, run, cycle, idea, runner config), `legacyServices.js` (the former service list as test input for history and export suites).
+- Routing: `src/routing/engine*.test.js` (rules, no-pick cases, determinism under shuffling, reset buckets, scale), `routing.reference.test.js` (before/after grid against the former rule table in `fixtures/`, every divergence listed in `INTENDED_DIFFERENCES`), `no-provider-literals.test.js` (guard).
+- Providers: `src/providers/*.test.js` (ids, schema, tie-break, runtime mapping, records, storage, reducers, engine with a fake server from `src/sync/fakeServer.testkit.js`).
+- Runner: `loop.guardrails.providers.test.js` (store writes never authorise a run), `loop.lifecycle.providers.test.js` (stop watcher on removal, switch-off, tool change), `index.providers.test.js` (`allow`, `disallow`, `status`), `config.providers.test.js`. `loop.testkit.js` declares a real provider record and a pinned allowance for its world.
+- Backend: `backend/tests/contract/provider-records.contract.test.js` and the provider case of `us3-backup-restore.test.js`.
+- Tests that depend on the day set `process.env.TZ` and restore it; `test:runner` suites that start fake tools can take several seconds, run a single file with `node --test --test-timeout=20000 runner/<file>`.

@@ -54,6 +54,7 @@ export default function App() {
   }
   const handleAddProvider = (input) => afterChange(catalogue.addProvider(input, { state, now }))
   const handleUpdateProvider = (id, input) => afterChange(catalogue.updateProvider(id, input, { state, now }))
+  const handleDuplicateProvider = (id) => afterChange(catalogue.duplicateProvider(id, { state, now }))
   const handleDeleteProvider = (id) => {
     const result = afterChange(catalogue.removeProvider(id, { state, now }))
     // The deleted provider's surplus settings go with it (a run in progress is stopped by the runner).
@@ -84,6 +85,8 @@ export default function App() {
           onAdd={handleAddProvider}
           onUpdate={handleUpdateProvider}
           onDelete={handleDeleteProvider}
+          onDuplicate={handleDuplicateProvider}
+          onReorder={catalogue.reorderProviders}
           notices={{
             conflicts: catalogue.conflicts,
             invalid: catalogue.invalid,

@@ -345,7 +345,9 @@ export function evaluateSurplus({ now, state, services, policy, ideas, runs, fol
   } else if (results.length === 0) {
     reason = 'No suggestion: no provider supports surplus use'
   } else {
-    reason = `No suggestion. ${results.map((r) => r.reason).join('. ')}`
+    // Listed by name, not in the order the providers were given, so the explanation never depends on display order.
+    const byName = [...results].sort((a, b) => compareByName(nameOf.get(a.serviceId), nameOf.get(b.serviceId)))
+    reason = `No suggestion. ${byName.map((r) => r.reason).join('. ')}`
   }
 
   return { rulesetVersion: RULESET_VERSION, evaluatedAt: now.toISOString(), services: results, selected, reason }

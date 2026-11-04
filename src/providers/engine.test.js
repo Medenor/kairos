@@ -163,3 +163,28 @@ test('the display order is last writer wins and never raises a conflict', async 
   await b.fire()
   assert.equal(b.snapshot().conflicts.length, 0)
 })
+
+test('reordering writes only the catalogue-order record; duplicating creates the copy and rewrites the order (US6)', async () => {
+  const dev = setupDevice()
+  dev.engine.setWorkspace('ws')
+  await dev.engine.refresh({ full: true })
+  const a = dev.add('One')
+  const b = dev.add('Two')
+  await dev.fire()
+  const before = dev.server.calls.length
+
+  const moved = dev.engine.actions.reorderProviders([b, a])
+  assert.equal(moved.ok, true)
+  await dev.fire()
+  const writes = dev.server.calls.slice(before).filter((c) => c[0] === 'update' || c[0] === 'create')
+  assert.deepEqual(writes.map((c) => c[1]), ['catalogue-order'], 'one small record, no provider rewritten')
+  assert.deepEqual(dev.server.byKey('catalogue-order').payload.ids, [b, a])
+
+  const dup = dev.engine.actions.duplicateProvider(a, { state: {} })
+  assert.equal(dup.ok, true)
+  const copyId = dup.effects.providerId
+  await dev.fire()
+  assert.equal(dev.server.byKey(`provider:${copyId}`).payload.name, 'One (copy)')
+  assert.deepEqual(dev.server.byKey('catalogue-order').payload.ids, [b, a, copyId])
+  assert.deepEqual(dev.snapshot().order, [b, a, copyId])
+})

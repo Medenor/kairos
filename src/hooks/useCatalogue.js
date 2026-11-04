@@ -32,6 +32,8 @@ function detectWorkspaceId() {
 //   addProvider(input, { state, now? })        -> { ok, errors?, effects? }
 //   updateProvider(id, patch, { state, now? }) -> { ok, errors?, needsConfirmation?, effects? }
 //   removeProvider(id, { state, now? })        -> { ok, errors?, effects? }
+//   duplicateProvider(id, { state, now? })     -> { ok, errors?, effects? } (effects.providerId is the copy)
+//   reorderProviders(ids)                      -> { ok }
 //   resolveConflict(key, 'theirs' | 'mine'), dismissRemovedNotice(id), cancel()
 // `state` is the current quota state. An accepted action writes the quota-state patch to storage first and
 // the definition second (FR-021); the caller applies `result.effects` to its live state afterwards.
@@ -77,6 +79,8 @@ export function useCatalogue(options = {}) {
       addProvider: engine.actions.addProvider,
       updateProvider: engine.actions.updateProvider,
       removeProvider: engine.actions.removeProvider,
+      duplicateProvider: engine.actions.duplicateProvider,
+      reorderProviders: engine.actions.reorderProviders,
       resolveConflict: engine.actions.resolveConflict,
       dismissRemovedNotice: engine.actions.dismissRemovedNotice,
       // Cancelling a form or dialog calls nothing: no catalogue action exists for it, by construction.

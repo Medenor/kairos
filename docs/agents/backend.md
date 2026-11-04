@@ -10,6 +10,10 @@ Plain Node.js (20+) `http` server with **zero npm dependencies**. Entry point `b
 - Business rules (versioning, conflicts, idempotent migration, backup/restore) live in services.
 - Failures are thrown as `ApiError(status, CODE, message)` and rendered by `toErrorEnvelope`.
 
+## Provider records (feature 007)
+
+The provider catalogue needs **no backend change**: `provider:{id}` (a definition or a tombstone) and `catalogue-order` are ordinary `routing_config` records, so versioning, `409` conflicts, `sync/pull` and backup/restore apply unchanged. Deleting a provider is a versioned `PUT` of a tombstone, never an HTTP delete. `backend/tests/contract/provider-records.contract.test.js` characterises this.
+
 ## SQLite access
 
 The database client shells out to the **`sqlite3` CLI** (`execFileSync('sqlite3', ...)`); there is no driver. Consequences:
