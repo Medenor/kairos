@@ -1,5 +1,8 @@
-// Codex adapter (contracts/runner-cli.md, research D5): `exec`, workspace-write sandbox,
-// approvals never, the disposable copy as working directory.
+// Codex adapter (contracts/runner-cli.md, research D5): `exec`, workspace-write sandbox, approvals never, the
+// disposable copy as working directory. Hardened form (2026-11-04 canary): the user config and rules are ignored so a
+// personal `approvals_reviewer = "auto_review"` or an allow rule cannot bypass the sandbox, and approval policy and
+// reviewer are pinned with `-c`. Writes outside the copy are blocked; READS OUTSIDE THE COPY ARE NOT CONTAINED
+// (workspace-write grants read on /), so the loop runs Codex automatically only with `allowCodexAuto`.
 
 import { buildChildEnv } from '../preflight.js'
 import { NEEDS_INPUT_MARKER } from './prompt.js'
@@ -9,10 +12,10 @@ export { buildPrompt } from './prompt.js'
 export const tool = 'codex'
 
 export function requiredFlags() {
-  return ['--sandbox', '--cd', '--ask-for-approval', '--skip-git-repo-check']
+  return ['--ignore-user-config', '--ignore-rules', '--config', '--sandbox', '--cd', '--skip-git-repo-check']
 }
 
-// `--ask-for-approval`, `--sandbox` and `--cd` are listed at top level; `--skip-git-repo-check` under exec.
+// All required flags are listed under `codex exec --help`; the top-level help is read too for older layouts.
 export function helpArgs() {
   return [['--help'], ['exec', '--help']]
 }
@@ -24,8 +27,11 @@ export function buildInvocation({ prompt, cwd, env = process.env, toolPath } = {
   return {
     cmd: toolPath || tool,
     args: [
-      '--ask-for-approval', 'never',
       'exec',
+      '--ignore-user-config',
+      '--ignore-rules',
+      '-c', 'approval_policy="never"',
+      '-c', 'approvals_reviewer="user"',
       '--sandbox', 'workspace-write',
       '--cd', cwd,
       '--skip-git-repo-check',

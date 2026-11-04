@@ -1,6 +1,6 @@
 # Tasks: surplus-runner
 
-**Input**: Design documents from `/Users/raphael/Programmation/kairos/specs/006-surplus-runner/`
+**Input**: Design documents from `specs/006-surplus-runner/`
 **Prerequisites**: plan.md, spec.md, research.md, data-model.md, contracts/evaluation.md, contracts/shared-records.md, contracts/runner-cli.md, quickstart.md
 
 **Tests**: Included. Constitution Principle III and the spec's Verification Plan require a failing-first test for every rule, guardrail and state transition. Pure logic is tested with `node:test` in plain Node (inject `now`, never read the real clock, `localStorage` or network). UI-only behaviour that cannot reasonably be automated is verified through the manual steps in `quickstart.md`.
@@ -11,7 +11,7 @@
 
 - **[P]**: Can run in parallel (different files, no dependencies on unfinished tasks)
 - **[Story]**: US1 to US4, mapping to the user stories in `spec.md`
-- Paths are absolute under `/Users/raphael/Programmation/kairos`; written below as `R/` for brevity (`R/` = `/Users/raphael/Programmation/kairos/`)
+- Paths are relative to the repository root; written below with an `R/` prefix for brevity (`R/` = the repository root)
 
 ## Phase 1: Setup (Shared Infrastructure)
 
@@ -138,7 +138,7 @@
 - [X] T057 [US3] Implement `R/runner/index.js` command dispatch for `config`, `start`, `approve`, `approvals`, `status`, `stop`, `clean` with exit codes 0, 1, 2, 3; `start` prints the disclosures and requires a prior `config`; `stop` writes the `STOP` file and sets `surplus-control autoRunEnabled=false`
 - [X] T058 [US3] Add the automatic-run controls to `R/src/components/SurplusSettings.jsx`: per-service "automatic runs" toggle disabled until protected hours are declared and shared mode is on; first activation shows a disclosure dialog (idea text, context and the disposable copy go to the chosen provider when a run starts; anyone on the local network can read shared ideas while shared-store access is unauthenticated; provider rules can change) and sets `disclosuresAckAt` only after acknowledgement (FR-012); an always-visible global stop button writing `surplus-control autoRunEnabled=false` (SC-007)
 - [X] T059 [P] [US3] Show runner state in `R/src/components/IdeaQueue.jsx` and `R/src/components/SurplusNotice.jsx`: designated device name, lease heartbeat age, the display-only approved map as an "approved on runner" marker per idea, "awaiting approval on the runner" for requests, and `running` status; the browser never treats the marker as authorisation
-- [ ] T060 [US3] Run the automatable parts of `quickstart.md` section 4 against `R/runner/fixtures/fake-api.js` and `fake-cli.js` (`npm run test:runner`), then perform the manual containment canary and the API-key-login billing check with a real signed-in tool and record the results in `R/specs/006-surplus-runner/verification.md`
+- [X] T060 [US3] Run the automatable parts of `quickstart.md` section 4 against `R/runner/fixtures/fake-api.js` and `fake-cli.js` (`npm run test:runner`), then perform the manual containment canary and the API-key-login billing check with a real signed-in tool and record the results in `R/specs/006-surplus-runner/verification.md` (done 2026-11-04: A Claude PASS; B Codex writes PASS, reads accepted and gated by `allowCodexAuto`; C and D PASS; E and F not run, optional for the user)
 
 **Checkpoint**: Automatic runs work end to end behind every guardrail; browser-only suggestion mode is unchanged.
 

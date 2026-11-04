@@ -8,8 +8,19 @@ export { buildPrompt } from './prompt.js'
 
 export const tool = 'claude'
 
-// File read/search/edit tools only. No Bash or other shell tool: anything else is denied by dontAsk.
-export const ALLOWED_TOOLS = Object.freeze(['Read', 'Glob', 'Grep', 'Edit', 'Write'])
+// Path-scoped allow rules (gitignore syntax; `./` anchors at the session cwd, i.e. the disposable copy).
+// Bare tool names would allow those tools on any path, so none are listed. `Edit(...)` covers every
+// file-editing tool (Edit and Write); `Read(...)` covers Read and, best effort, Glob and Grep. Reads
+// inside the cwd need no approval under dontAsk, and everything not allowed here is auto-denied.
+// No Bash or other shell tool. Symlinks: an allow rule only matches when both the requested path and
+// the file it resolves to are inside the cwd, so a link leading out of the copy is not allowed.
+export const ALLOWED_TOOLS = Object.freeze(['Read(./**)', 'Edit(./**)'])
+// Defence in depth: deny rules win over allow rules and also match a symlink's target. A Read deny rule
+// also blocks Edit and Write on the same path. Credential folders reachable through HOME.
+export const DENIED_TOOLS = Object.freeze([
+  'Read(~/.ssh/**)', 'Read(~/.aws/**)', 'Read(~/.gnupg/**)', 'Read(~/.config/**)',
+  'Read(~/.claude/**)', 'Read(~/.codex/**)', 'Read(~/.netrc)', 'Read(~/.npmrc)',
+])
 // Hard bound on agent turns. The duration bound is the loop's hard-stop timer.
 export const MAX_TURNS = 40
 
@@ -33,6 +44,7 @@ export function buildInvocation({ prompt, cwd, env = process.env, toolPath } = {
       '--output-format', 'json',
       '--permission-mode', 'dontAsk',
       '--allowedTools', ALLOWED_TOOLS.join(','),
+      '--disallowedTools', DENIED_TOOLS.join(','),
       '--max-turns', String(MAX_TURNS),
       '--', prompt,
     ],

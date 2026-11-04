@@ -155,7 +155,7 @@ test('evaluation inputs are recorded verbatim in the skip result for the status 
   }))
 
 test('the codex tool and the service keyed records are used for chatgpt', () =>
-  withWorld({ serviceId: 'chatgpt', configPatch: { allowServices: ['chatgpt'] } }, async (w) => {
+  withWorld({ serviceId: 'chatgpt', configPatch: { allowServices: ['chatgpt'], allowCodexAuto: true } }, async (w) => {
     const result = await w.makeLoop().tick()
     assert.equal(result.started, true)
     assert.equal(w.cli.codex.calls().length, 1)
@@ -163,6 +163,15 @@ test('the codex tool and the service keyed records are used for chatgpt', () =>
     assert.equal(w.run('run-1').serviceId, 'chatgpt')
     assert.ok(w.cycle('2026-11-04'), 'cycle record keyed by the service')
     assert.equal(cycleRecordKey('chatgpt', '2026-11-04'), 'cycle:chatgpt:2026-11-04')
+  }))
+
+test('codex automatic runs are skipped by default: reads are not contained', () =>
+  withWorld({ serviceId: 'chatgpt', configPatch: { allowServices: ['chatgpt'] } }, async (w) => {
+    const result = await w.makeLoop().tick()
+    assert.equal(result.started, false)
+    assert.equal(result.reason, 'codex_reads_uncontained')
+    assert.equal(w.cli.codex.calls().length, 0)
+    assert.equal(w.idea().payload.status, 'waiting')
   }))
 
 test('a STOP file written after a run ends later ticks without evaluating', () =>

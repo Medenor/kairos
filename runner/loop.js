@@ -52,7 +52,7 @@ export const SKIP_REASONS = Object.freeze([
   'service_not_allowed', 'surplus_disabled', 'not_eligible', 'no_waiting_idea', 'not_approved', 'run_active',
   'tick_in_progress', 'claim_conflict', 'claim_lost', 'claim_failed', 'idea_invalid', 'folder_error',
   'tool_missing', 'flags_unsupported', 'not_signed_in', 'billing_guard', 'api_unavailable', 'internal_error',
-  'recovery_pending',
+  'recovery_pending', 'codex_reads_uncontained',
 ])
 
 const defaultAdapters = Object.freeze({ claude: claudeAdapter, codex: codexAdapter })
@@ -499,6 +499,9 @@ export function createLoop({
     const svc = services.find((s) => s.id === serviceId)
     const adapter = adapters[svc.surplus.tool]
     if (!adapter) return { reason: 'tool_missing', detail: `No adapter for ${svc.surplus.tool}.` }
+    if (adapter.tool === 'codex' && config.allowCodexAuto !== true) {
+      return { reason: 'codex_reads_uncontained', detail: 'Codex reads files outside the disposable copy (not contained). Set allowCodexAuto to true in config.json to run it automatically.' }
+    }
     const result = await preflight({ adapter, env, toolPath: config.tools?.[adapter.tool] })
     if (!result.ok) return { reason: result.reason, detail: result.message }
     return null

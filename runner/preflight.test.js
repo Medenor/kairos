@@ -11,12 +11,14 @@ const CLAUDE_HELP = `Usage: claude [options]
   --allowedTools, --allowed-tools <tools...>
 `
 const CODEX_HELP = `Usage: codex [OPTIONS]
-  -s, --sandbox <SANDBOX_MODE>
   -C, --cd <DIR>
-  -a, --ask-for-approval <APPROVAL_POLICY>
 `
 const CODEX_EXEC_HELP = `Usage: codex exec [OPTIONS]
+  -c, --config <key=value>
+  -s, --sandbox <SANDBOX_MODE>
   --skip-git-repo-check
+  --ignore-user-config
+  --ignore-rules
   --color <COLOR>
 `
 const CLAUDE_OK = JSON.stringify({ loggedIn: true, authMethod: 'claude.ai', apiProvider: 'firstParty', email: 'someone@example.com' })
@@ -93,6 +95,13 @@ describe('preflight: tool_missing and flags_unsupported', () => {
     const res = await runPreflight({ adapter: codex, env: BASE_ENV, execFile: exec })
     assert.equal(res.reason, 'flags_unsupported')
     assert.match(res.message, /--skip-git-repo-check/)
+  })
+
+  test('codex lacking the hardening flags is detected', async () => {
+    const exec = fakeExec(codexRoutes({ 'codex exec --help': ok('Usage: codex exec\n  -c, --config <key=value>\n  -s, --sandbox <M>\n  --skip-git-repo-check\n') }))
+    const res = await runPreflight({ adapter: codex, env: BASE_ENV, execFile: exec })
+    assert.equal(res.reason, 'flags_unsupported')
+    assert.match(res.message, /--ignore-user-config, --ignore-rules/)
   })
 
   test('required flags are matched as whole flags, not substrings', async () => {

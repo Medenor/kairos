@@ -122,6 +122,7 @@ export function defaultConfig({ deviceId = randomUUID(), deviceName = hostname()
     workspaceId: '',
     projectsBaseFolder: null,
     allowServices: [],
+    allowCodexAuto: false,
     tools: { ...DEFAULT_TOOLS },
     exclusions: [...DEFAULT_EXCLUSIONS],
     limits: { ...DEFAULT_LIMITS },
@@ -162,6 +163,13 @@ export function validateConfig(raw) {
     allowServices = []
   } else {
     allowServices = [...new Set(allowServices)]
+  }
+
+  // Codex reads are not contained (docs/SECURITY.md), so its automatic runs need this explicit opt-in.
+  let allowCodexAuto = raw.allowCodexAuto ?? false
+  if (typeof allowCodexAuto !== 'boolean') {
+    bad('allowCodexAuto', 'allowCodexAuto must be true or false')
+    allowCodexAuto = false
   }
 
   const tools = { ...DEFAULT_TOOLS }
@@ -214,6 +222,7 @@ export function validateConfig(raw) {
       workspaceId: raw.workspaceId.trim(),
       projectsBaseFolder,
       allowServices,
+      allowCodexAuto,
       tools,
       exclusions,
       limits,

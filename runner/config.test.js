@@ -327,3 +327,13 @@ test('takeOver retries once after a version conflict and gives up after a second
     await api.close()
   }
 })
+
+test('allowCodexAuto defaults to false and must be a boolean', () => {
+  const base = { ...defaultConfig({ deviceId: 'd', deviceName: 'n' }), workspaceId: 'w' }
+  assert.equal(base.allowCodexAuto, false)
+  const omitted = { ...base }
+  delete omitted.allowCodexAuto
+  assert.equal(validateConfig(omitted).config.allowCodexAuto, false)
+  assert.equal(validateConfig({ ...base, allowCodexAuto: true }).config.allowCodexAuto, true)
+  assert.equal(validateConfig({ ...base, allowCodexAuto: 'yes' }).valid, false)
+})

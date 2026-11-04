@@ -88,10 +88,25 @@ describe('claude adapter', () => {
   test('explicit file-tool allow-list without a shell tool', () => {
     const tools = flagValue(inv().args, '--allowedTools').split(',')
     assert.ok(tools.length > 0)
-    assert.ok(tools.includes('Read') && tools.includes('Edit'))
+    assert.ok(tools.includes('Read(./**)') && tools.includes('Edit(./**)'))
     for (const t of tools) assert.doesNotMatch(t, SHELL_TOOLS, t)
     assert.equal(tools.includes('*'), false)
     assert.equal(inv().args.includes('--dangerously-skip-permissions'), false)
+  })
+
+  test('file tools are scoped to the cwd: no bare tool names, no absolute or parent paths in allow rules', () => {
+    const tools = flagValue(inv().args, '--allowedTools').split(',')
+    for (const t of tools) {
+      assert.match(t, /^(Read|Edit)\(\.\/[^)]*\)$/, t)
+      assert.doesNotMatch(t, /\.\.|\(\/|\(~|\(\*/, t)
+    }
+    for (const bare of ['Read', 'Edit', 'Write', 'Glob', 'Grep']) assert.equal(tools.includes(bare), false, bare)
+  })
+
+  test('credential folders are denied explicitly', () => {
+    const denied = flagValue(inv().args, '--disallowedTools').split(',')
+    for (const p of ['~/.ssh/**', '~/.aws/**', '~/.gnupg/**']) assert.ok(denied.includes(`Read(${p})`), p)
+    assert.equal(denied.some((d) => /^(Read|Edit)\(\./.test(d)), false, 'a deny rule must not cover the cwd')
   })
 
   test('turn limit is a positive integer', () => {
@@ -215,7 +230,7 @@ describe('codex adapter', () => {
   test('identity and required flags', () => {
     assert.equal(codex.tool, 'codex')
     const flags = codex.requiredFlags()
-    for (const f of ['--sandbox', '--cd', '--ask-for-approval']) assert.ok(flags.includes(f), f)
+    for (const f of ['--sandbox', '--cd', '--config', '--ignore-user-config', '--ignore-rules', '--skip-git-repo-check']) assert.ok(flags.includes(f), f)
   })
 
   test('uses exec', () => {
@@ -231,10 +246,15 @@ describe('codex adapter', () => {
     assert.equal(args.includes('danger-full-access'), false)
   })
 
-  test('approvals never, set before the exec subcommand', () => {
+  test('hardened: user config and rules ignored, approval policy and reviewer pinned after exec', () => {
     const { args } = inv()
-    assert.equal(flagValue(args, '--ask-for-approval'), 'never')
-    assert.ok(args.indexOf('--ask-for-approval') < args.indexOf('exec'))
+    const exec = args.indexOf('exec')
+    assert.equal(exec, 0)
+    assert.ok(args.indexOf('--ignore-user-config') > exec)
+    assert.ok(args.indexOf('--ignore-rules') > exec)
+    const overrides = args.flatMap((a, i) => (a === '-c' ? [args[i + 1]] : []))
+    assert.deepEqual(overrides, ['approval_policy="never"', 'approvals_reviewer="user"'])
+    assert.equal(args.includes('--ask-for-approval'), false)
   })
 
   test('the copy is the working directory (--cd and cwd)', () => {
