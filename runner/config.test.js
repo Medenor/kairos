@@ -42,6 +42,9 @@ test.after(() => {
 const valid = (extra = {}) => ({ ...defaultConfig({ deviceId: 'dev-1', deviceName: 'Laptop' }), workspaceId: 'ws-1', ...extra })
 const mode = (path) => statSync(path).mode & 0o777
 
+const ALLOWED_AT = '2026-11-03T10:00:00.000Z'
+const ALLOWED = { providerId: 'p_allowedaaaaa', tool: 'claude', name: 'Allowed', allowedAt: ALLOWED_AT }
+
 test('defaultBaseDir uses KAIROS_RUNNER_HOME or ~/.kairos-runner', () => {
   assert.equal(defaultBaseDir({ env: {}, home: '/home/u' }), '/home/u/.kairos-runner')
   assert.equal(defaultBaseDir({ env: { KAIROS_RUNNER_HOME: '/x/r' }, home: '/home/u' }), '/x/r')
@@ -59,7 +62,8 @@ test('saveConfig creates the directory 0700 and config.json 0600 and loadConfig 
   assert.deepEqual(loaded.config.exclusions, [...DEFAULT_EXCLUSIONS])
   assert.deepEqual(loaded.config.limits, { ...DEFAULT_LIMITS })
   assert.equal(loaded.config.limits.evalIntervalMinutes, 15)
-  assert.deepEqual(loaded.config.allowServices, [])
+  assert.deepEqual(loaded.config.allowProviders, [])
+  assert.equal(loaded.config.schemaVersion, 2)
 })
 
 test('an existing wider-permission directory is tightened to 0700', () => {
@@ -88,8 +92,8 @@ test('validateConfig rejects bad fields with a field name each', () => {
     [{ apiBase: 'nope' }, 'apiBase'],
     [{ workspaceId: '' }, 'workspaceId'],
     [{ projectsBaseFolder: 'relative/dir' }, 'projectsBaseFolder'],
-    [{ allowServices: ['copilot'] }, 'allowServices'],
-    [{ allowServices: 'claude' }, 'allowServices'],
+    [{ allowProviders: [{ providerId: 'copilot', tool: 'claude', name: 'X', allowedAt: ALLOWED_AT }] }, 'allowProviders[0].providerId'],
+    [{ allowProviders: 'claude' }, 'allowProviders'],
     [{ tools: { claude: '' } }, 'tools.claude'],
     [{ exclusions: ['ok', ''] }, 'exclusions'],
     [{ exclusions: ['/etc'] }, 'exclusions'],
@@ -110,14 +114,14 @@ test('validateConfig normalises: dedupes services and exclusions, trims, drops u
   const { config } = validateConfig({
     ...valid(),
     apiBase: 'http://host:8080/api/v1/',
-    allowServices: ['claude', 'claude', 'chatgpt'],
+    allowProviders: [ALLOWED, ALLOWED, { ...ALLOWED, providerId: 'p_otherzzzzzzz', name: 'Other' }],
     exclusions: [' .env* ', '.env*', 'dist'],
     deviceName: ' Laptop ',
     surprise: true,
     limits: { heartbeatSeconds: 0.5, unknown: 1 },
   })
   assert.equal(config.apiBase, 'http://host:8080/api/v1')
-  assert.deepEqual(config.allowServices, ['claude', 'chatgpt'])
+  assert.deepEqual(config.allowProviders.map((e) => e.providerId), ['p_allowedaaaaa', 'p_otherzzzzzzz'])
   assert.deepEqual(config.exclusions, ['.env*', 'dist'])
   assert.equal(config.deviceName, 'Laptop')
   assert.equal(config.surprise, undefined)
@@ -135,7 +139,7 @@ test('saveConfig throws ConfigError for an invalid config and writes nothing', (
 test('updateConfig starts from defaults, merges tools and limits, keeps the device id', () => {
   const base = tempBase()
   assert.throws(() => updateConfig(base, {}), ConfigError) // no workspace yet
-  const first = updateConfig(base, { workspaceId: 'ws-1', allowServices: ['claude'], limits: { evalIntervalMinutes: 5 } }, { deviceId: 'dev-9', deviceName: 'Box' })
+  const first = updateConfig(base, { workspaceId: 'ws-1', allowProviders: [ALLOWED], limits: { evalIntervalMinutes: 5 } }, { deviceId: 'dev-9', deviceName: 'Box' })
   assert.equal(first.deviceId, 'dev-9')
   assert.equal(first.limits.evalIntervalMinutes, 5)
   const second = updateConfig(base, { tools: { claude: '/opt/claude' }, limits: { leaseSeconds: 30 } })
@@ -144,7 +148,7 @@ test('updateConfig starts from defaults, merges tools and limits, keeps the devi
   assert.equal(second.tools.codex, 'codex')
   assert.equal(second.limits.evalIntervalMinutes, 5)
   assert.equal(second.limits.leaseSeconds, 30)
-  assert.deepEqual(second.allowServices, ['claude'])
+  assert.deepEqual(second.allowProviders, [ALLOWED])
 })
 
 test('addExclusion and removeExclusion are pure and handle duplicates, positions and errors', () => {
@@ -202,13 +206,13 @@ test('editExclusions ends at end of input and refuses without a config', async (
 
 test('runConfigWizard collects the fields, keeps defaults on empty answers, then edits exclusions', async () => {
   const base = tempBase()
-  const io = scriptedIO(['Studio Mac', 'http://192.168.1.5:8888/api/v1', 'ws-7', '/Users/u/Projects', 'claude, chatgpt', 'add out/', 'done'])
+  const io = scriptedIO(['Studio Mac', 'http://192.168.1.5:8888/api/v1', 'ws-7', '/Users/u/Projects', 'add out/', 'done'])
   const config = await runConfigWizard({ baseDir: base, io, deviceId: 'dev-3', deviceName: 'ignored' })
   assert.equal(config.deviceId, 'dev-3')
   assert.equal(config.deviceName, 'Studio Mac')
   assert.equal(config.workspaceId, 'ws-7')
   assert.equal(config.projectsBaseFolder, '/Users/u/Projects')
-  assert.deepEqual(config.allowServices, ['claude', 'chatgpt'])
+  assert.deepEqual(config.allowProviders, [], 'the wizard no longer edits the allowance: use `allow`')
   assert.ok(config.exclusions.includes('out/'))
   assert.equal(mode(runnerPaths(base).config), 0o600)
 })

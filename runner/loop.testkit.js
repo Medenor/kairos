@@ -5,9 +5,10 @@
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { SERVICES } from '../src/data/services.js'
 import { classifyFolder, resolveFolder } from '../src/surplus/paths.js'
-import { defaultPolicy } from '../src/surplus/policy.js'
+import { defaultPolicy, defaultProviderSurplus } from '../src/surplus/policy.js'
+import { providerKey } from '../src/providers/records.js'
+import { toRuntimeService } from '../src/providers/runtime.js'
 import { createIdea } from '../src/surplus/ideas.js'
 import { cycleRecordKey, ideaKey, keyForControl, keyForPolicy, runKey } from '../src/surplus/records.js'
 import { quotaTimeKey, RESET_DATE_KEY } from '../src/utils.js'
@@ -21,6 +22,37 @@ import { createLease } from './lease.js'
 import { createLoop } from './loop.js'
 
 export const REPO_TMP = join(dirname(fileURLToPath(import.meta.url)), '..', '.test-tmp')
+
+// The world declares one provider in the shared catalogue (stored shape, as a user would), keyed 'claude' (tool claude,
+// consumed % quotas) or 'chatgpt' (tool codex, remaining % quotas). The keys name the tool, never a provider id.
+export const CLAUDE_ID = 'p_claudeaaaaaa'
+export const CHATGPT_ID = 'p_chatgptaaaaa'
+export const WORLD_PROVIDERS = {
+  claude: { id: CLAUDE_ID, name: 'Alpha Claude', tool: 'claude', weekly: { id: 'q_weekly22', label: 'Weekly quota', type: 'consumed_pct' }, session: { id: 'q_slot5haa', label: '5h slot', type: 'consumed_pct' } },
+  chatgpt: { id: CHATGPT_ID, name: 'Beta Codex', tool: 'codex', weekly: { id: 'q_remain22', label: 'Weekly quota (remaining)', type: 'remaining_pct' }, session: { id: 'q_codex5ha', label: '5h slot (remaining)', type: 'remaining_pct' } },
+}
+
+export function providerRecord(key = 'claude', patch = {}) {
+  const spec = WORLD_PROVIDERS[key]
+  const quota = (q) => ({ id: q.id, label: q.label, type: q.type, currency: null, lowBalance: null, gates: null, subnote: null })
+  return {
+    schemaVersion: 1,
+    id: spec.id,
+    status: 'active',
+    name: spec.name,
+    cost: null,
+    color: null,
+    flags: [],
+    note: '',
+    schedule: { type: 'weekly', cycleDays: 7 },
+    quotas: [quota(spec.weekly), quota(spec.session)],
+    fits: { coding_hard: 'strong' },
+    surplus: { tool: spec.tool, weeklyQuotaId: spec.weekly.id, sessionQuotaId: spec.session.id },
+    createdAt: '2026-10-01T08:00:00.000Z',
+    updatedAt: '2026-10-01T08:00:00.000Z',
+    ...patch,
+  }
+}
 
 /** Local time on 2026-11-03 plus `dayOffset` days (the reset date logic works in local days). */
 export const localAt = (hours, minutes = 0, dayOffset = 0) => new Date(2026, 10, 3 + dayOffset, hours, minutes)
@@ -104,27 +136,23 @@ export function makeEvents() {
   }
 }
 
-/** quota_state seeds for one service: values are given as remaining percentages. */
-export function quotaSeeds(serviceId, { weeklyRemaining = 60, sessionRemaining = 80, weeklyAgeHours = 1, sessionAgeHours = 1, lastReset = '2026-10-28' } = {}, at) {
-  const svc = SERVICES.find((s) => s.id === serviceId)
-  const stored = (quotaId, remaining) => {
-    const quota = svc.quotas.find((q) => q.id === quotaId)
-    return quota.type === 'consumed_pct' ? 100 - remaining : remaining
-  }
+/** quota_state seeds for one world provider: values are given as remaining percentages. */
+export function quotaSeeds(key, { weeklyRemaining = 60, sessionRemaining = 80, weeklyAgeHours = 1, sessionAgeHours = 1, lastReset = '2026-10-28' } = {}, at) {
+  const spec = WORLD_PROVIDERS[key]
+  const stored = (q, remaining) => (q.type === 'consumed_pct' ? 100 - remaining : remaining)
   const stamp = (hours) => new Date(at.getTime() - hours * 3600000).toISOString()
-  const { weeklyQuotaId, sessionQuotaId } = svc.surplus
   return [
-    [`${serviceId}:${weeklyQuotaId}`, stored(weeklyQuotaId, weeklyRemaining)],
-    [`${serviceId}:${sessionQuotaId}`, stored(sessionQuotaId, sessionRemaining)],
-    [`${serviceId}:${quotaTimeKey(weeklyQuotaId)}`, stamp(weeklyAgeHours)],
-    [`${serviceId}:${quotaTimeKey(sessionQuotaId)}`, stamp(sessionAgeHours)],
-    [`${serviceId}:${RESET_DATE_KEY}`, lastReset],
+    [`${spec.id}:${spec.weekly.id}`, stored(spec.weekly, weeklyRemaining)],
+    [`${spec.id}:${spec.session.id}`, stored(spec.session, sessionRemaining)],
+    [`${spec.id}:${quotaTimeKey(spec.weekly.id)}`, stamp(weeklyAgeHours)],
+    [`${spec.id}:${quotaTimeKey(spec.session.id)}`, stamp(sessionAgeHours)],
+    [`${spec.id}:${RESET_DATE_KEY}`, lastReset],
   ]
 }
 
-export function makePolicy(serviceId, at) {
+export function makePolicy(key, at) {
   const policy = defaultPolicy()
-  policy.services[serviceId] = { ...policy.services[serviceId], surplusEnabled: true, autoRunEnabled: true, disclosuresAckAt: at.toISOString() }
+  policy.providers[WORLD_PROVIDERS[key].id] = { ...defaultProviderSurplus(), surplusEnabled: true, autoRunEnabled: true, disclosuresAckAt: at.toISOString() }
   policy.protectedHours = [{ days: [0, 1, 2, 3, 4, 5, 6], start: '23:00', end: '06:00' }]
   return policy
 }
@@ -144,13 +172,13 @@ const HELP = {
 }
 
 /**
- * world options: serviceId ('claude'), start (Date), quota, policy ((policy) => void), control (true | false | null),
+ * world options: serviceId ('claude' | 'chatgpt': which world provider; `world.serviceId` is its provider id), start (Date), quota, policy ((policy) => void), control (true | false | null),
  * seedPolicy (true), ideas ([{id, text, context, folder, workingFolder, makeFolder, size, priority, approved}]),
  * cli ({claude, codex} fake behaviours), configPatch, env, stopFile (false), realPreflight (false).
  */
 export async function makeWorld(options = {}) {
   const {
-    serviceId = 'claude', start = localAt(14, 0), quota = {}, policy: tweakPolicy, control = true, seedPolicy = true,
+    serviceId: key = 'claude', start = localAt(14, 0), quota = {}, policy: tweakPolicy, control = true, seedPolicy = true,
     ideas = [{}], cli = {}, configPatch = {}, env: extraEnv = {}, stopFile = false, realPreflight = false,
   } = options
   mkdirSync(REPO_TMP, { recursive: true })
@@ -175,7 +203,7 @@ export async function makeWorld(options = {}) {
     workspaceId: fakeApi.workspaceId,
     apiBase: fakeApi.url,
     projectsBaseFolder: projectsDir,
-    allowServices: [serviceId],
+    allowProviders: [{ providerId: WORLD_PROVIDERS[key].id, tool: WORLD_PROVIDERS[key].tool, name: WORLD_PROVIDERS[key].name, allowedAt: start.toISOString() }],
     tools: { claude: tools.claude.path, codex: tools.codex.path },
     ...configPatch,
   }
@@ -183,10 +211,11 @@ export async function makeWorld(options = {}) {
   if (!validated.valid) throw new Error(`test config invalid: ${JSON.stringify(validated.errors)}`)
   const config = validated.config
 
+  const serviceId = WORLD_PROVIDERS[key].id
   let runCounter = 0
   const loops = []
   const world = {
-    dir, baseDir, projectsDir, homeDir, binDir, fakeApi, client, clock, events, config, tools, serviceId,
+    dir, baseDir, projectsDir, homeDir, binDir, fakeApi, client, clock, events, config, tools, serviceId, key, provider: WORLD_PROVIDERS[key],
     paths: runnerPaths(baseDir),
     cli: tools,
     approveIdea: async (idea) => {
@@ -215,7 +244,7 @@ export async function makeWorld(options = {}) {
     putRouting: (logicalKey, payload) => fakeApi.put(logicalKey, payload),
     setControl: (enabled) => fakeApi.put(keyForControl(), { autoRunEnabled: enabled, updatedAt: clock.now().toISOString() }),
     setPolicy(tweak) {
-      const policy = makePolicy(serviceId, start)
+      const policy = makePolicy(key, start)
       tweak?.(policy)
       return fakeApi.put(keyForPolicy(), policy)
     },
@@ -227,10 +256,14 @@ export async function makeWorld(options = {}) {
     },
     /** Put the weekly remaining percentage of the world's service, as the browser would after the user edits it. */
     setWeeklyRemaining(remaining) {
-      const svc = SERVICES.find((s) => s.id === serviceId)
-      const quota0 = svc.quotas.find((q) => q.id === svc.surplus.weeklyQuotaId)
+      const quota0 = WORLD_PROVIDERS[key].weekly
       return world.setQuota(`${serviceId}:${quota0.id}`, quota0.type === 'consumed_pct' ? 100 - remaining : remaining)
     },
+    /** Write (or overwrite) the world provider's catalogue record, as the browser would. */
+    setProvider(patch = {}) {
+      return fakeApi.put(providerKey(serviceId), providerRecord(key, patch))
+    },
+    runtimeService: () => toRuntimeService(providerRecord(key)),
     makeLease: (cfg = config) => createLease({ config: cfg, api: client, now: clock.now }),
     makeLoop(overrides = {}) {
       const { deps = {}, config: cfgOverride, ...rest } = overrides
@@ -280,7 +313,8 @@ export async function makeWorld(options = {}) {
     },
   }
 
-  for (const [key, value] of quotaSeeds(serviceId, quota, start)) fakeApi.seed(key, { value }, 'quota_state')
+  fakeApi.seed(providerKey(serviceId), providerRecord(key))
+  for (const [seedKey, value] of quotaSeeds(key, quota, start)) fakeApi.seed(seedKey, { value }, 'quota_state')
   if (seedPolicy) world.setPolicy(tweakPolicy)
   if (control !== null) world.setControl(control)
   for (const [index, spec] of ideas.entries()) await world.addIdea(spec, index)

@@ -157,7 +157,7 @@ test('a failed idea is not retried twice in the same cycle but runs again in the
 
     // The reset date moves on (a new cycle): the idea may run again.
     w.fakeApi.records.forEach((record) => {
-      if (record.logical_key === 'claude:__last_reset_date') {
+      if (record.logical_key === `${w.serviceId}:__last_reset_date`) {
         record.payload = { value: '2026-10-29' }
         record.version += 1
         record.updated_at = new Date(Date.now() + 1000).toISOString()
@@ -165,12 +165,12 @@ test('a failed idea is not retried twice in the same cycle but runs again in the
     })
     const next = await loop.tick()
     assert.equal(next.started, true)
-    assert.equal(w.run('run-2').cycleKey, 'claude:2026-11-05')
+    assert.equal(w.run('run-2').cycleKey, `${w.serviceId}:2026-11-05`)
   }))
 
 test('a crash between the idea claim and the run record returns the idea to waiting', () =>
   withWorld({ ideas: [{ status: 'running' }] }, async (w) => {
-    w.putRouting(ideaKey('idea-a'), { ...w.idea().payload, serviceId: 'claude', lastRunId: 'run-9' })
+    w.putRouting(ideaKey('idea-a'), { ...w.idea().payload, serviceId: w.serviceId, lastRunId: 'run-9' })
     const result = await w.makeLoop().tick()
     assert.equal(w.runs().length, result.started ? 1 : 0)
     assert.equal(result.started, true, 'nothing had started, so the idea is runnable again')
@@ -194,7 +194,7 @@ test('a crash after the run was finalised but before the idea update makes the i
 
 test('a journal start with no run record (crash before the POST) is closed as interrupted', () =>
   withWorld({}, async (w) => {
-    appendStart(w.baseDir, { runId: 'run-7', ideaId: 'idea-a', serviceId: 'claude', at: w.clock.now().toISOString(), tool: 'claude' })
+    appendStart(w.baseDir, { runId: 'run-7', ideaId: 'idea-a', serviceId: w.serviceId, at: w.clock.now().toISOString(), tool: 'claude' })
     const result = await w.makeLoop({ lease: w.makeLease() }).tick()
     assert.deepEqual(unfinishedRuns(w.baseDir), [])
     assert.equal(w.journal().find((e) => e.type === 'end').status, 'interrupted')
@@ -216,7 +216,7 @@ test('the run record is written once as running and rewritten exactly once; idea
     assert.equal(puts[0].body.payload.output, 'Draft result')
 
     assert.deepEqual(w.putsTo(ideaKey('idea-a')).map((r) => r.body.payload.status), ['running', 'completed'])
-    assert.equal(w.postsTo(cycleRecordKey('claude', '2026-11-04')).length, 1)
+    assert.equal(w.postsTo(cycleRecordKey(w.serviceId, '2026-11-04')).length, 1)
     assert.deepEqual(w.journal().map((e) => e.type), ['start', 'end'])
     assert.equal(w.journal()[1].status, 'completed')
   }))

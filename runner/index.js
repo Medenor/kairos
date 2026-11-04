@@ -1,7 +1,7 @@
 // Runner CLI entry (T057, contracts/runner-cli.md): command dispatch.
 //
-//   config [--take-over | --exclusions]   start   approve [ideaId]   approvals [list | revoke <ideaId>]
-//   status   stop   clean [runId | --all]
+//   config [--take-over | --exclusions]   allow [name-or-id]   disallow <name-or-id>   start
+//   approve [ideaId]   approvals [list | revoke <ideaId>]   status   stop   clean [runId | --all]
 //
 // Exit codes: 0 ok; 1 usage or config error; 2 preflight failure; 3 another device is designated or holds the lease.
 //
@@ -17,14 +17,17 @@ import { existsSync, readdirSync, realpathSync, statSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { SERVICES } from '../src/data/services.js'
 import { STATUS } from '../src/surplus/constants.js'
+import { applyCatalogueRecords, emptyCatalogue } from '../src/providers/records.js'
+import { activeProviders } from '../src/providers/runtime.js'
+import { surplusProblems } from '../src/providers/surplusProfile.js'
+import { normalizeName } from '../src/providers/tiebreak.js'
 import { keyForControl, parseRecordKey } from '../src/surplus/records.js'
 import { ApiClientError, createApiClient, isDuplicateKey, isVersionConflict } from './api-client.js'
 import { approve, listApprovals, pendingApprovals, revoke } from './approvals.js'
 import {
   ConfigError, createTerminalIO, defaultBaseDir, editExclusions, loadConfig, runConfigWizard, runnerPaths, takeOver,
-  writeSecureFile, ensureDir,
+  updateConfig, writeSecureFile, ensureDir,
 } from './config.js'
 import { unfinishedRuns } from './journal.js'
 import { EXIT_CODES, createLease, readLeaseStatus } from './lease.js'
@@ -42,8 +45,12 @@ export const USAGE = `Usage: ${RUN_CMD} <command> [options]
 
 Commands:
   config [--take-over | --exclusions]  Create or edit the local config (device, API base, workspace, projects folder,
-                                       allowed services, copy exclusions). --take-over makes this device the
-                                       designated runner. --exclusions edits only the copy exclusion list.
+                                       copy exclusions). --take-over makes this device the designated runner.
+                                       --exclusions edits only the copy exclusion list.
+  allow [name-or-id]                   Without an argument, list the providers that can run automatically. With one,
+                                       show it and, after you type "yes", allow it on this device, pinned to its tool.
+                                       Only a provider allowed here can ever run: nothing in the shared store allows one.
+  disallow <name-or-id>                Remove a provider from the local allowance (also when it left the catalogue).
   start                                Take the lease and run the loop (Ctrl-C stops it cleanly).
   approve [ideaId]                     Without an id, list ideas waiting for approval. With an id, show the exact
                                        text, context, folder (or the no-folder notice) and exclusions and require typing "yes".
@@ -59,6 +66,8 @@ Exit codes: 0 ok, 1 usage or config error, 2 preflight failure, 3 another device
 // Per command: accepted flags and the maximum number of positional arguments.
 const COMMANDS = Object.freeze({
   config: { flags: ['--take-over', '--exclusions'], positionals: 0 },
+  allow: { flags: [], positionals: 1 },
+  disallow: { flags: [], positionals: 1 },
   start: { flags: [], positionals: 0 },
   approve: { flags: [], positionals: 1 },
   approvals: { flags: [], positionals: 2 },
@@ -172,6 +181,12 @@ async function fetchIdeas(api) {
   return ideas
 }
 
+/** The provider catalogue of the shared store, read as untrusted data: invalid records and tombstones are ignored. */
+async function fetchCatalogue(api) {
+  const { items } = await api.listRecords()
+  return applyCatalogueRecords(emptyCatalogue(), (items ?? []).filter((item) => item.record_type === 'routing_config' && !item.deleted_at))
+}
+
 const folderCheckFor = (ctx, config, idea) => checkFolder(idea.workingFolder, {
   baseFolder: config.projectsBaseFolder, homeDir: ctx.homeDir, exclusions: config.exclusions, limitBytes: config.limits.copyLimitBytes,
 })
@@ -217,20 +232,130 @@ async function cmdConfig(ctx, { flags }) {
     const config = await runConfigWizard({ baseDir: ctx.baseDir, io: terminal })
     ctx.out(`\nConfig saved to ${ctx.paths.config}\n`)
     ctx.out(`  device ${config.deviceName}, workspace ${config.workspaceId}, API ${displayApiBase(config.apiBase)}\n`)
-    ctx.out(`  allowed services: ${config.allowServices.length > 0 ? config.allowServices.join(', ') : '(none)'}\n`)
-    ctx.out(`Next: "${RUN_CMD} config --take-over" to designate this device, then "${RUN_CMD} start".\n`)
+    ctx.out(`  allowed providers: ${describeAllowed(config)}\n`)
+    ctx.out(`Next: "${RUN_CMD} allow <provider>" to allow a provider, "${RUN_CMD} config --take-over" to designate this device, then "${RUN_CMD} start".\n`)
     return EXIT_CODES.OK
   } finally {
     terminal.close()
   }
 }
 
+const describeAllowed = (config) =>
+  config.allowProviders.length > 0 ? config.allowProviders.map((entry) => `${safeLine(entry.name, 60)} (${entry.tool})`).join(', ') : '(none)'
+
+// --- allow / disallow ------------------------------------------------------------------------
+
+/** Providers of the catalogue that can run automatically (valid, active, eligible surplus profile). */
+const eligibleProviders = (catalogue) => activeProviders(catalogue).filter((provider) => surplusProblems(provider).length === 0)
+
+function printCandidates(ctx, candidates) {
+  for (const provider of candidates) {
+    const label = (id) => provider.quotas.find((q) => q.id === id)?.label ?? id
+    ctx.out(`  ${safeLine(provider.name, 60)}  (${provider.id})  tool ${provider.surplus.tool}, weekly: ${safeLine(label(provider.surplus.weeklyQuotaId), 40)}, session: ${safeLine(label(provider.surplus.sessionQuotaId), 40)}\n`)
+  }
+}
+
+/** Resolves an id or a unique case-folded name among `entries` ({ id, name }). Returns { match } or { matches }. */
+function resolveProvider(entries, argument) {
+  const byId = entries.find((entry) => entry.id === argument)
+  if (byId) return { match: byId }
+  const wanted = normalizeName(argument)
+  const matches = entries.filter((entry) => normalizeName(entry.name) === wanted)
+  return matches.length === 1 ? { match: matches[0] } : { matches }
+}
+
+async function cmdAllow(ctx, { positionals }) {
+  const loaded = requireConfig(ctx)
+  if (!loaded) return EXIT_CODES.USAGE
+  const { config } = loaded
+  const api = ctx.createApi(config)
+  const candidates = eligibleProviders(await fetchCatalogue(api))
+
+  if (positionals.length === 0 || candidates.length === 0) {
+    if (candidates.length === 0) {
+      ctx.err('No provider in the shared catalogue has an eligible surplus profile (terminal tool, weekly schedule, weekly and session quotas).\n')
+      return positionals.length === 0 ? EXIT_CODES.OK : EXIT_CODES.USAGE
+    }
+    ctx.out(`Providers that can run automatically (${candidates.length}):\n`)
+    printCandidates(ctx, candidates)
+    ctx.out(`Run "${RUN_CMD} allow <name-or-id>" to allow one on this device.\n`)
+    return EXIT_CODES.OK
+  }
+
+  const [argument] = positionals
+  const resolved = resolveProvider(candidates.map((p) => ({ id: p.id, name: p.name, provider: p })), argument)
+  if (!resolved.match) {
+    const options = resolved.matches.length > 0 ? resolved.matches.map((m) => m.provider) : candidates
+    ctx.err(`${resolved.matches.length > 1 ? 'Several providers match' : 'No eligible provider matches'} ${safeLine(argument, 60)}. Use the id of one of:\n`)
+    for (const provider of options) ctx.err(`  ${safeLine(provider.name, 60)}  ${provider.id}\n`)
+    return EXIT_CODES.USAGE
+  }
+  const { provider } = resolved.match
+  if (!/^[\p{L}\p{N} ._()'&+-]+$/u.test(provider.name)) {
+    ctx.err('Refusing to show this provider: its name contains unusual characters. Rename it in the dashboard first.\n')
+    return EXIT_CODES.USAGE
+  }
+
+  ctx.out('Allow this provider to run automatically on THIS device:\n')
+  printCandidates(ctx, [provider])
+  ctx.out(`The allowance is pinned to the ${provider.surplus.tool} tool. If the shared catalogue later says another tool, nothing runs until you allow it again.\n`)
+  const terminal = ctx.createTerminal()
+  let answer
+  try {
+    answer = ((await terminal.ask('Type "yes" to allow it: ')) ?? '').trim().toLowerCase()
+  } finally {
+    terminal.close()
+  }
+  if (answer !== 'yes') {
+    ctx.out('Not allowed.\n')
+    return EXIT_CODES.OK
+  }
+  const entry = { providerId: provider.id, tool: provider.surplus.tool, name: provider.name, allowedAt: ctx.now().toISOString() }
+  updateConfig(ctx.baseDir, { allowProviders: [...config.allowProviders.filter((e) => e.providerId !== provider.id), entry] })
+  ctx.out(`${safeLine(provider.name, 60)} is allowed on this device (${entry.tool}).\n`)
+  return EXIT_CODES.OK
+}
+
+async function cmdDisallow(ctx, { positionals }) {
+  const loaded = requireConfig(ctx)
+  if (!loaded) return EXIT_CODES.USAGE
+  const { config } = loaded
+  if (positionals.length === 0) throw new UsageError('Usage: disallow <name-or-id>')
+  const [argument] = positionals
+  // Works from the local allowance alone, so a provider that left the catalogue can still be removed.
+  const resolved = resolveProvider(config.allowProviders.map((e) => ({ id: e.providerId, name: e.name })), argument)
+  if (!resolved.match) {
+    ctx.err(`${resolved.matches.length > 1 ? 'Several allowed providers match' : 'No allowed provider matches'} ${safeLine(argument, 60)}. Allowed: ${describeAllowed(config)}\n`)
+    return EXIT_CODES.USAGE
+  }
+  updateConfig(ctx.baseDir, { allowProviders: config.allowProviders.filter((e) => e.providerId !== resolved.match.id) })
+  ctx.out(`${safeLine(resolved.match.name, 60)} is no longer allowed on this device.\n`)
+  return EXIT_CODES.OK
+}
+
+/** Allowed providers against the catalogue: ok, tool changed, removed, not eligible. */
+function printAllowedState(ctx, config, catalogue) {
+  if (config.allowProviders.length === 0) return
+  ctx.out('Allowed providers:\n')
+  for (const entry of config.allowProviders) {
+    const current = catalogue?.providers[entry.providerId]
+    let state
+    if (!catalogue) state = 'catalogue unavailable'
+    else if (!current || current.status !== 'active') state = 'removed'
+    else if (surplusProblems(current).length > 0) state = `not eligible (${surplusProblems(current).join(' ')})`
+    else if (current.surplus.tool !== entry.tool) state = `tool changed (pinned ${entry.tool}, now ${current.surplus.tool})`
+    else state = 'ok'
+    ctx.out(`  ${safeLine(entry.name, 60)}  ${entry.providerId}  ${entry.tool}: ${safeLine(state, 200)}\n`)
+  }
+  if (config.legacyAllowServices?.length > 0) ctx.out('  (the allowance of the previous version is kept in the file but ignored)\n')
+}
+
 // --- start -----------------------------------------------------------------------------------
 
 function disclosuresText(config) {
   const lines = ['', 'Before automatic runs start, please note (FR-012):']
-  for (const id of config.allowServices) {
-    const name = SERVICES.find((s) => s.id === id)?.name ?? id
+  for (const entry of config.allowProviders) {
+    const name = safeLine(entry.name, 60)
     lines.push(`  - ${name}: when a run starts, the idea text, its context and, if the idea has a working folder, a disposable copy of it are`)
     lines.push('    sent to the provider through your signed-in tool. Runs use your subscription sign-in, never an API key.')
   }
@@ -246,8 +371,8 @@ async function cmdStart(ctx) {
   const loaded = requireConfig(ctx)
   if (!loaded) return EXIT_CODES.USAGE
   const { config } = loaded
-  if (config.allowServices.length === 0) {
-    ctx.err(`No service is allowed to run automatically. Run "${RUN_CMD} config" and list the services to allow.\n`)
+  if (config.allowProviders.length === 0) {
+    ctx.err(`No provider is allowed to run automatically on this device. Run "${RUN_CMD} allow <provider>" first.\n`)
     return EXIT_CODES.USAGE
   }
 
@@ -456,7 +581,7 @@ async function cmdStatus(ctx) {
   ctx.out('Kairos runner status\n')
   ctx.out(`  device ${config.deviceName} (${config.deviceId}), workspace ${config.workspaceId}\n`)
   ctx.out(`  API ${displayApiBase(config.apiBase)}, projects folder ${config.projectsBaseFolder ?? '(not set)'}\n`)
-  ctx.out(`  allowed services: ${config.allowServices.length > 0 ? config.allowServices.join(', ') : '(none)'}\n`)
+  ctx.out(`  allowed providers: ${describeAllowed(config)}\n`)
   ctx.out(`  STOP file: ${existsSync(ctx.paths.stop) ? `present (${ctx.paths.stop})` : 'absent'}\n`)
 
   printLocalStatus(ctx, await readStatusFile(ctx.baseDir))
@@ -472,6 +597,13 @@ async function cmdStatus(ctx) {
     ctx.out(`Lease: unavailable, ${apiProblem(error)}\n`)
     return EXIT_CODES.OK
   }
+  let catalogue = null
+  try {
+    catalogue = await fetchCatalogue(api)
+  } catch (error) {
+    if (!(error instanceof ApiClientError)) throw error
+  }
+  printAllowedState(ctx, config, catalogue)
   try {
     const { pending, blocked } = await approvalCandidates(ctx, config, api)
     ctx.out(`Pending approvals: ${pending.length}${blocked.length > 0 ? ` (plus ${blocked.length} with an unusable folder)` : ''}\n`)
@@ -599,7 +731,7 @@ async function cmdClean(ctx, { flags, positionals }) {
 // --- dispatch --------------------------------------------------------------------------------
 
 const HANDLERS = Object.freeze({
-  config: cmdConfig, start: cmdStart, approve: cmdApprove, approvals: cmdApprovals, status: cmdStatus, stop: cmdStop, clean: cmdClean,
+  config: cmdConfig, allow: cmdAllow, disallow: cmdDisallow, start: cmdStart, approve: cmdApprove, approvals: cmdApprovals, status: cmdStatus, stop: cmdStop, clean: cmdClean,
 })
 
 /**

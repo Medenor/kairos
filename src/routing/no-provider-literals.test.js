@@ -1,7 +1,6 @@
 // FR-011, research D18: no provider is named in the shipped logic. Scans the non-test sources of
 // src/providers, src/routing, src/surplus and runner for the former provider names and ids.
-// Each allow-list entry names the file and the reason. Skipped until the surplus and runner sources are
-// free of those literals (task T110 removes the skip).
+// Each allow-list entry names the file and the reason.
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readdirSync, readFileSync, statSync } from 'node:fs'
@@ -26,6 +25,7 @@ const ALLOW_TOOL_WORDS = {
   'src/providers/legacyProviders.js': 'display-only table of the five former services',
   'src/providers/ids.js': 'the five former service ids, recognised as legacy and never generated',
   'src/surplus/constants.js': 'tool names, if it still lists tools',
+  'src/surplus/instruction.js': 'official non-interactive command per tool for the manual launch instruction',
   'runner/adapters/claude.js': 'tool adapter',
   'runner/adapters/codex.js': 'tool adapter',
   'runner/preflight.js': 'tool names and login-status checks',
@@ -58,7 +58,7 @@ function findings() {
   return out
 }
 
-test('no provider name appears in shipped logic outside the documented allow-list', { skip: 'enabled by T110' }, () => {
+test('no provider name appears in shipped logic outside the documented allow-list', () => {
   assert.deepEqual(findings(), [])
 })
 
