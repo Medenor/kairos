@@ -2,6 +2,8 @@
 
 React 18 + Vite 5, plain JavaScript (ES modules, Node 26 LTS baseline), CSS Modules. No UI library, no state library, no TypeScript.
 
+The Node version is set in `.nvmrc` (CI reads it) and pinned in `package.json` under `volta`, so Volta users get the right Node automatically inside the repo.
+
 ## Rules
 
 - **Runtime dependencies stay at `react` + `react-dom`.** Adding one needs written justification (bundle and maintenance impact) per constitution principle V.
