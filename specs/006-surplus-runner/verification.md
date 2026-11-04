@@ -237,3 +237,16 @@ Tool-side events during the run: the Chrome tab group was closed by the browser 
 - Gate: `allowCodexAuto` (config.json, default `false`). Without it the automatic loop skips Codex ideas with `codex_reads_uncontained` (tests in `runner/loop.guardrails.test.js`, `runner/config.test.js`). Claude is unaffected.
 - Final status of check sets: A (Claude) PASS (contained). B (Codex) writes PASS, reads accepted and gated. C (billing guard, environment) PASS. D (login mode) PASS. E (API-key login gives `billing_guard`) PASS, run with a throwaway `CODEX_HOME` and `runPreflight` called directly. F (`fs_usage`) not run (skipped by decision).
 - `~/.codex/rules/default.rules` is ignored by `--ignore-rules`, so it no longer affects runner runs (it still contains plaintext credentials; consider removing it yourself).
+
+## Node 20 run (T075, 2026-11-04)
+
+Run with `volta run --node 20` (Node v20.20.2); the other results in this file are from Node v26.8.1.
+
+| Check | Result |
+|---|---|
+| `npm run lint` | 0 errors, 3 warnings (the existing `react-hooks/exhaustive-deps` ones in `src/hooks/useSharedQuotaState.js`), `lint:paths` clean |
+| Frontend (`node --test src/`) | 402 of 402 pass |
+| Runner (`node --test runner/`) | 339 of 339 pass |
+| Backend (`npm run test:backend`) | The script cannot run on Node 20: `node --test "tests/**/*.test.js"` needs glob support that arrived after Node 20, and Node 20 reports "Could not find .../tests/**/*.test.js". Run with the directory form instead (`node --test tests/` in `backend/`), 23 of 23 pass. Node 26 runs the glob and reports 21 tests, so the directory form also picks up two extra tests from `backend/tests/helpers/`. |
+
+Consequence: `npm test` stops at the backend step on Node 20, so the runner suite did not run through the chain; it was run on its own. The backend script is unchanged by this feature (present since the shared-backend work), so this is an existing mismatch with the `>=20` engines field, not a regression. Fix when convenient, for example with a directory or `find`-based test command.
