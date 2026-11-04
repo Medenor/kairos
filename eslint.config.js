@@ -7,9 +7,9 @@ export default [
   { ignores: ['dist/', 'coverage/', 'node_modules/', 'backend/data/', 'backend/backups/'] },
   js.configs.recommended,
   {
-    // Frontend (browser, React); src/surplus is pure Node-compatible logic, linted below
+    // Frontend (browser, React); src/surplus, src/providers, src/routing and src/sync are pure Node-compatible logic, linted below
     files: ['src/**/*.{js,jsx}'],
-    ignores: ['src/surplus/**'],
+    ignores: ['src/surplus/**', 'src/providers/**/*.js', 'src/routing/**/*.js', 'src/sync/**/*.js'],
     plugins: { react, 'react-hooks': reactHooks },
     languageOptions: {
       ecmaVersion: 'latest',
@@ -34,7 +34,7 @@ export default [
   },
   {
     // Pure surplus domain logic (no browser globals) and local runner CLI (Node)
-    files: ['src/surplus/**/*.js', 'runner/**/*.js'],
+    files: ['src/surplus/**/*.js', 'src/providers/**/*.js', 'src/routing/**/*.js', 'src/sync/**/*.js', 'runner/**/*.js'],
     languageOptions: {
       ecmaVersion: 'latest',
       sourceType: 'module',

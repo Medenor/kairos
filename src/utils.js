@@ -1,3 +1,7 @@
+// Default low-balance level of a currency quota (units of its own currency). It reproduces the
+// former fixed bands: below 2 -> 85, below 5 -> 60, otherwise 20.
+export const DEFAULT_LOW_BALANCE = 5
+
 // Returns the "consumed" percentage for any quota type,
 // normalised to 0–100 where 100 = fully exhausted.
 export function getConsumedPct(quota, value) {
@@ -6,20 +10,25 @@ export function getConsumedPct(quota, value) {
       return value
     case 'remaining_pct':
       return 100 - value
-    case 'currency':
+    case 'currency': {
+      const low = typeof quota.lowBalance === 'number' && quota.lowBalance > 0 ? quota.lowBalance : DEFAULT_LOW_BALANCE
       if (value <= 0) return 100
-      if (value < 2) return 85
-      if (value < 5) return 60
+      if (value < 0.4 * low) return 85
+      if (value < low) return 60
       return 20
+    }
     default:
       return 0
   }
 }
 
-// Returns the highest consumed % across all quotas for a service.
+// Returns the highest consumed % across the quotas of a service that have a reading.
+// A quota with no stored value yet is unread: it is ignored, never turned into NaN.
 export function getServicePressure(svc, state) {
   return svc.quotas.reduce((mx, q) => {
-    return Math.max(mx, getConsumedPct(q, state[svc.id][q.id] ?? q.value))
+    const value = state?.[svc.id]?.[q.id]
+    if (typeof value !== 'number' || !Number.isFinite(value)) return mx
+    return Math.max(mx, getConsumedPct(q, value))
   }, 0)
 }
 
