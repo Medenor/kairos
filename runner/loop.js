@@ -357,14 +357,13 @@ export function createLoop({
 
   // --- restart recovery (research D8) ---------------------------------------------------------
 
-  async function putIdea(ref, patch, at) {
-    const build = (payload) => ({ ...payload, ...patch, updatedAt: at.toISOString() })
+  // Compare-and-set update; on a version conflict, rebuild the payload on top of the server's copy and write once more.
+  function putRecord(ref, build) {
     return withRetry(async () => {
       try {
         return remember(await api.updateRecord(ref.id, { expectedVersion: ref.version, payload: build(ref.payload) }))
       } catch (error) {
         if (!isVersionConflict(error) || !error.serverRecord) throw error
-        // Runner-owned fields only on top of whatever the user changed meanwhile.
         return remember(await api.updateRecord(error.serverRecord.id, {
           expectedVersion: error.serverRecord.version,
           payload: build(error.serverRecord.payload),
@@ -373,16 +372,10 @@ export function createLoop({
     })
   }
 
-  async function putRun(ref, payload) {
-    return withRetry(async () => {
-      try {
-        return remember(await api.updateRecord(ref.id, { expectedVersion: ref.version, payload }))
-      } catch (error) {
-        if (!isVersionConflict(error) || !error.serverRecord) throw error
-        return remember(await api.updateRecord(error.serverRecord.id, { expectedVersion: error.serverRecord.version, payload }))
-      }
-    })
-  }
+  // Runner-owned fields only, on top of whatever the user changed meanwhile.
+  const putIdea = (ref, patch, at) => putRecord(ref, (payload) => ({ ...payload, ...patch, updatedAt: at.toISOString() }))
+
+  const putRun = (ref, payload) => putRecord(ref, () => payload)
 
   async function recover(at) {
     await fullPull()
@@ -468,14 +461,16 @@ export function createLoop({
 
   // --- tick ----------------------------------------------------------------------------------
 
+  const checkIdeaFolder = (idea) => folderCheck(idea.workingFolder, {
+    baseFolder: config.projectsBaseFolder, homeDir, exclusions: config.exclusions, limitBytes: limits.copyLimitBytes,
+  })
+
   async function checkFolders(ideas) {
     const folderChecks = {}
     const approvals = []
     for (const idea of ideas) {
       if (idea.status !== STATUS.WAITING) continue
-      const check = await folderCheck(idea.workingFolder, {
-        baseFolder: config.projectsBaseFolder, homeDir, exclusions: config.exclusions, limitBytes: limits.copyLimitBytes,
-      })
+      const check = await checkIdeaFolder(idea)
       if (!check.ok) {
         folderChecks[idea.id] = check
         continue
@@ -596,9 +591,7 @@ export function createLoop({
     if (!checked.valid) return skipped(at, 'idea_invalid', 'The idea record is invalid.', base)
     const idea = ideaRef.payload
     if (idea.status !== STATUS.WAITING) return skipped(at, 'claim_lost', `The idea is ${idea.status}, not waiting.`, base)
-    const folder = await folderCheck(idea.workingFolder, {
-      baseFolder: config.projectsBaseFolder, homeDir, exclusions: config.exclusions, limitBytes: limits.copyLimitBytes,
-    })
+    const folder = await checkIdeaFolder(idea)
     if (!folder.ok) return skipped(at, 'folder_error', `The working folder check failed (${folder.code}).`, base)
     if (!isApproved(idea, folder.resolvedFolder, { baseDir })) {
       return skipped(at, 'not_approved', 'The idea is not approved on this runner for its current content.', base)
@@ -788,7 +781,17 @@ export function createLoop({
     // Hard stop: min(maxDuration, protected hours, reset day), SIGTERM then SIGKILL after the grace period.
     arm(() => requestStop(cause.code, cause.message), Math.max(0, cause.at.getTime() - spawnAt.getTime()))
 
-    // Stop watcher (5 s): STOP file and the control record. Re-armed before the work so the cadence never drifts.
+    // Re-armed before the work so the cadence never drifts.
+    const armEvery = (ms, work) => {
+      const tickAgain = () => {
+        if (run.exited) return
+        arm(tickAgain, ms)
+        work()
+      }
+      arm(tickAgain, ms)
+    }
+
+    // Stop watcher (5 s): STOP file and the control record.
     const guard = (work) => {
       let busy = false
       return () => {
@@ -807,12 +810,7 @@ export function createLoop({
       const control = derive().surplus.control
       if (control && control.autoRunEnabled === false) requestStop(FAILURE_REASONS.STOPPED_BY_USER, 'Automatic runs were switched off (global stop).')
     })
-    const stopTick = () => {
-      if (run.exited) return
-      arm(stopTick, limits.stopWatcherSeconds * 1000)
-      stopWork()
-    }
-    arm(stopTick, limits.stopWatcherSeconds * 1000)
+    armEvery(limits.stopWatcherSeconds * 1000, stopWork)
 
     // Quota watcher (60 s): lease and designation, per-service switch and the reserve rule.
     const quotaWork = guard(async () => {
@@ -831,12 +829,7 @@ export function createLoop({
         requestStop(FAILURE_REASONS.QUOTA_EXHAUSTED, `The weekly quota (${Math.round(remaining * 10) / 10}% left) reached the ${reserve}% reserve.`)
       }
     })
-    const quotaTick = () => {
-      if (run.exited) return
-      arm(quotaTick, limits.quotaWatcherSeconds * 1000)
-      quotaWork()
-    }
-    arm(quotaTick, limits.quotaWatcherSeconds * 1000)
+    armEvery(limits.quotaWatcherSeconds * 1000, quotaWork)
 
     emit('spawned', { runId: run.runId, pid: child.pid ?? null, hardStopAt: run.hardStopAt, hardStopReason: cause.code })
     return exited
