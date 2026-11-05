@@ -4,6 +4,7 @@ import EmptyState from './EmptyState.jsx'
 import ProviderForm from './ProviderForm.jsx'
 import ServiceCard from './ServiceCard.jsx'
 import { activeRunFor, describeDeletion } from '../providers/activeRun.js'
+import { describeConflict } from '../providers/conflicts.js'
 import { draftFromProvider } from './providerDraft.js'
 import styles from './ProviderManager.module.css'
 
@@ -95,10 +96,15 @@ export default function ProviderManager({
       {conflicts.map((conflict) => (
         <div key={conflict.key} className={styles.notice} role="alert">
           <p>
-            <strong>{conflict.name}</strong> was changed on another device
-            {conflict.server?.name && conflict.server.name !== conflict.local?.name ? ` (now called "${conflict.server.name}")` : ''}.
-            Your version was not saved over theirs.
+            <strong>{conflict.name}</strong> was changed on another device. Your version was not saved over theirs.
           </p>
+          <ul className={styles.invalidList} aria-label={`Differences for ${conflict.name}`}>
+            {describeConflict(conflict.local, conflict.server).map((change) => (
+              <li key={change.field}>
+                {change.field}: yours <em>{change.mine}</em>, theirs <em>{change.theirs}</em>
+              </li>
+            ))}
+          </ul>
           <div className={styles.noticeActions}>
             <button type="button" className={styles.noticeButton} onClick={() => onResolveConflict?.(conflict.key, 'theirs')}>Keep theirs</button>
             <button type="button" className={styles.noticeButton} onClick={() => onResolveConflict?.(conflict.key, 'mine')}>Reapply mine</button>

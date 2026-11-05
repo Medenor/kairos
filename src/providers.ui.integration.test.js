@@ -39,6 +39,7 @@ after(async () => {
 
 const NOW = new Date(2026, 2, 4, 12)
 const h = (Component, props) => renderToStaticMarkup(React.createElement(Component, props))
+const plain = (markup) => markup.replaceAll('<!-- -->', '')
 const manager = (over = {}) => {
   const catalogue = sampleCatalogue()
   return h(ProviderManager, {
@@ -131,13 +132,15 @@ test('the recommendation box shows the three distinct empty messages and a reaso
 test('notices of shared mode: a conflict offers keep theirs / reapply mine, a duplicate name offers a rename', () => {
   const markup = manager({
     notices: {
-      conflicts: [{ key: `provider:${WEEKLY_ID}`, id: WEEKLY_ID, name: 'Alpha Weekly', local: { name: 'Mine' }, server: { name: 'Theirs' } }],
+      conflicts: [{ key: `provider:${WEEKLY_ID}`, id: WEEKLY_ID, name: 'Alpha Weekly', local: { ...sampleCatalogue().providers[WEEKLY_ID], name: 'Mine', note: 'my note' }, server: { ...sampleCatalogue().providers[WEEKLY_ID], name: 'Theirs' } }],
       removedElsewhere: [{ id: 'p_gone', name: 'Old one' }],
       nameConflicts: [WEEKLY_ID],
       invalid: [{ key: 'provider:p_bad', errors: [{ path: 'name', message: 'bad' }] }],
     },
   })
   assert.match(markup, /was changed on another device/)
+  assert.match(plain(markup), /Name: yours <em>Mine<\/em>, theirs <em>Theirs<\/em>/)
+  assert.match(plain(markup), /Note: yours <em>my note<\/em>, theirs <em>Weekly plan<\/em>/)
   assert.match(markup, />Keep theirs</)
   assert.match(markup, />Reapply mine</)
   assert.match(markup, /was removed on another device/)

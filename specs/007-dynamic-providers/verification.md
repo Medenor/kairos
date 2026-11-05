@@ -2,7 +2,16 @@
 
 Branch `007-dynamic-providers`. State at the end of implementation: `npm run lint` 0 errors (3 warnings in `useSharedQuotaState.js`, present before this feature), `npm run build` green, `npm test` green (frontend 653, backend 25, runner 380; none skipped).
 
-## What was NOT verified in a real browser
+## Verified in a real browser (2026-11-05, Chrome, Claude in Chrome, dev server on 5173)
+
+Single-profile local walkthrough, observed:
+- Empty state "No provider yet" with "Add your first provider"; previous-version weekly history (five legacy providers) listed read-only.
+- Add provider (name, one weekly consumed-% quota at 30%, heavy-coding fit Strong): card appears, recommendation names it with "Only provider currently available for this task".
+- Duplicate creates "Walkthrough Provider (copy)" and opens its edit form; Cancel closes it.
+- Delete dialog lists what is removed (quota, reset date) and kept (history marked as removed, past records). After deleting both, the list returns to the empty state and the history picker shows both as "(removed)".
+- The browser profile had shared mode on with earlier runner test data; a past run showed its provider as "Claude (removed)".
+
+## Still NOT verified in a real browser
 
 The Chrome extension was not connected during implementation, so the manual walkthroughs of `quickstart.md` (tasks T059, T069, T080, T111, T116) were **not run** in a browser. Substituted evidence: reducer and engine tests, and `src/providers.ui.integration.test.js`, which renders the real components (`ProviderManager`, `ProviderForm`, `DeleteProviderDialog`, `RecoBox`, `EmptyState`) to static markup for each state of the walkthrough. Typing, clicking, two browser profiles, leaving the page open across midnight and a real runner against a real `claude`/`codex` are still to be done by hand before merge. Pull request (T123) not opened.
 
