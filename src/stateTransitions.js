@@ -46,14 +46,16 @@ export function applyQuotaUpdate(prev, serviceId, quotaId, value, now) {
   return setQuotaValue(next, serviceId, quotaTimeKey(quotaId), now.toISOString())
 }
 
-// Stamps every quota of a service as "still current" without changing any value.
+// Stamps every quota of a service that has a reading as "still current" without changing any value.
+// A quota that was never read stays unread: confirming nothing must not make it look freshly read.
 export function confirmQuotas(prev, serviceId, now, services = []) {
   const service = services.find((item) => item.id === serviceId)
   if (!service) return prev
   const stamp = now.toISOString()
   const serviceState = { ...(prev[serviceId] || {}) }
   service.quotas.forEach((quota) => {
-    serviceState[quotaTimeKey(quota.id)] = stamp
+    const value = serviceState[quota.id]
+    if (typeof value === 'number' && Number.isFinite(value)) serviceState[quotaTimeKey(quota.id)] = stamp
   })
   return { ...prev, [serviceId]: serviceState }
 }

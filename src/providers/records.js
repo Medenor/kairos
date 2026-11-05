@@ -124,7 +124,11 @@ export function applyCatalogueRecords(base, items = []) {
   let invalid = base.invalid
   let changed = false
 
+  // Keeps the `invalid` array identity when nothing changes, so an unchanged pull is detected below.
   const setInvalid = (key, entry) => {
+    const existing = invalid.find((e) => e.key === key)
+    if (!existing && !entry) return
+    if (existing && entry && JSON.stringify(existing) === JSON.stringify(entry)) return
     invalid = invalid.filter((e) => e.key !== key)
     if (entry) invalid = [...invalid, entry]
   }

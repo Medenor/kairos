@@ -130,8 +130,13 @@ export function createCatalogueEngine({
       applyRecords: (c, items) => applyCatalogueRecords(c, items),
       applySilently,
       // A pending local edit of the same record is not overwritten by a pull: its push meets a 409 instead.
+      // The same holds while a conflict on the record waits for the user's choice: the conflict clears the
+      // dirty mark, so without this the next full pull would replace the local edit with the server copy.
+      // The index already holds the server record (the sync core stored it), so "mine" pushes against it.
       holdPulled: (item, entry) =>
-        item?.record_type === RECORD_TYPE && Boolean(keyOf(item.logical_key)) && entry?.op === 'upsert' ? 'skip' : false,
+        item?.record_type === RECORD_TYPE && Boolean(keyOf(item.logical_key)) && (entry?.op === 'upsert' || conflicts.has(item.logical_key))
+          ? 'skip'
+          : false,
       remoteDeletedKeys: (oldIndex, items) => {
         const present = new Set(items.filter((i) => i?.record_type === RECORD_TYPE).map((i) => i.logical_key))
         return Object.keys(oldIndex).filter((key) => keyOf(key)?.kind === 'provider' && !present.has(key))

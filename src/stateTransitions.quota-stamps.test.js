@@ -68,8 +68,9 @@ test('updating the reset date does not create a stamp key', () => {
   assert.equal(Object.keys(next[WEEKLY_ID]).some((key) => key.includes('__ts___')), false)
 })
 
-test('confirmQuotas stamps every quota of the provider and changes no value', () => {
-  const base = deepFreeze(applyQuotaUpdate(buildDefaultState(SERVICES), WEEKLY_ID, WEEKLY_Q_SESSION, 33, NOW))
+test('confirmQuotas stamps every quota that has a reading and changes no value', () => {
+  let base = applyQuotaUpdate(buildDefaultState(SERVICES), WEEKLY_ID, WEEKLY_Q_SESSION, 33, NOW)
+  base = deepFreeze(applyQuotaUpdate(base, WEEKLY_ID, WEEKLY_Q_WEEK, 12, NOW))
   const next = confirmQuotas(base, WEEKLY_ID, LATER, SERVICES)
   for (const quota of SERVICES.find((s) => s.id === WEEKLY_ID).quotas) {
     assert.equal(next[WEEKLY_ID][quotaTimeKey(quota.id)], LATER.toISOString())
@@ -77,6 +78,14 @@ test('confirmQuotas stamps every quota of the provider and changes no value', ()
   }
   assert.equal(next[MONTHLY_ID][quotaTimeKey('q_monthly2')], null)
   assert.equal(next[WEEKLY_ID][RESET_DATE_KEY], null)
+})
+
+test('confirmQuotas leaves a quota that was never read unread (no value, no stamp)', () => {
+  const base = deepFreeze(applyQuotaUpdate(buildDefaultState(SERVICES), WEEKLY_ID, WEEKLY_Q_SESSION, 33, NOW))
+  const next = confirmQuotas(base, WEEKLY_ID, LATER, SERVICES)
+  assert.equal(next[WEEKLY_ID][quotaTimeKey(WEEKLY_Q_SESSION)], LATER.toISOString())
+  assert.equal(next[WEEKLY_ID][WEEKLY_Q_WEEK], null)
+  assert.equal(next[WEEKLY_ID][quotaTimeKey(WEEKLY_Q_WEEK)], null)
 })
 
 test('confirmQuotas of an unknown provider changes nothing', () => {

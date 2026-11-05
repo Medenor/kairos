@@ -137,3 +137,12 @@ test('nameConflicts lists the later-created duplicate of an active name', () => 
   assert.deepEqual(nameConflicts(tie), [b.id < a.id ? a.id : b.id])
   assert.deepEqual(nameConflicts({ ...cat, providers: { [a.id]: a, [b.id]: tomb(b) } }), [])
 })
+
+test('pulling the same invalid record again keeps the invalid list identity (review finding)', async () => {
+  const { applyCatalogueRecords } = await import('./records.js')
+  const item = { record_type: 'routing_config', logical_key: 'provider:p_badbadbadbad', version: 1, payload: { nonsense: true } }
+  const first = applyCatalogueRecords({ providers: {}, order: [], recordIndex: {}, invalid: [] }, [item])
+  assert.equal(first.invalid.length, 1)
+  const second = applyCatalogueRecords(first, [item])
+  assert.equal(second.invalid, first.invalid)
+})

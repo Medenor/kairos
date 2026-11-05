@@ -126,32 +126,36 @@ export function createRecordSync({
     setStatus(error?.status ? 'error' : 'offline', error?.message ?? 'Sync failed')
   }
 
+  // `ws` is the workspace the work started in. A workspace switch does not cancel a request already in
+  // flight, so every step that writes the record index or the dirty set first checks it still is current.
   async function flushInner() {
-    if (!workspaceId || !indexReady || dirty.size === 0) return
+    const ws = workspaceId
+    if (!ws || !indexReady || dirty.size === 0) return
     const batch = [...dirty]
     dirty = new Map()
     persistDirty()
     for (let i = 0; i < batch.length; i += 1) {
       const [key, entry] = batch[i]
       try {
-        await pushOne(key, entry)
+        await pushOne(ws, key, entry)
       } catch (error) {
+        if (ws !== workspaceId) return // another workspace is current: nothing of this one is requeued
         // Keep this and the remaining entries (unless edited again meanwhile) and retry on a later tick.
         for (const [k, e] of batch.slice(i)) if (!dirty.has(k)) dirty.set(k, e)
         persistDirty()
         failureStatus(error)
         return
       }
+      if (ws !== workspaceId) return
     }
     setStatus('ready', 'Synced')
   }
 
-  async function pushOne(key, entry) {
-    const ws = workspaceId
+  async function pushOne(ws, key, entry) {
     if (entry.op === 'delete') {
       const known = domain.getIndex(domain.getState())[key]
       if (known) await api.deleteRecord(ws, known.id)
-      dropIndexEntry(key)
+      if (ws === workspaceId) dropIndexEntry(key)
       return
     }
     const payload = domain.payloadFor(domain.getState(), key)
@@ -161,33 +165,34 @@ export function createRecordSync({
       const saved = known
         ? await api.updateRecord(ws, known.id, { expected_version: known.version, payload })
         : await api.createRecord(ws, { record_type: recordType, logical_key: key, payload })
-      setIndexEntry(key, saved)
+      if (ws === workspaceId) setIndexEntry(key, saved)
     } catch (error) {
+      if (ws !== workspaceId) return // the answer belongs to a workspace that is no longer current
       if (isNotFound(error) && known && domain.onNotFound?.(key)) return
       if (!isConflict(error)) throw error
       setStatus('conflict', 'Conflict detected. Refreshing the record.')
-      await resolveConflict(key, payload, error)
+      await resolveConflict(ws, key, payload, error)
     }
   }
 
-  async function fetchRemote(key) {
-    const result = await api.syncPull(workspaceId, null)
+  async function fetchRemote(ws, key) {
+    const result = await api.syncPull(ws, null)
     return (result.items ?? []).find((item) => item?.record_type === recordType && item.logical_key === key) ?? null
   }
 
   // Refresh the record, let the domain merge, retry once. A second 409 propagates: the entry stays
   // dirty and the next tick starts over from a fresh server copy.
-  async function resolveConflict(key, local, error) {
-    const ws = workspaceId
-    const server = error.details?.server_record ?? (await fetchRemote(key))
+  async function resolveConflict(ws, key, local, error) {
+    const server = error.details?.server_record ?? (await fetchRemote(ws, key))
+    if (ws !== workspaceId) return
     if (!server) throw error
     setIndexEntry(key, server)
 
     const outcome = await domain.onConflict(key, local, server)
-    if (outcome?.done) return
+    if (outcome?.done || ws !== workspaceId) return
 
     const saved = await api.updateRecord(ws, server.id, { expected_version: server.version, payload: outcome?.payload ?? local })
-    setIndexEntry(key, saved)
+    if (ws === workspaceId) setIndexEntry(key, saved)
   }
 
   // --- pull ---------------------------------------------------------------------------------
@@ -249,6 +254,12 @@ export function createRecordSync({
   function setWorkspace(id) {
     const next = id || ''
     if (next === workspaceId) return
+    // Switching straight from one workspace to another: the marks were made against the old workspace's
+    // record index. Local records that exist only here are adopted again by the new workspace's first pull.
+    if (workspaceId && next) {
+      dirty = new Map()
+      persistDirty()
+    }
     workspaceId = next
     cursor = null
     indexReady = false

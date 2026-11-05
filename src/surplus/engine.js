@@ -11,6 +11,7 @@
 import { applySurplusRecords, loadSurplusState, mergeIdeaAfterConflict, saveCycles, saveIdeas, savePolicy, saveRuns, saveSurplusState } from './storage.js'
 import { validateIdeaRecord } from './ideas.js'
 import { keyForPolicy, parseRecordKey } from './records.js'
+import { mergePolicyAfterConflict } from './policy.js'
 import { createRecordSync } from '../sync/recordSync.js'
 import * as store from './store.js'
 
@@ -140,8 +141,13 @@ export function createSurplusEngine({
             applySilently(applySurplusRecords(state, [server]))
             return { done: true }
           }
-        } else if (JSON.stringify(local) === JSON.stringify(server.payload)) {
-          return { done: true } // policy: last writer wins, and nothing differs
+        } else {
+          // Policy: a single record, so merge per provider instead of a blind overwrite (my settings win
+          // for the providers both sides hold; entries only the other device holds are kept).
+          if (store.payloadFor(state, key) !== local) return { done: true } // edited again meanwhile: that edit pushes next
+          payload = mergePolicyAfterConflict(local, server.payload)
+          if (payload !== local) applySilently({ ...state, policy: payload })
+          if (JSON.stringify(payload) === JSON.stringify(server.payload)) return { done: true }
         }
         return { payload }
       },

@@ -163,3 +163,27 @@ test('dirty marks survive a reload through the injected storage key and a broken
   await broken.sync.flush()
   assert.equal(broken.sync.pendingCount(), 0)
 })
+
+test('a workspace switch during a push leaves the new workspace index and dirty set untouched (review finding)', async () => {
+  const { sync, server, edit, getState } = setup()
+  edit('a', { v: 1 })
+  sync.setWorkspace('ws-a')
+  await sync.refresh({ full: true })
+  edit('a', { v: 2 })
+  // Hold the update of workspace A until after the switch.
+  let release
+  const gate = new Promise((resolve) => { release = resolve })
+  const original = server.api.updateRecord
+  server.api.updateRecord = async (...args) => {
+    await gate
+    return original(...args)
+  }
+  const flushing = sync.flush()
+  await Promise.resolve()
+  sync.setWorkspace('ws-b')
+  release()
+  await flushing
+  assert.deepEqual(getState().recordIndex, {}, 'the late answer of workspace A is not written into the index of workspace B')
+  assert.equal(sync.getWorkspaceId(), 'ws-b')
+  assert.equal(sync.pendingCount(), 0, 'no pending mark of workspace A is carried over')
+})

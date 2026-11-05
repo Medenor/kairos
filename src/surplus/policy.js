@@ -188,6 +188,20 @@ export function setProviderSurplus(policy, providerId, enabled) {
   return { ...policy, providers: { ...policy.providers, [providerId]: next } }
 }
 
+/**
+ * Policy after a 409: the whole policy is one shared record, so another device's per-provider settings
+ * must not be erased by a blind overwrite. Entries only the server holds are kept; for a provider both
+ * sides hold, and for every global field, my version wins (it is the edit being pushed). Falls back to
+ * my policy when the server copy or the merge is not a valid v2 policy. Pure; inputs are not mutated.
+ */
+export function mergePolicyAfterConflict(local, serverPayload) {
+  const server = migratePolicy(serverPayload)
+  if (!validatePolicy(server).ok || !isObject(local?.providers)) return local
+  const providers = { ...server.providers, ...local.providers }
+  const merged = { ...local, providers }
+  return validatePolicy(merged).ok ? merged : local
+}
+
 /** Removes a provider's entry (at deletion). A duplicate gets none, so it starts with everything off. */
 export function pruneProvider(policy, providerId) {
   if (!policy?.providers || !(providerId in policy.providers)) return policy

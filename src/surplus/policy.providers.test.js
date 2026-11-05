@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { defaultPolicy, defaultProviderSurplus, migratePolicy, pruneProvider, setProviderSurplus, validatePolicy } from './policy.js'
+import { defaultPolicy, defaultProviderSurplus, mergePolicyAfterConflict, migratePolicy, pruneProvider, setProviderSurplus, validatePolicy } from './policy.js'
 import { LEGACY_POLICY_V1 } from '../providers/fixtures/legacyData.js'
 
 const PA = 'p_policyaaaaaa'
@@ -83,4 +83,25 @@ test('pruneProvider removes the entry; a duplicate has no entry so everything st
   assert.equal(pruned.providers[PA], undefined)
   const duplicateOf = (policy, id) => policy.providers[id] ?? null
   assert.equal(duplicateOf(p, 'p_duplicateaaaa'), null)
+})
+
+test('mergePolicyAfterConflict keeps the other device\'s provider entries and my own settings (review finding)', () => {
+  const server = defaultPolicy()
+  server.providers[PA] = { ...defaultProviderSurplus(), surplusEnabled: true, reservePct: 40 }
+  const local = defaultPolicy()
+  local.providers[PB] = { ...defaultProviderSurplus(), surplusEnabled: true }
+  const merged = mergePolicyAfterConflict(local, server)
+  assert.deepEqual(Object.keys(merged.providers).sort(), [PA, PB])
+  assert.equal(merged.providers[PA].reservePct, 40)
+  assert.equal(validatePolicy(merged).ok, true)
+  assert.deepEqual(Object.keys(local.providers), [PB], 'the input is not mutated')
+})
+
+test('mergePolicyAfterConflict: my entry wins for a provider both sides hold; an invalid server copy is ignored', () => {
+  const server = defaultPolicy()
+  server.providers[PA] = { ...defaultProviderSurplus(), reservePct: 10 }
+  const local = defaultPolicy()
+  local.providers[PA] = { ...defaultProviderSurplus(), reservePct: 70 }
+  assert.equal(mergePolicyAfterConflict(local, server).providers[PA].reservePct, 70)
+  assert.equal(mergePolicyAfterConflict(local, { nonsense: true }), local)
 })
