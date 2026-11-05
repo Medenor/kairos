@@ -280,7 +280,7 @@ Kairos Constitution 1.0.0, amended to 1.1.0 by T005 (executed in Phase 1, before
 - [X] T120 Delete `src/data/services.js` after confirming `grep -rnE "data/services" src runner backend` finds nothing outside this task; run `npm run lint && npm test && npm run build && npm run lint:paths`
 - [X] T121 [P] Add a performance guard `src/routing/engine.scale.test.js`: 20 providers × 8 quotas, all five tasks, `recommend`, `evaluateSurplus`, snapshot creation and `deriveProviderHistorySeries` over 52 weeks each complete under a generous bound (e.g. 200 ms each) and give equal results under shuffling (FR-009, SC-009)
 - [X] T122 Final verification: run `quickstart.md` end to end, fill `specs/007-dynamic-providers/verification.md` with one line of evidence per FR (FR-001 to FR-039) and per SC (SC-001 to SC-013), and list the `INTENDED_DIFFERENCES` with their user-visible effect
-- [ ] T123 Open the pull request on Codeberg (branch `007-dynamic-providers`, Conventional Commits) with: behaviour changes, verification evidence, the dependency statement ("none added"), and the constitution amendment called out
+- [X] T123 Open the pull request on Codeberg (branch `007-dynamic-providers`, Conventional Commits) with: behaviour changes, verification evidence, the dependency statement ("none added"), and the constitution amendment called out (PR #3)
 
 ---
 
