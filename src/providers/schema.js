@@ -91,7 +91,7 @@ function validateQuota(quota, index, { taskIds, requireValues }, errors) {
   if (!missing(quota.subnote) && (!isString(quota.subnote) || quota.subnote.length > LIMITS.SUBNOTE_MAX)) {
     errors.push({ path: `${p}.subnote`, message: `Note must be at most ${LIMITS.SUBNOTE_MAX} characters.` })
   }
-  if ('value' in quota || requireValues) {
+  if (quota.value !== undefined || requireValues) {
     const checked = validateQuotaValue(quota, quota.value)
     if (!checked.ok) errors.push({ path: `${p}.value`, message: checked.message })
   }

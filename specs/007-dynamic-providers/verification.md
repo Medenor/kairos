@@ -11,6 +11,12 @@ Single-profile local walkthrough, observed:
 - Delete dialog lists what is removed (quota, reset date) and kept (history marked as removed, past records). After deleting both, the list returns to the empty state and the history picker shows both as "(removed)".
 - The browser profile had shared mode on with earlier runner test data; a past run showed its provider as "Claude (removed)".
 
+Shared mode, two browser origins on one scratch backend and workspace (quickstart section 4, steps 1 and 2):
+- A provider added in profile A appears in profile B after sync.
+- **Bug found and fixed:** saving an edit that left every reading untouched was refused with "Enter a number." (`schema.js` treated a present but `undefined` `value` key as a reading). Regression test added in `src/components/providerDraft.test.js`; it fails without the fix.
+- Same provider edited in both profiles: B's save reports "was changed on another device. Your version was not saved over theirs." with "Note: yours note from B, theirs note from A" and Keep theirs / Reapply mine; nothing was overwritten.
+- Delete in A while B had an edit open: B's form closed, the provider stayed deleted, history shows it as removed.
+
 ## Still NOT verified in a real browser
 
 The Chrome extension was not connected during implementation, so the manual walkthroughs of `quickstart.md` (tasks T059, T069, T080, T111, T116) were **not run** in a browser. Substituted evidence: reducer and engine tests, and `src/providers.ui.integration.test.js`, which renders the real components (`ProviderManager`, `ProviderForm`, `DeleteProviderDialog`, `RecoBox`, `EmptyState`) to static markup for each state of the walkthrough. Typing, clicking, two browser profiles, leaving the page open across midnight and a real runner against a real `claude`/`codex` are still to be done by hand before merge. Pull request (T123) not opened.

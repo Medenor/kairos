@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { draftFromProvider, draftToInput, emptyDraft, emptyQuotaDraft, errorMap } from './providerDraft.js'
-import { addProvider } from '../providers/catalogue.js'
+import { addProvider, updateProvider } from '../providers/catalogue.js'
 import { emptyCatalogue } from '../providers/records.js'
 import { sequentialIds, sampleCatalogue, sampleState, sampleWeekly } from '../providers/fixtures/sampleProviders.js'
 
@@ -68,4 +68,14 @@ test('an untouched existing quota sends no value; an edited value or a changed t
 
 test('errorMap keeps the first message per path', () => {
   assert.deepEqual(errorMap([{ path: 'a', message: '1' }, { path: 'a', message: '2' }, { path: 'b', message: '3' }]), { a: '1', b: '3' })
+})
+
+test('saving an edit that leaves every reading untouched is accepted (found in the browser walkthrough)', () => {
+  const cat = sampleCatalogue()
+  const provider = cat.providers[sampleWeekly().id]
+  const draft = draftFromProvider(provider, sampleState())
+  draft.note = 'changed note'
+  const result = updateProvider({ catalogue: cat, state: sampleState(), id: provider.id, patch: draftToInput(draft), now: NOW })
+  assert.deepEqual(result.errors ?? [], [])
+  assert.equal(result.ok, true)
 })
