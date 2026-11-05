@@ -23,8 +23,10 @@ Surplus form and 006 replay (quickstart section 5, steps 1 and 2), scratch backe
 - Reset due today: no suggestion, "R2 reset due today; R6 the reset day ... has already started: update the reset date".
 - Surplus off, no reset date, no idea: "R1 surplus is off; R2 reset date not set; R7 no waiting idea".
 
-**OPEN FINDING, backup and restore (quickstart 4.3, SC-008, FR-020): the provider does not come back on the device that deleted it.**
-Observed: create backup, delete the provider, Restore. The server file is restored with the provider active (record version 1), but the browser that deleted it holds a tombstone at version 2 and pushes it back on its next sync, so the provider is removed again (verified with the DB: `active v1` after restore, `removed v2` after that browser reconnected). A fresh browser opened after the restore shows the provider, its readings and its reset date correctly. Cause: restore copies the old database file, so versions go backwards and the higher-version tombstone wins. The 003 backup code is unchanged by this feature, but the spec scenario (US4-3) fails as written. Also observed: the backup record created after the snapshot is not in the restored database.
+**Backup and restore (quickstart 4.3, SC-008, FR-020): found failing, fixed, re-verified.**
+Found: create backup, delete the provider, Restore: the provider did not come back on the device that deleted it. Restore copied the old database file, so the provider returned at version 1 while that browser held its tombstone at version 2 and pushed it back (DB: `active v1`, then `removed v2`). Pulls are incremental by `updated_at`, which a restore left at old values.
+Fix (`backend/src/services/backup-service.js`): after copying the file, every record's version moves past the highest live version and `updated_at` moves to now; the backup list rows are re-inserted, since the snapshot row did not exist in the old file. Regression test in `backend/tests/integration/us3-backup-restore.test.js` fails without the fix.
+Re-run in the browser on a fresh scratch database: add provider, back up, delete, Restore: the provider is back on the same device with its reading (35%), the database holds `active v4` after sync and the backup shows `restored`.
 
 ## Still NOT verified in a real browser
 
