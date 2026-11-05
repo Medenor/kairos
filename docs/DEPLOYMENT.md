@@ -27,6 +27,7 @@ VITE_SHARED_API_BASE_URL=http://my-nas:8080/api/v1 npm run build
 Multi-stage `Dockerfile`: Node build stage, then Nginx runtime with SPA routing and a readiness endpoint at `/healthz`.
 
 - `HOST_PORT` must be numeric, 1-65535 (scripts fail fast otherwise). Defaults: local `8080`, self-hosted `80`.
+- Override the host port, container name or restart policy with `HOST_PORT`, `CONTAINER_NAME` and `RESTART_POLICY` (the examples below use 9090 and 8081 for that). The container itself always listens on 80.
 - Always use an **immutable version tag**, never `latest`.
 
 ```bash
