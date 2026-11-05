@@ -17,6 +17,15 @@ Shared mode, two browser origins on one scratch backend and workspace (quickstar
 - Same provider edited in both profiles: B's save reports "was changed on another device. Your version was not saved over theirs." with "Note: yours note from B, theirs note from A" and Keep theirs / Reapply mine; nothing was overwritten.
 - Delete in A while B had an edit open: B's form closed, the provider stayed deleted, history shows it as removed.
 
+Surplus form and 006 replay (quickstart section 5, steps 1 and 2), scratch backend:
+- With a `claude` tool chosen and no quotas designated, the form lists "Designate the weekly quota." and "Designate the session window quota."; once both are designated the provider saves.
+- Replay: weekly 60% remaining, session 60% remaining, reset in 2 days, one waiting medium idea: "Suggested now", "60% remaining minus 20% reserve minus 8% cost leaves 32%; resets in 2d; all rules pass", preview only, nothing launched.
+- Reset due today: no suggestion, "R2 reset due today; R6 the reset day ... has already started: update the reset date".
+- Surplus off, no reset date, no idea: "R1 surplus is off; R2 reset date not set; R7 no waiting idea".
+
+**OPEN FINDING, backup and restore (quickstart 4.3, SC-008, FR-020): the provider does not come back on the device that deleted it.**
+Observed: create backup, delete the provider, Restore. The server file is restored with the provider active (record version 1), but the browser that deleted it holds a tombstone at version 2 and pushes it back on its next sync, so the provider is removed again (verified with the DB: `active v1` after restore, `removed v2` after that browser reconnected). A fresh browser opened after the restore shows the provider, its readings and its reset date correctly. Cause: restore copies the old database file, so versions go backwards and the higher-version tombstone wins. The 003 backup code is unchanged by this feature, but the spec scenario (US4-3) fails as written. Also observed: the backup record created after the snapshot is not in the restored database.
+
 ## Still NOT verified in a real browser
 
 The Chrome extension was not connected during implementation, so the manual walkthroughs of `quickstart.md` (tasks T059, T069, T080, T111, T116) were **not run** in a browser. Substituted evidence: reducer and engine tests, and `src/providers.ui.integration.test.js`, which renders the real components (`ProviderManager`, `ProviderForm`, `DeleteProviderDialog`, `RecoBox`, `EmptyState`) to static markup for each state of the walkthrough. Typing, clicking, two browser profiles, leaving the page open across midnight and a real runner against a real `claude`/`codex` are still to be done by hand before merge. Pull request (T123) not opened.
