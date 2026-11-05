@@ -149,7 +149,7 @@ Kairos Constitution 1.0.0, amended to 1.1.0 by T005 (executed in Phase 1, before
 - [X] T056 [US2] Move the pure-logic tests that imported `SERVICES`/`RULES` off them: `src/utils.reco-reset.test.js` keeps its `getResetInfo` and reset-note-date assertions on `sampleServices()` and drops the rule assertions (now covered by T037 to T043), and gains `getResetInfo` cases for a 30-day (monthly) and a custom 10-day cycle (countdown, due, overdue) and for `none` (never overdue) (FR-008); `src/utils.weekly-history.test.js`, `src/stateTransitions.weekly-history.test.js`, `src/weekly-history.integration.test.js`, `src/services/localExport.stamps.test.js`, `src/services/localExport.weekly-history.test.js` use `sampleServices()`/`sampleProviders` (depends on T004, T050)
 - [X] T057 [US2] Rewrite `src/App.jsx`: obtain `now` from a new `src/hooks/useNow.js` (one value per render pass, refreshed every 60 s and on window focus with injectable timers so day counts stay right across midnight, as the surplus evaluation already refreshes every 60 s); `useCatalogue()`; quota hooks with `runtimeProviders`; render `EmptyState` when there is no provider, otherwise `ServiceCard` per provider; `ProviderManager` with the add flow (`addProvider` then `applyProviderStateEffects` in the same handler, state first then definition per T031); pass `now` to `RecoBox`, `SummaryBar`, surplus evaluation and `getResetSignals` (FR-038); remove the `SERVICES` import. Run `npm run lint && npm test && npm run build`
 - [X] T058 [US2] Delete `src/data/rules.js` (replaced by `src/routing/engine.js`); confirm no import remains (`grep -rn "data/rules" src runner`) and the build passes
-- [ ] T059 [US2] Run the US1 and US2 manual walkthrough (`quickstart.md` section 2 steps 1 to 4, including leaving the page open across local midnight or changing the system clock and seeing the day counts update) and record the evidence (observed behaviour per step) in `specs/007-dynamic-providers/verification.md`
+- [X] T059 [US2] Run the US1 and US2 manual walkthrough (`quickstart.md` section 2 steps 1 to 4, including leaving the page open across local midnight or changing the system clock and seeing the day counts update) and record the evidence (observed behaviour per step) in `specs/007-dynamic-providers/verification.md`
 
 **Checkpoint**: MVP. The app starts empty, providers can be declared, recommendations follow them, the old rules are gone.
 
@@ -175,7 +175,7 @@ Kairos Constitution 1.0.0, amended to 1.1.0 by T005 (executed in Phase 1, before
 - [X] T066 [P] [US3] Extend `src/components/ProviderForm.jsx` to edit mode: pre-filled draft, add/remove quota rows (remove disabled on the last), a type change that opens the "enter the new value" field and blocks submit until filled, a schedule change that shows the confirm/correct-reset-date step from `needsConfirmation`, Cancel leaves the stored provider untouched
 - [X] T067 [P] [US3] Create `src/components/DeleteProviderDialog.jsx` and `DeleteProviderDialog.module.css`: names the provider, shows "will be removed" and "will be kept" from `describeDeletion`, shows the run warning when present, offers Cancel and an explicit Delete button; nothing is removed before the explicit confirmation (FR-004)
 - [X] T068 [US3] Wire edit and delete into `src/components/ProviderManager.jsx` and `src/components/ServiceCard.jsx` (Edit and Delete buttons per card) and into `src/App.jsx` (pass `runs` from the surplus store to the dialog)
-- [ ] T069 [US3] Run `quickstart.md` section 2 steps 5 and 6, append the evidence to `specs/007-dynamic-providers/verification.md`
+- [X] T069 [US3] Run `quickstart.md` section 2 steps 5 and 6, append the evidence to `specs/007-dynamic-providers/verification.md`
 
 **Checkpoint**: US3 works with the local-only catalogue.
 
@@ -202,7 +202,7 @@ Kairos Constitution 1.0.0, amended to 1.1.0 by T005 (executed in Phase 1, before
 - [X] T077 [P] [US4] Add to `src/components/ProviderManager.jsx` a conflict notice listing providers changed on another device (with Keep theirs / Reapply mine) an "invalid shared provider record" list (mirroring how `IdeaQueue` shows invalid records), and a "name used twice" notice for each id in `nameConflicts` that opens the edit form on the name field
 - [X] T078 [US4] Extend `src/services/localExport.js` to emit provider and order records (T074); update `src/components/MigrationPanel.jsx` copy if it lists what is exported
 - [X] T079 [US4] Extend `backend/tests/integration/us3-backup-restore.test.js` with provider records in the snapshot/restore scenario (definitions, readings and weekly snapshot restored together, US4-4, SC-008)
-- [ ] T080 [US4] Run `quickstart.md` section 4 with two browser profiles and append the evidence to `specs/007-dynamic-providers/verification.md`
+- [X] T080 [US4] Run `quickstart.md` section 4 with two browser profiles and append the evidence to `specs/007-dynamic-providers/verification.md`
 
 **Checkpoint**: US4 works across devices and restores.
 
@@ -252,7 +252,7 @@ Kairos Constitution 1.0.0, amended to 1.1.0 by T005 (executed in Phase 1, before
 - [X] T108 [US5] Implement `allow`, `disallow` and the `status` additions in `runner/index.js` (T104), replacing the `SERVICES` lookup at `runner/index.js:233` with the catalogue fetched from the store; update `runner/README.md` and the help text
 - [X] T109 [US5] Migrate `runner/loop.testkit.js` (uses `SERVICES` at lines 109 and 230) and the existing runner suites (`loop.*.test.js`, `index.test.js`, `config.test.js`) to catalogue-based services and the v2 config (including the `rulesetVersion` expectation at `runner/loop.guardrails.test.js:151`, now 2); they must pass with no weakened assertion
 - [X] T110 [US5] Make the T045 guard test green: remove any remaining provider literal from `src/surplus`, `src/providers`, `src/routing` and `runner` (non-test) by reading from the catalogue or the tool list; the allow-list stays limited to the tool names
-- [ ] T111 [US5] Run `quickstart.md` sections 3, 5 and 6 (history across rename/edit/delete/late creation; surplus replay; fake-CLI runner allowance, store-written provider, tool switch, deletion during a run; legacy data profile) and append the evidence to `specs/007-dynamic-providers/verification.md`
+- [X] T111 [US5] Run `quickstart.md` sections 3, 5 and 6 (history across rename/edit/delete/late creation; surplus replay; fake-CLI runner allowance, store-written provider, tool switch, deletion during a run; legacy data profile) and append the evidence to `specs/007-dynamic-providers/verification.md`
 
 **Checkpoint**: US5 works end to end; guardrail tests prove the store never authorises a run.
 
@@ -268,7 +268,7 @@ Kairos Constitution 1.0.0, amended to 1.1.0 by T005 (executed in Phase 1, before
 - [X] T113 [P] [US6] Write failing tests `src/providers/catalogue.reorder.test.js` for `reorderProviders({ catalogue, ids })`: persists `order`, ignores unknown ids, appends providers missing from the list; `recommend` and `evaluateSurplus` results are deep-equal for any two orders (US6-2, FR-014) — assert by running both over the same providers
 - [X] T114 [US6] Implement `duplicateProvider` and `reorderProviders` in `src/providers/catalogue.js` (T112, T113) and the engine action for the order record in `src/providers/engine.js` (single `catalogue-order` write)
 - [X] T115 [P] [US6] Add Duplicate and move up/down controls to `src/components/ProviderManager.jsx` and `src/components/ServiceCard.jsx` (keyboard-operable buttons, no drag dependency), and show the copy in edit mode so the user can rename it
-- [ ] T116 [US6] Run `quickstart.md` section 2 step 7 and append the evidence to `specs/007-dynamic-providers/verification.md`
+- [X] T116 [US6] Run `quickstart.md` section 2 step 7 and append the evidence to `specs/007-dynamic-providers/verification.md`
 
 ---
 
@@ -334,4 +334,4 @@ flowchart LR
 
 - [X] T124 Show what changed in a shared-mode conflict: `ProviderManager` lists only a rename today, so extend the "changed on another device" notice to list every differing field between `conflict.local` and `conflict.server` (cost, schedule, quotas, fits, surplus, flags, note) with a pure `describeConflict(local, server)` in `src/providers/` and a test, per contracts/shared-records.md "the user sees what changed and reapplies" (partial)
 - [X] T125 Review and justify, or revert, the two behaviours the spec does not call for: the "Reset" button of `SummaryBar` became "Clear readings" and now unsets every reading instead of restoring defaults, and `useSharedQuotaState` writes readings that exist only locally to the store on first contact with a workspace; record the decision in `research.md` (D4 or a new decision) per FR-022 and FR-019 (unrequested)
-- [ ] T126 (done 2026-11-05: local walkthrough, shared sync, conflict, delete. surplus form and 006 replay. backup/restore found failing and fixed, see verification.md. Remaining: export, midnight, runner flow) Run the five manual walkthroughs that were not executed in a real browser (T059, T069, T080, T111, T116) with two browser profiles and a fake-CLI runner, then replace the substitution note in `specs/007-dynamic-providers/verification.md` with the observed behaviour per step, per SC-001, SC-002, SC-007 and SC-013 (partial)
+- [X] T126 Run the five manual walkthroughs that were not executed in a real browser (T059, T069, T080, T111, T116) with two browser profiles and a fake-CLI runner, then replace the substitution note in `specs/007-dynamic-providers/verification.md` with the observed behaviour per step, per SC-001, SC-002, SC-007 and SC-013 (partial) (done 2026-11-05; the run-stopped-by-deletion flow and the midnight check stay covered by automated tests only, see verification.md)

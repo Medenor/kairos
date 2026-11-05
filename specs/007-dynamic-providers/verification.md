@@ -28,9 +28,16 @@ Found: create backup, delete the provider, Restore: the provider did not come ba
 Fix (`backend/src/services/backup-service.js`): after copying the file, every record's version moves past the highest live version and `updated_at` moves to now; the backup list rows are re-inserted, since the snapshot row did not exist in the old file. Regression test in `backend/tests/integration/us3-backup-restore.test.js` fails without the fix.
 Re-run in the browser on a fresh scratch database: add provider, back up, delete, Restore: the provider is back on the same device with its reading (35%), the database holds `active v4` after sync and the backup shows `restored`.
 
-## Still NOT verified in a real browser
+Runner allowance and export (quickstart 4.4, 5.3, 5.4), real CLI against a scratch backend and an isolated `KAIROS_RUNNER_HOME`:
+- A provider record written directly into the store (POST /records, surplus on, tool claude) is listed by `allow` as eligible but `status` shows `allowed providers: (none)`: it authorises nothing.
+- `allow "Alpha Weekly"` shows the provider and tool and asks for `yes`; answering `no` stores nothing; `yes` stores it pinned to `claude`.
+- After the store changes the provider's tool to `codex`, `allow` lists it with the new tool and `status` reports "claude: tool changed (pinned claude, now codex)".
+- `disallow` removes it. Local export (called from the page on a provider-holding origin) returns `provider:*`, `catalogue-order`, and the quota readings with their `__ts_` stamps and reset date.
 
-The Chrome extension was not connected during implementation, so the manual walkthroughs of `quickstart.md` (tasks T059, T069, T080, T111, T116) were **not run** in a browser. Substituted evidence: reducer and engine tests, and `src/providers.ui.integration.test.js`, which renders the real components (`ProviderManager`, `ProviderForm`, `DeleteProviderDialog`, `RecoBox`, `EmptyState`) to static markup for each state of the walkthrough. Typing, clicking, two browser profiles, leaving the page open across midnight and a real runner against a real `claude`/`codex` are still to be done by hand before merge. Pull request (T123) not opened.
+## Not walked by hand (covered by automated tests only)
+- A real run started and then stopped by deleting its provider (quickstart 5.5): `runner/loop.lifecycle.providers.test.js` with the fake spawn; the dialog warning is covered by `src/providers.ui.integration.test.js`.
+- The page left open across midnight: `useNow` and the day-count tests with `TZ` set.
+- Legacy data of section 6 was seen in the browser (previous-version history labelled "(previous version)", a "Claude (removed)" run record), but not with a full profile of five providers, history and runs.
 
 ## Intended differences from the former rules (`routing.reference.test.js`)
 
