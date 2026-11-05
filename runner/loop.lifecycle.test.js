@@ -25,7 +25,7 @@ const alive = (pid) => {
 async function startRun(w, loop) {
   const done = loop.tick()
   const spawned = await w.events.waitFor('spawned')
-  await w.waitForCli(w.cli[w.serviceId === 'claude' ? 'claude' : 'codex'])
+  await w.waitForCli(w.cli[w.provider.tool])
   return { done, spawned }
 }
 

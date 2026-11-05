@@ -1,3 +1,9 @@
+import { resolveProviderName } from './providers/names.js'
+
+// Default low-balance level of a currency quota (units of its own currency). It reproduces the
+// former fixed bands: below 2 -> 85, below 5 -> 60, otherwise 20.
+export const DEFAULT_LOW_BALANCE = 5
+
 // Returns the "consumed" percentage for any quota type,
 // normalised to 0–100 where 100 = fully exhausted.
 export function getConsumedPct(quota, value) {
@@ -6,20 +12,25 @@ export function getConsumedPct(quota, value) {
       return value
     case 'remaining_pct':
       return 100 - value
-    case 'currency':
+    case 'currency': {
+      const low = typeof quota.lowBalance === 'number' && quota.lowBalance > 0 ? quota.lowBalance : DEFAULT_LOW_BALANCE
       if (value <= 0) return 100
-      if (value < 2) return 85
-      if (value < 5) return 60
+      if (value < 0.4 * low) return 85
+      if (value < low) return 60
       return 20
+    }
     default:
       return 0
   }
 }
 
-// Returns the highest consumed % across all quotas for a service.
+// Returns the highest consumed % across the quotas of a service that have a reading.
+// A quota with no stored value yet is unread: it is ignored, never turned into NaN.
 export function getServicePressure(svc, state) {
   return svc.quotas.reduce((mx, q) => {
-    return Math.max(mx, getConsumedPct(q, state[svc.id][q.id] ?? q.value))
+    const value = state?.[svc.id]?.[q.id]
+    if (typeof value !== 'number' || !Number.isFinite(value)) return mx
+    return Math.max(mx, getConsumedPct(q, value))
   }, 0)
 }
 
@@ -40,7 +51,9 @@ export const RESET_DATE_KEY = '__last_reset_date'
 export const QUOTA_TS_PREFIX = '__ts_'
 export const quotaTimeKey = (quotaId) => `${QUOTA_TS_PREFIX}${quotaId}`
 export const WEEKLY_HISTORY_STORAGE_KEY = 'kairos:weekly-history'
-export const WEEKLY_HISTORY_SCHEMA_VERSION = 1
+// v2 (feature 007): snapshots hold a `providers` map keyed by provider id. A v1 snapshot is read as a v2
+// one with no `providers`; its `services` map is the legacy section, carried verbatim and shown read-only.
+export const WEEKLY_HISTORY_SCHEMA_VERSION = 2
 export const WEEKLY_HISTORY_LOGICAL_KEY_PREFIX = 'weekly-history:'
 
 function cloneData(value) {
@@ -127,56 +140,109 @@ export function getLocalWeekKey(date = new Date()) {
   }
 }
 
-export function createWeeklySnapshot({ workspaceId, state = {}, services = [], now = new Date() }) {
+const isReading = (value) => typeof value === 'number' && Number.isFinite(value)
+
+function providerEntry(provider, providerState) {
+  const entry = {
+    providerId: provider.id,
+    name: provider.name,
+    captured: {
+      color: provider.color ?? null,
+      note: provider.note ?? null,
+      flags: Array.isArray(provider.flags) ? [...provider.flags] : [],
+    },
+    lastResetDate: providerState[RESET_DATE_KEY] ?? null,
+    quotas: {},
+  }
+  for (const quota of provider.quotas || []) {
+    const value = providerState[quota.id]
+    // A quota with no reading yet is left out (never recorded as undefined or zero) until its first reading.
+    if (!isReading(value)) continue
+    entry.quotas[quota.id] = {
+      quotaId: quota.id,
+      label: quota.label,
+      type: quota.type,
+      value: cloneData(value),
+      currency: quota.currency ?? null,
+      consumedPct: getConsumedPct(quota, value),
+      subnote: quota.subnote ?? null,
+    }
+  }
+  return entry
+}
+
+/**
+ * Builds the snapshot of the week containing `now` (schema v2).
+ * - `providers`: runtime providers that are live; their entries are rebuilt from `state`.
+ * - `removed`: tombstones ({ id, removedAt }); a previous entry of such a provider is kept and marked `removedAt`.
+ * - `previous`: the existing snapshot of the same workspace and week, if any. Its entries of providers that
+ *   are not in `providers` are kept as they are (removed or not yet known on this device), and its legacy
+ *   `services` section is carried verbatim.
+ */
+export function createWeeklySnapshot({ workspaceId, state = {}, providers = [], removed = [], previous = null, now = new Date() }) {
   if (!workspaceId) {
     throw new Error('workspaceId is required')
   }
 
   const weekInfo = getLocalWeekKey(now)
-  const servicesSnapshot = {}
+  const live = new Set(providers.map((provider) => provider.id))
+  const entries = {}
 
-  for (const service of services) {
-    const serviceState = state[service.id] || {}
-    const serviceSnapshot = {
-      serviceId: service.id,
-      serviceName: service.name,
-      capturedServiceMeta: {
-        serviceId: service.id,
-        serviceName: service.name,
-        color: service.color ?? null,
-        note: service.note ?? null,
-        flags: Array.isArray(service.flags) ? [...service.flags] : [],
-      },
-      lastResetDate: serviceState[RESET_DATE_KEY] ?? null,
-      quotas: {},
-    }
-
-    for (const quota of service.quotas || []) {
-      const rawValue = serviceState[quota.id] ?? quota.value
-      const value = cloneData(rawValue)
-      serviceSnapshot.quotas[quota.id] = {
-        quotaId: quota.id,
-        label: quota.label,
-        type: quota.type,
-        value,
-        currency: quota.currency ?? null,
-        consumedPct: getConsumedPct(quota, value),
-        subnote: quota.subnote ?? null,
-      }
-    }
-
-    servicesSnapshot[service.id] = serviceSnapshot
+  for (const [id, entry] of Object.entries(previous?.providers || {})) {
+    if (live.has(id)) continue
+    entries[id] = cloneData(entry)
+  }
+  for (const tombstone of removed) {
+    const kept = entries[tombstone.id]
+    if (kept && !kept.removedAt) kept.removedAt = tombstone.removedAt
+  }
+  for (const provider of providers) {
+    entries[provider.id] = providerEntry(provider, state[provider.id] || {})
   }
 
-  return {
+  const snapshot = {
     schemaVersion: WEEKLY_HISTORY_SCHEMA_VERSION,
     workspaceId,
     weekKey: weekInfo.weekKey,
     weekStartDate: weekInfo.weekStartDate,
     weekEndDate: weekInfo.weekEndDate,
     capturedAt: new Date(now).toISOString(),
-    services: servicesSnapshot,
+    providers: entries,
   }
+  if (previous?.services) snapshot.services = cloneData(previous.services)
+  return snapshot
+}
+
+// Merges two snapshots of the same workspace and week by union on provider id: an entry carrying
+// `removedAt` wins over one without, otherwise the entry of the later `capturedAt` (a tie goes to
+// `incoming`). The legacy `services` section is kept verbatim from whichever side has it. Used for any
+// week both sides hold, so a stale or v1 remote snapshot never drops local entries (FR-028).
+export function mergeWeekSnapshots(local, incoming) {
+  if (!local) return cloneData(incoming)
+  if (!incoming) return cloneData(local)
+  const localTime = Date.parse(local.capturedAt) || 0
+  const incomingTime = Date.parse(incoming.capturedAt) || 0
+  const incomingNewer = incomingTime >= localTime
+  const newer = incomingNewer ? incoming : local
+  const older = incomingNewer ? local : incoming
+
+  const providers = {}
+  for (const id of new Set([...Object.keys(older.providers || {}), ...Object.keys(newer.providers || {})])) {
+    const a = older.providers?.[id]
+    const b = newer.providers?.[id]
+    if (a && b) providers[id] = cloneData(a.removedAt && !b.removedAt ? a : b)
+    else providers[id] = cloneData(a || b)
+  }
+
+  const merged = {
+    ...cloneData(newer),
+    schemaVersion: WEEKLY_HISTORY_SCHEMA_VERSION,
+    providers,
+  }
+  const services = local.services ?? incoming.services
+  if (services) merged.services = cloneData(services)
+  else delete merged.services
+  return merged
 }
 
 // Two snapshots are equivalent when everything but the capture timestamp matches.
@@ -198,8 +264,9 @@ export function upsertCurrentWeekSnapshot(history, snapshot) {
       entry.workspaceId === snapshot.workspaceId &&
       entry.weekKey === snapshot.weekKey
     ) {
+      // A week both sides hold is merged, never replaced.
       if (!inserted) {
-        next.push(cloneData(snapshot))
+        next.push(mergeWeekSnapshots(entry, snapshot))
         inserted = true
       }
       continue
@@ -263,11 +330,14 @@ export function loadWeeklyHistory(rawValue) {
 // Records the current-week snapshot. When the stored snapshot for the same
 // workspace and week already matches, the original history reference is returned
 // so callers (React state) see no change and `capturedAt` is preserved.
-export function recordWeeklySnapshot(history, { workspaceId, state, services, now = new Date(), completedWeeksToKeep = 52 }) {
-  const snapshot = createWeeklySnapshot({ workspaceId, state, services, now })
+// With no provider and nothing recorded for the week, nothing is recorded (FR-026).
+export function recordWeeklySnapshot(history, { workspaceId, state, providers = [], removed = [], now = new Date(), completedWeeksToKeep = 52 }) {
+  const weekKey = getLocalWeekKey(now).weekKey
   const existing = normalizeHistoryInput(history).find(
-    (entry) => entry.workspaceId === snapshot.workspaceId && entry.weekKey === snapshot.weekKey
+    (entry) => entry.workspaceId === workspaceId && entry.weekKey === weekKey
   )
+  if (providers.length === 0 && !existing) return history
+  const snapshot = createWeeklySnapshot({ workspaceId, state, providers, removed, previous: existing ?? null, now })
   if (existing && snapshotsEquivalent(existing, snapshot)) {
     return history
   }
@@ -297,51 +367,49 @@ export function adoptLocalSnapshots(history, workspaceId, { fromWorkspaceId = 'l
   return retainWeeklySnapshots(next, { now })
 }
 
-function getServiceMetaFromSnapshot(snapshotService, currentService) {
-  if (snapshotService?.capturedServiceMeta) {
-    return snapshotService.capturedServiceMeta
+// Entry of a provider in a snapshot, from the v2 `providers` map or, for a former service id, from the
+// legacy `services` section (read-only). Returns a uniform shape or null.
+function entryFromSnapshot(snapshot, providerId) {
+  const v2 = snapshot?.providers?.[providerId]
+  if (v2) {
+    return { name: v2.name ?? providerId, captured: v2.captured ?? null, lastResetDate: v2.lastResetDate ?? null, removedAt: v2.removedAt ?? null, quotas: v2.quotas ?? {}, legacy: false }
   }
-  if (currentService) {
+  const v1 = snapshot?.services?.[providerId]
+  if (v1) {
     return {
-      serviceId: currentService.id,
-      serviceName: currentService.name,
-      color: currentService.color ?? null,
-      note: currentService.note ?? null,
-      flags: Array.isArray(currentService.flags) ? [...currentService.flags] : [],
+      name: v1.serviceName ?? v1.capturedServiceMeta?.serviceName ?? providerId,
+      captured: v1.capturedServiceMeta ?? null,
+      lastResetDate: v1.lastResetDate ?? null,
+      removedAt: null,
+      quotas: v1.quotas ?? {},
+      legacy: true,
     }
   }
-  return {
-    serviceId: snapshotService?.serviceId ?? null,
-    serviceName: snapshotService?.serviceName ?? snapshotService?.serviceId ?? null,
-    color: null,
-    note: null,
-    flags: [],
-  }
+  return null
 }
 
-function getQuotaEntries(snapshotService, currentService) {
-  const recordedQuotas = snapshotService?.quotas ? Object.values(snapshotService.quotas) : []
-  if (!currentService) return recordedQuotas.map((quota) => cloneData(quota))
-
+function orderedQuotaEntries(recorded, currentProvider) {
+  const values = Object.values(recorded || {})
+  if (!currentProvider) return values.map((quota) => cloneData(quota))
+  const byId = new Map(values.map((quota) => [quota.quotaId, quota]))
   const ordered = []
-  const recordedById = new Map(recordedQuotas.map((quota) => [quota.quotaId, quota]))
-
-  for (const quota of currentService.quotas || []) {
-    const recorded = recordedById.get(quota.id)
-    if (recorded) {
-      ordered.push(cloneData(recorded))
-      recordedById.delete(quota.id)
+  for (const quota of currentProvider.quotas || []) {
+    if (byId.has(quota.id)) {
+      ordered.push(cloneData(byId.get(quota.id)))
+      byId.delete(quota.id)
     }
   }
-
-  for (const quota of recordedById.values()) {
-    ordered.push(cloneData(quota))
-  }
-
+  for (const quota of byId.values()) ordered.push(cloneData(quota))
   return ordered
 }
 
-export function deriveServiceHistorySeries({ history, serviceId, services = [], fromWeekKey, toWeekKey }) {
+/**
+ * Series of one provider across weeks, by provider id. A rename continues one series under the current
+ * name; weeks before the provider existed are `missing_service`, never zero; a removed provider keeps the
+ * name it was recorded with and is flagged `removed`; a former service id (legacy section) is read-only.
+ * `providers` are the live runtime providers; `catalogue` (optional) lets tombstones name removed ones.
+ */
+export function deriveProviderHistorySeries({ history, providerId, providers = [], catalogue = null, fromWeekKey, toWeekKey }) {
   const sourceHistory = normalizeHistoryInput(history)
   const orderedHistory = new Map()
   for (const entry of sourceHistory) {
@@ -357,24 +425,26 @@ export function deriveServiceHistorySeries({ history, serviceId, services = [], 
     endKey = endKey || keys[keys.length - 1]
   }
 
+  const live = providers.find((provider) => provider.id === providerId) || null
+  const tombstone = catalogue?.providers?.[providerId]?.status === 'removed' ? catalogue.providers[providerId] : null
   const startDate = weekStartFromWeekKey(startKey)
   const endDate = weekStartFromWeekKey(endKey)
   if (!startDate || !endDate) {
     return {
-      serviceId,
-      displayName: serviceId,
+      providerId,
+      displayName: live?.name ?? tombstone?.name ?? providerId,
+      removed: !live,
+      legacy: false,
       entries: [],
       hasEnoughHistoryForTrends: false,
       recordedWeekCount: 0,
     }
   }
 
-  const currentService = services.find((service) => service.id === serviceId) || null
-  const discoveredService = sourceHistory.find((entry) => entry?.services?.[serviceId])?.services?.[serviceId] || null
-  const displayName = currentService?.name || discoveredService?.serviceName || discoveredService?.capturedServiceMeta?.serviceName || serviceId
-
   const entries = []
   let recordedWeekCount = 0
+  let latestName = null
+  let legacy = false
   let cursor = toLocalMidday(startDate)
   const finalDate = toLocalMidday(endDate)
 
@@ -394,35 +464,48 @@ export function deriveServiceHistorySeries({ history, serviceId, services = [], 
       continue
     }
 
-    const snapshotService = snapshot.services?.[serviceId]
-    if (!snapshotService) {
+    const recorded = entryFromSnapshot(snapshot, providerId)
+    if (!recorded) {
       entries.push({
         weekKey: weekInfo.weekKey,
         weekStartDate: weekInfo.weekStartDate,
         status: 'missing_service',
         quotas: [],
-        message: 'This service was not present in the recorded snapshot for this week.',
+        message: 'No history recorded for this provider this week',
       })
       cursor = addLocalDays(cursor, 7)
       continue
     }
 
     recordedWeekCount += 1
+    latestName = recorded.name
+    legacy = legacy || recorded.legacy
     entries.push({
       weekKey: weekInfo.weekKey,
       weekStartDate: weekInfo.weekStartDate,
       status: 'recorded',
-      quotas: getQuotaEntries(snapshotService, currentService),
+      quotas: orderedQuotaEntries(recorded.quotas, live),
       message: '',
-      capturedServiceMeta: getServiceMetaFromSnapshot(snapshotService, currentService),
+      capturedName: recorded.name,
+      removedAt: recorded.removedAt,
+      lastResetDate: recorded.lastResetDate,
+      capturedProviderMeta: {
+        providerId,
+        name: recorded.name,
+        color: recorded.captured?.color ?? null,
+        note: recorded.captured?.note ?? null,
+        flags: Array.isArray(recorded.captured?.flags) ? [...recorded.captured.flags] : [],
+      },
     })
 
     cursor = addLocalDays(cursor, 7)
   }
 
   return {
-    serviceId,
-    displayName,
+    providerId,
+    displayName: live?.name ?? latestName ?? tombstone?.name ?? resolveProviderName(providerId, { catalogue }).name,
+    removed: !live,
+    legacy,
     entries,
     hasEnoughHistoryForTrends: recordedWeekCount >= 2,
     recordedWeekCount,
@@ -523,13 +606,15 @@ export function getResetInfo(lastResetDate, resetCycleDays, now = new Date()) {
 }
 
 // Returns a map of reset timing signals for all services.
-// Pure function — no side effects.
-export function getResetSignals(state, services) {
+// Pure function — no side effects. Pass the same `now` as the recommendation and the surplus
+// evaluation so every day count uses one local-day basis (FR-038).
+export function getResetSignals(state, services, now = new Date()) {
   const signals = {}
   for (const svc of services) {
     signals[svc.id] = getResetInfo(
       state[svc.id]?.[RESET_DATE_KEY] ?? null,
-      svc.resetCycleDays
+      svc.resetCycleDays,
+      now
     )
   }
   return signals

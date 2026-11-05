@@ -1,25 +1,29 @@
 // Surplus policy defaults and validation (pure; see data-model.md "Surplus Policy").
-import { DEFAULTS, SUPPORTED_SERVICE_IDS } from './constants.js'
+import { DEFAULTS } from './constants.js'
+import { isProviderId } from '../providers/ids.js'
 
-export const POLICY_SCHEMA_VERSION = 1
+// 2 (feature 007): per-provider settings live in `providers`, keyed by provider id. A v1 policy keeps its
+// global fields; its `services` object moves verbatim into the inert `legacy` field (never read).
+export const POLICY_SCHEMA_VERSION = 2
 
 const TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/
 const THRESHOLD_KEYS = ['freshnessHours', 'sessionMaxAgeHours', 'sessionMinRoomPct', 'maxRunMinutes', 'evalIntervalMinutes']
 
-export function defaultPolicy() {
-  const services = {}
-  for (const id of SUPPORTED_SERVICE_IDS) {
-    services[id] = {
-      surplusEnabled: false,
-      reservePct: DEFAULTS.RESERVE_PCT,
-      windowDays: DEFAULTS.WINDOW_DAYS,
-      autoRunEnabled: false,
-      disclosuresAckAt: null,
-    }
+// Default per-provider settings, created the first time a provider's surplus is configured: all off.
+export function defaultProviderSurplus() {
+  return {
+    surplusEnabled: false,
+    reservePct: DEFAULTS.RESERVE_PCT,
+    windowDays: DEFAULTS.WINDOW_DAYS,
+    autoRunEnabled: false,
+    disclosuresAckAt: null,
   }
+}
+
+export function defaultPolicy() {
   return {
     schemaVersion: POLICY_SCHEMA_VERSION,
-    services,
+    providers: {},
     protectedHours: [],
     costPct: {
       small: DEFAULTS.COST_SMALL_PCT,
@@ -35,6 +39,25 @@ export function defaultPolicy() {
     },
     projectsBaseFolder: null,
   }
+}
+
+/**
+ * Reads a stored policy of any version as a v2 policy. A v1 policy keeps its global fields; its per-service
+ * settings are neither applied nor lost: the `services` object is moved verbatim into `legacy`.
+ */
+export function migratePolicy(stored) {
+  if (!stored || typeof stored !== 'object' || Array.isArray(stored)) return defaultPolicy()
+  if (stored.schemaVersion !== 1) return stored
+  const base = defaultPolicy()
+  const migrated = {
+    ...base,
+    protectedHours: stored.protectedHours,
+    costPct: stored.costPct,
+    thresholds: stored.thresholds,
+    projectsBaseFolder: stored.projectsBaseFolder ?? null,
+  }
+  if (stored.services && typeof stored.services === 'object') migrated.legacy = stored.services
+  return migrated
 }
 
 const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v)
@@ -61,8 +84,8 @@ function validateProtectedRange(range, path, errors) {
   }
 }
 
-function validateService(id, svc, protectedHours, errors) {
-  const p = `services.${id}`
+function validateProviderEntry(id, svc, protectedHours, errors) {
+  const p = `providers.${id}`
   if (!isObject(svc)) {
     errors.push({ path: p, message: 'must be an object' })
     return
@@ -106,16 +129,20 @@ export function validatePolicy(policy) {
     policy.protectedHours.forEach((r, i) => validateProtectedRange(r, `protectedHours[${i}]`, errors))
   }
 
-  if (!isObject(policy.services)) {
-    errors.push({ path: 'services', message: 'must be an object' })
+  if (!isObject(policy.providers)) {
+    errors.push({ path: 'providers', message: 'must be an object' })
   } else {
-    for (const [id, svc] of Object.entries(policy.services)) {
-      if (!SUPPORTED_SERVICE_IDS.includes(id)) {
-        errors.push({ path: `services.${id}`, message: `unsupported service (supported: ${SUPPORTED_SERVICE_IDS.join(', ')})` })
+    for (const [id, entry] of Object.entries(policy.providers)) {
+      if (!isProviderId(id)) {
+        errors.push({ path: `providers.${id}`, message: 'key must be a provider id' })
         continue
       }
-      validateService(id, svc, policy.protectedHours, errors)
+      validateProviderEntry(id, entry, policy.protectedHours, errors)
     }
+  }
+
+  if (policy.legacy !== undefined && !isObject(policy.legacy)) {
+    errors.push({ path: 'legacy', message: 'must be an object when present' })
   }
 
   const c = policy.costPct
@@ -148,27 +175,49 @@ export function validatePolicy(policy) {
 }
 
 /**
- * Pure policy edit: turn surplus on or off for one service. Turning it off also turns its automatic
- * runs off in the same update (an automatic run without surplus has no meaning), so validatePolicy
- * still passes. Returns a new policy; the input is not mutated.
+ * Pure policy edit: turn surplus on or off for one provider. The entry is created with the defaults on
+ * first use. Turning surplus off also turns its automatic runs off in the same update (an automatic run
+ * without surplus has no meaning), so validatePolicy still passes. Returns a new policy; the input is not mutated.
  */
-export function setServiceSurplus(policy, serviceId, enabled) {
-  const current = policy?.services?.[serviceId]
-  if (!current) return policy
+export function setProviderSurplus(policy, providerId, enabled) {
+  if (!isProviderId(providerId)) return policy
+  const current = policy?.providers?.[providerId] ?? defaultProviderSurplus()
   const next = enabled === true
     ? { ...current, surplusEnabled: true }
     : { ...current, surplusEnabled: false, autoRunEnabled: false }
-  return { ...policy, services: { ...policy.services, [serviceId]: next } }
+  return { ...policy, providers: { ...policy.providers, [providerId]: next } }
 }
 
 /**
- * Reasons the automatic-run toggle of one service cannot be switched on ('' when nothing blocks it).
- * Only blocks switching on: a service already running automatically can always be switched off.
+ * Policy after a 409: the whole policy is one shared record, so another device's per-provider settings
+ * must not be erased by a blind overwrite. Entries only the server holds are kept; for a provider both
+ * sides hold, and for every global field, my version wins (it is the edit being pushed). Falls back to
+ * my policy when the server copy or the merge is not a valid v2 policy. Pure; inputs are not mutated.
  */
-export function autoRunBlockedReason(policy, serviceId, sharedMode) {
-  const svc = policy?.services?.[serviceId]
+export function mergePolicyAfterConflict(local, serverPayload) {
+  const server = migratePolicy(serverPayload)
+  if (!validatePolicy(server).ok || !isObject(local?.providers)) return local
+  const providers = { ...server.providers, ...local.providers }
+  const merged = { ...local, providers }
+  return validatePolicy(merged).ok ? merged : local
+}
+
+/** Removes a provider's entry (at deletion). A duplicate gets none, so it starts with everything off. */
+export function pruneProvider(policy, providerId) {
+  if (!policy?.providers || !(providerId in policy.providers)) return policy
+  const providers = { ...policy.providers }
+  delete providers[providerId]
+  return { ...policy, providers }
+}
+
+/**
+ * Reasons the automatic-run toggle of one provider cannot be switched on ('' when nothing blocks it).
+ * Only blocks switching on: a provider already running automatically can always be switched off.
+ */
+export function autoRunBlockedReason(policy, providerId, sharedMode) {
+  const entry = policy?.providers?.[providerId]
   const reasons = []
-  if (svc && svc.surplusEnabled !== true) reasons.push('Turn on surplus use for this service first.')
+  if (!entry || entry.surplusEnabled !== true) reasons.push('Turn on surplus use for this provider first.')
   if (!Array.isArray(policy?.protectedHours) || policy.protectedHours.length === 0) reasons.push('Declare protected hours below first.')
   if (!sharedMode) reasons.push('Shared mode is off: automatic runs need a workspace id so the runner can read your quota state.')
   return reasons.join(' ')

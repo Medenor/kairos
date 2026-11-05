@@ -3,9 +3,9 @@
 import { test, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { evaluateSurplus } from './evaluation.js'
-import { defaultPolicy } from './policy.js'
-import { SERVICES } from '../data/services.js'
-import { RULES } from '../data/rules.js'
+import { legacyPolicy as defaultPolicy } from '../providers/fixtures/legacyServices.js'
+import { LEGACY_SERVICES as SERVICES } from '../providers/fixtures/legacyServices.js'
+import { RULES } from '../routing/fixtures/legacyRules.js'
 import { getResetInfo, getConsumedPct } from '../utils.js'
 
 // Fixed zone, set before any Date is built at module level; restored when the file is done.
@@ -38,7 +38,7 @@ const mediumIdea = {
 
 function run(now, state) {
   const policy = defaultPolicy()
-  policy.services.claude.surplusEnabled = true
+  policy.providers.claude.surplusEnabled = true
   return evaluateSurplus({ now, state, services: SERVICES, policy, ideas: [mediumIdea], runs: [], folderChecks: null, mode: 'preview' })
 }
 
@@ -90,8 +90,8 @@ const quotaOf = (svc, id) => svc.quotas.find((q) => q.id === id)
 test('an eligible service is never blocked in the routing rules and the "Resets in Nd" note agrees', () => {
   const state = quickstartState(NOW)
   const policy = defaultPolicy()
-  policy.services.claude.surplusEnabled = true
-  policy.services.chatgpt.surplusEnabled = true
+  policy.providers.claude.surplusEnabled = true
+  policy.providers.chatgpt.surplusEnabled = true
   state.chatgpt.__last_reset_date = lastResetFor(NOW, 1)
   state.chatgpt.__ts_codex_remaining = new Date(NOW.getTime() - HOUR).toISOString()
   state.chatgpt.__ts_codex_5h = new Date(NOW.getTime() - HOUR).toISOString()

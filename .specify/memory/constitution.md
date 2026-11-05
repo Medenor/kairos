@@ -1,5 +1,18 @@
 <!--
 Sync Impact Report
+- Version change: 1.0.0 -> 1.1.0 (MINOR: materially expanded mandate, 2026-11-04, feature 007-dynamic-providers)
+- Modified sections:
+  - Product Constraints: the named scope (Claude, ChatGPT, Copilot, pay-as-you-go APIs)
+    is replaced by user-declared providers with no shipped list; quota input modes are
+    declared per quota of each provider instead of "mapped per service"
+- Principles I to V: unchanged
+- Migration notes for active templates:
+  - .specify/templates/plan-template.md, spec-template.md, tasks-template.md,
+    checklist-template.md, agent-file-template.md checked: none names the former
+    provider scope or the "mapped per service" wording, so no template change is required
+  - Existing specs 001 to 006 keep their wording; they describe the fixed-provider
+    versions of the product and are not rewritten
+- Previous report (1.0.0):
 - Version change: template -> 1.0.0
 - Modified principles:
   - Principle 1 template slot -> I. User-Value Routing First
@@ -62,10 +75,11 @@ Rationale: A small, privacy-respecting tool is easier to maintain and safer to a
 
 ## Product Constraints
 
-- The canonical product scope is quota-aware routing across Claude, ChatGPT, Copilot,
-  and pay-as-you-go APIs.
+- The canonical product scope is quota-aware routing across the AI providers the user
+  declares (subscriptions with percentage quotas and pay-as-you-go balances); the
+  application MUST NOT ship a fixed provider list.
 - Supported quota input modes MUST remain explicit (`consumed_pct`,
-  `remaining_pct`, `currency`) and mapped per service.
+  `remaining_pct`, `currency`) and be declared per quota of each provider.
 - Recommendations MUST be available without network dependency for core operation.
 - The application MUST function as a static frontend deployable without mandatory backend
   services.
@@ -95,4 +109,4 @@ This Constitution supersedes ad hoc development preferences for this repository.
   compliance check; unresolved violations MUST be tracked in a Complexity Tracking or
   equivalent exceptions section before approval.
 
-**Version**: 1.0.0 | **Ratified**: 2026-04-14 | **Last Amended**: 2026-04-14
+**Version**: 1.1.0 | **Ratified**: 2026-04-14 | **Last Amended**: 2026-11-04

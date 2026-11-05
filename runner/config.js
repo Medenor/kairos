@@ -8,11 +8,15 @@ import { randomUUID } from 'node:crypto'
 import { homedir, hostname } from 'node:os'
 import { dirname, join } from 'node:path'
 import { createInterface } from 'node:readline/promises'
-import { SUPPORTED_SERVICE_IDS, DEFAULTS } from '../src/surplus/constants.js'
+import { DEFAULTS } from '../src/surplus/constants.js'
+import { isProviderId } from '../src/providers/ids.js'
+import { SUPPORTED_TOOLS } from '../src/providers/surplusProfile.js'
 import { keyForLease } from '../src/surplus/records.js'
 import { isVersionConflict, ApiClientError } from './api-client.js'
 
-export const CONFIG_SCHEMA_VERSION = 1
+// 2 (feature 007): `allowProviders` replaces `allowServices`. A v1 `allowServices` is kept verbatim under
+// `legacyAllowServices` and ignored: nothing is allowed until the user allows a provider again.
+export const CONFIG_SCHEMA_VERSION = 2
 export const DEFAULT_API_BASE = 'http://localhost:8888/api/v1'
 
 /** Default copy exclusions (research D10, FR-030): matched by the workdir module on names and relative paths. */
@@ -121,7 +125,7 @@ export function defaultConfig({ deviceId = randomUUID(), deviceName = hostname()
     apiBase: DEFAULT_API_BASE,
     workspaceId: '',
     projectsBaseFolder: null,
-    allowServices: [],
+    allowProviders: [],
     allowCodexAuto: false,
     tools: { ...DEFAULT_TOOLS },
     exclusions: [...DEFAULT_EXCLUSIONS],
@@ -157,13 +161,31 @@ export function validateConfig(raw) {
     projectsBaseFolder = null
   }
 
-  let allowServices = raw.allowServices ?? []
-  if (!Array.isArray(allowServices) || !allowServices.every((id) => SUPPORTED_SERVICE_IDS.includes(id))) {
-    bad('allowServices', `allowServices must list only: ${SUPPORTED_SERVICE_IDS.join(', ')}`)
-    allowServices = []
+  // Local allowance (feature 007): each entry pins the provider id AND the tool it was allowed with, so a
+  // later write in the shared store can neither add a provider nor redirect an allowed one to another tool.
+  let allowProviders = raw.allowProviders ?? []
+  if (!Array.isArray(allowProviders)) {
+    bad('allowProviders', 'allowProviders must be a list')
+    allowProviders = []
   } else {
-    allowServices = [...new Set(allowServices)]
+    const seen = new Set()
+    const kept = []
+    allowProviders.forEach((entry, i) => {
+      const p = `allowProviders[${i}]`
+      if (!isObject(entry)) return bad(p, `${p} must be an object`)
+      if (!isProviderId(entry.providerId)) bad(`${p}.providerId`, `${p}.providerId must be a provider id`)
+      if (!SUPPORTED_TOOLS.includes(entry.tool)) bad(`${p}.tool`, `${p}.tool must be one of: ${SUPPORTED_TOOLS.join(', ')}`)
+      if (!isNonEmptyString(entry.name)) bad(`${p}.name`, `${p}.name must be a non-empty string`)
+      if (!(typeof entry.allowedAt === 'string' && !Number.isNaN(Date.parse(entry.allowedAt)))) bad(`${p}.allowedAt`, `${p}.allowedAt must be an ISO date`)
+      if (isProviderId(entry.providerId) && !seen.has(entry.providerId)) {
+        seen.add(entry.providerId)
+        kept.push({ providerId: entry.providerId, tool: entry.tool, name: String(entry.name).trim(), allowedAt: entry.allowedAt })
+      }
+    })
+    allowProviders = kept
   }
+  // Version 1 list of fixed services: preserved untouched, never read.
+  const legacyAllowServices = raw.legacyAllowServices ?? raw.allowServices
 
   // Codex reads are not contained (docs/SECURITY.md), so its automatic runs need this explicit opt-in.
   let allowCodexAuto = raw.allowCodexAuto ?? false
@@ -221,7 +243,8 @@ export function validateConfig(raw) {
       apiBase,
       workspaceId: raw.workspaceId.trim(),
       projectsBaseFolder,
-      allowServices,
+      allowProviders,
+      ...(legacyAllowServices !== undefined ? { legacyAllowServices } : {}),
       allowCodexAuto,
       tools,
       exclusions,
@@ -372,8 +395,6 @@ export async function runConfigWizard({ baseDir, io, deviceId, deviceName }) {
     ['apiBase', 'Shared-state API base URL', (v) => v],
     ['workspaceId', 'Workspace id', (v) => v],
     ['projectsBaseFolder', 'Projects base folder (absolute path, "-" for none)', (v) => (v === '-' ? null : v)],
-    ['allowServices', `Services allowed to run automatically (comma separated: ${SUPPORTED_SERVICE_IDS.join(', ')}; "-" for none)`, (v) =>
-      v === '-' ? [] : v.split(',').map((s) => s.trim()).filter(Boolean)],
   ]
   for (const [field, label, parse] of fields) {
     const shown = Array.isArray(current[field]) ? current[field].join(',') : current[field] ?? ''

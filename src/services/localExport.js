@@ -1,4 +1,6 @@
-import { SERVICES } from '../data/services.js'
+import { activeProviders } from '../providers/runtime.js'
+import { ORDER_KEY, providerKey } from '../providers/records.js'
+import { loadCatalogue } from '../providers/storage.js'
 import {
   RESET_DATE_KEY,
   quotaTimeKey,
@@ -37,6 +39,66 @@ export function buildWeeklyHistoryMigrationRecords(history, workspaceId) {
   })
 }
 
+const isReading = (value) => typeof value === 'number' && Number.isFinite(value)
+
+// Quota-state records of the declared providers: the reading (only when one exists), its stamp and the
+// reset date. Entries of ids no provider defines (data of the previous fixed-provider build) are
+// not exported (FR-020).
+export function buildQuotaMigrationRecords(providers, state) {
+  const records = []
+  for (const provider of providers) {
+    const providerState = state?.[provider.id] || {}
+    for (const quota of provider.quotas) {
+      const value = providerState[quota.id]
+      if (isReading(value)) {
+        records.push({
+          logical_key: `${provider.id}:${quota.id}`,
+          record_type: 'quota_state',
+          payload: { value },
+          source_fingerprint: `${provider.id}:${quota.id}:${value}`,
+        })
+      }
+      const stampKey = quotaTimeKey(quota.id)
+      const stamp = providerState[stampKey] ?? null
+      records.push({
+        logical_key: `${provider.id}:${stampKey}`,
+        record_type: 'quota_state',
+        payload: { value: stamp },
+        source_fingerprint: `${provider.id}:${stampKey}:${stamp ?? 'null'}`,
+      })
+    }
+    const lastResetDate = providerState[RESET_DATE_KEY] ?? null
+    records.push({
+      logical_key: `${provider.id}:${RESET_DATE_KEY}`,
+      record_type: 'quota_state',
+      payload: { value: lastResetDate },
+      source_fingerprint: `${provider.id}:${RESET_DATE_KEY}:${lastResetDate ?? 'null'}`,
+    })
+  }
+  return records
+}
+
+// Definition records of the catalogue: every provider (active ones and tombstones, so a deletion
+// travels too) and the display order, as `routing_config` records like in shared mode. Surplus
+// records are not part of the export (scope unchanged).
+export function buildProviderMigrationRecords(catalogue) {
+  const records = Object.values(catalogue.providers).map((payload) => ({
+    logical_key: providerKey(payload.id),
+    record_type: 'routing_config',
+    payload,
+    source_fingerprint: `provider:${payload.id}:${payload.status}:${payload.updatedAt ?? payload.removedAt}`,
+  }))
+  if (catalogue.order.length > 0) {
+    records.push({
+      logical_key: ORDER_KEY,
+      record_type: 'routing_config',
+      payload: { schemaVersion: 1, ids: catalogue.order, updatedAt: catalogue.orderUpdatedAt ?? new Date(0).toISOString() },
+      source_fingerprint: `${ORDER_KEY}:${catalogue.order.join(',')}`,
+    })
+  }
+  return records
+}
+
 export function exportLocalStateForMigration(workspaceId) {
   const raw = localStorage.getItem(STORAGE_KEY)
   let parsed = {}
@@ -46,34 +108,8 @@ export function exportLocalStateForMigration(workspaceId) {
     parsed = {}
   }
 
-  const records = []
-  for (const svc of SERVICES) {
-    const svcState = parsed[svc.id] || {}
-    for (const quota of svc.quotas) {
-      const value = svcState[quota.id] ?? quota.value
-      records.push({
-        logical_key: `${svc.id}:${quota.id}`,
-        record_type: 'quota_state',
-        payload: { value },
-        source_fingerprint: `${svc.id}:${quota.id}:${value}`,
-      })
-      const stampKey = quotaTimeKey(quota.id)
-      const stamp = svcState[stampKey] ?? null
-      records.push({
-        logical_key: `${svc.id}:${stampKey}`,
-        record_type: 'quota_state',
-        payload: { value: stamp },
-        source_fingerprint: `${svc.id}:${stampKey}:${stamp ?? 'null'}`,
-      })
-    }
-    const lastResetDate = svcState[RESET_DATE_KEY] ?? null
-    records.push({
-      logical_key: `${svc.id}:${RESET_DATE_KEY}`,
-      record_type: 'quota_state',
-      payload: { value: lastResetDate },
-      source_fingerprint: `${svc.id}:${RESET_DATE_KEY}:${lastResetDate ?? 'null'}`,
-    })
-  }
+  const catalogue = loadCatalogue(localStorage)
+  const records = [...buildProviderMigrationRecords(catalogue), ...buildQuotaMigrationRecords(activeProviders(catalogue), parsed)]
 
   records.push(
     ...buildWeeklyHistoryMigrationRecords(

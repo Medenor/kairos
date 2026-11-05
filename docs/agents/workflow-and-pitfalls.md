@@ -13,7 +13,7 @@
 
 - **Do not store derived data in state.** Compute pressure, reset info and recommendations from state on render.
 - **`remaining_pct` is inverted.** ChatGPT quotas are "remaining"; use `getConsumedPct(quota, value)`, never compare raw values across quota types.
-- **Overdue resets** (`daysRemaining < 0`) are excluded from tiebreakers on purpose; see `resetTiebreaker` in `rules.js`.
+- **Overdue resets** (`daysRemaining < 0`) are excluded from tiebreakers on purpose; see `compareReset` in `src/routing/engine.js`.
 - **Weekly snapshots are not quota state.** `applyQuotaRecord` ignores non-`quota_state` records so a synced snapshot can never overwrite live values. Keep it that way.
 - **Missing is not zero.** Weekly history shows explicit gaps for missing weeks/services; never default them to 0%.
 - **Local week = Monday start, local time.** Use `getLocalWeekKey`; do not build week keys by hand.
@@ -23,3 +23,6 @@
 - **`AGENTS.md` is partly generated** by `.specify/scripts/bash/update-agent-context.sh`. Edit only inside the `MANUAL ADDITIONS` block; the rest is rewritten from feature plans.
 - **Never edit an already-applied SQL migration**; add a new one.
 - **No machine-specific paths in committed files.** Spec-kit and subagents emit absolute paths (home directory, `/private/tmp` scratchpads); use repo-relative paths, `~` or placeholders, and run `npm run lint:paths` before committing. See [git-workflow.md](git-workflow.md#no-machine-specific-paths-in-commits).
+- **Provider ids are never derived from names.** A deleted provider recreated with the same name is a new provider with a new id and inherits no state, history, policy or runner allowance.
+- **Persisted `serviceId` fields hold a provider id.** Ideas, runs and cycles kept the field name from feature 006; old records may hold a former service id, which validators accept read-only.
+- **The shared catalogue never authorises a run.** Only the runner's local allowance does, pinned to provider id and tool; a store write can only restrict or select.

@@ -11,8 +11,9 @@ const MS_PER_HOUR = 60 * 60 * 1000
  * Returns a new array sorted by serviceId then resetDate, or the input unchanged when the reading is
  * invalid, taken on or after the reset day start, or older than the stored reading.
  */
-export function recordCycleReading(cycles, { serviceId, nextResetDate, weeklyRemainingPct, readAt } = {}) {
-  const candidate = { serviceId, resetDate: nextResetDate, lastWeeklyRemainingPct: weeklyRemainingPct, readAt }
+export function recordCycleReading(cycles, { serviceId, providerName, nextResetDate, weeklyRemainingPct, readAt } = {}) {
+  // `providerName` is the name at the time of the reading, so the record can still be named after a deletion.
+  const candidate = { serviceId, resetDate: nextResetDate, lastWeeklyRemainingPct: weeklyRemainingPct, readAt, ...(providerName ? { providerName } : {}) }
   if (!validateCycleRecord(candidate).valid) return cycles
 
   const resetStart = resetDayStart(nextResetDate)

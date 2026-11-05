@@ -2,41 +2,36 @@
 
 <h1 align="center"><img src="public/logo.webp" width="250" alt="Kairos Logo"></h1>
 
-Quota-aware routing across Claude, ChatGPT, Copilot, and pay-as-you-go APIs. A lightweight dashboard to track your AI subscription quotas and get instant routing recommendations based on what you're about to do.
+Quota-aware routing across the AI providers you declare: subscriptions with percentage quotas and pay-as-you-go balances. A lightweight dashboard to track your quotas and get instant routing recommendations based on what you're about to do.
 
 ## Why
 
-Managing AI subscriptions means juggling different quota types — weekly resets, 5h slots, monthly request caps, and pay-as-you-go balances across Claude, ChatGPT, GitHub Copilot, OpenRouter, and Kilocode. Without visibility, you default to your best tool for everything and hit limits at the wrong moment.
+Managing AI subscriptions means juggling different quota types — weekly resets, 5h slots, monthly request caps, and pay-as-you-go balances across several providers. Without visibility, you default to your best tool for everything and hit limits at the wrong moment.
 
-This tool tracks your quotas in one place and tells you which service to use right now.
+This tool tracks your quotas in one place and tells you which provider to use right now.
 
 ## Features
 
-- Per-service quota tracking with three input modes:
-  - `consumed_pct` — how much you've used (Claude, Copilot)
-  - `remaining_pct` — how much is left, matching the native UI display (ChatGPT Codex)
-  - `currency` — numeric balance in $ or € (OpenRouter, Kilocode)
+- Your own providers: no list is shipped, you declare each one (name, quotas, reset schedule, cost, fit per task) and can edit, duplicate, reorder or delete it
+- Per-quota tracking with three explicit input modes, chosen per quota:
+  - `consumed_pct` — how much you've used
+  - `remaining_pct` — how much is left, matching a native UI that shows it that way
+  - `currency` — numeric balance in $ or € with a low-balance level
 - Task-based routing: select what you're doing, get a recommendation with its reasoning
-- Per-service reset date tracking with automatic `days until reset` / `overdue` status, used by the recommendations
-- Weekly history: one quota snapshot per calendar week (Monday start, local time), updated in place, 52 completed weeks retained. Missing weeks and services show as explicit gaps, never as zero consumption. Removed services stay reviewable
+- Per-provider reset schedule (weekly, monthly, custom days or none) and reset date tracking with automatic `days until reset` / `overdue` status, used by the recommendations
+- Weekly history: one quota snapshot per calendar week (Monday start, local time), updated in place, 52 completed weeks retained. Missing weeks and providers show as explicit gaps, never as zero consumption. Removed providers stay reviewable
 - Works fully offline: state is persisted in `localStorage`
 - Optional shared backend for LAN-wide consistency across devices, one-click localStorage migration, backup and restore
-- Reset button to clear all quotas back to defaults
+- "Clear readings" to forget all quota values (your providers are kept)
 - Dark mode support
 - Idea queue: capture ideas with optional context and working folder, prioritise and archive them
-- Surplus suggestions: flags a service whose quota will expire unused at its reset, with the rules that led to the suggestion
+- Surplus suggestions: flags a provider whose quota will expire unused at its reset, with the rules that led to the suggestion
 - Reset-cycle history: quota left at each reset and the part consumed by runs
 - Optional surplus runner (local CLI, shared mode only), see [Optional: surplus runner](#optional-surplus-runner)
 
-## Services tracked
+## Providers
 
-| Service | Quota type | Reset |
-|---|---|---|
-| Claude | Weekly + 5h slot (consumed %) | Weekly |
-| ChatGPT Codex | Weekly + 5h slot (remaining %) | Weekly |
-| GitHub Copilot | Monthly request quota (consumed %) | Monthly |
-| OpenRouter | Credit balance ($) | Manual top-up |
-| Kilocode | Credit balance ($) | Manual top-up |
+Kairos does not know any provider in advance. On a clean profile the dashboard is empty and invites you to add your first one. Typical examples: a weekly subscription with a weekly quota and a 5-hour slot, a monthly request cap, or a pay-as-you-go credit balance. See [Declaring your providers](#declaring-your-providers).
 
 ## Getting started
 
@@ -66,7 +61,7 @@ Or run the whole stack with Docker: `scripts/docker/run-shared.sh` (frontend `ht
 
 ### Optional: surplus runner
 
-The dashboard works without the runner. Without it, surplus is suggestion-only: Kairos shows which service has quota expiring at its reset and which waiting idea fits, and you launch the idea yourself.
+The dashboard works without the runner. Without it, surplus is suggestion-only: Kairos shows which provider has quota expiring at its reset and which waiting idea fits, and you launch the idea yourself.
 
 The runner is an optional local CLI (`runner/`, Node built-ins only) that can start approved ideas with your subscription-signed-in `claude` or `codex` CLI when surplus conditions hold. It needs:
 
@@ -78,12 +73,13 @@ The command surface is specified in [`specs/006-surplus-runner/contracts/runner-
 
 ```bash
 npm run runner -- config     # device id and name, API base, workspace, projects base folder
+npm run runner -- allow      # allow a provider to run on this device (pinned to its tool)
 npm run runner -- approve    # approve ideas on this device (required before any run)
 npm run runner -- start      # begin the lease and evaluation loop
 npm run runner -- stop       # create the STOP file and disable automatic runs
 ```
 
-Runs are off by default for each service. You enable them per service in the dashboard, after acknowledging the disclosures. Provider rules on automated usage of subscriptions can change; you can switch any service back to suggestion-only at any time.
+Runs are off by default for each provider. You enable them per provider in the dashboard, after acknowledging the disclosures, and allow the provider on the runner device with `allow`. Provider rules on automated usage of subscriptions can change; you can switch any provider back to suggestion-only at any time.
 
 ### Commands
 
@@ -105,11 +101,11 @@ npm run build      # production bundle in dist/
 | [CHANGELOG.md](CHANGELOG.md) | Release notes |
 | [specs/](specs/) | Feature specifications (spec-driven development) |
 
-## Customising your services
+## Declaring your providers
 
-Edit `src/data/services.js` to change costs, add quotas, or adjust default values.
+Kairos ships no predefined provider: on first start the dashboard is empty. Use **Add provider** to declare each AI subscription or pay-as-you-go balance you use: a name, one to eight quotas (consumed %, remaining % or a currency balance), a reset schedule (weekly, monthly, a custom number of days, or none), an optional cost, colour, flags and note, and how well it fits each of the five task types. Everything can be edited, duplicated, reordered or deleted later; deleting keeps the weekly history, marked as removed.
 
-Edit `src/data/rules.js` to adjust the routing logic and thresholds.
+The recommendation is computed only from what you declared (fit, quota pressure, reset timing) by the generic rules in `src/routing/`; there is nothing to edit in code to add a provider. Data from the previous fixed-provider version is left untouched and not shown.
 
 ## Stack
 
@@ -137,14 +133,14 @@ When proposing changes, include:
 
 ### Core functionality
 
-1. ✅ **Reset date tracking** — enter the last reset date per service, display days remaining until the next reset (`specs/003-reset-date-tracking`)
+1. ✅ **Reset date tracking** — enter the last reset date per provider, display days remaining until the next reset (`specs/003-reset-date-tracking`)
 2. ✅ **Weekly history** — a quota snapshot per week to identify consumption patterns (`specs/005-weekly-history`)
-3. **Service toggle** — enable/disable a service without deleting it (useful when suspending a subscription)
+3. **Provider toggle** — enable/disable a provider without deleting it (useful when suspending a subscription)
 
 ### Routing intelligence
 
 4. ✅ **Reset-aware recommendations** — recommendations account for upcoming and overdue resets (`specs/004-reset-aware-recommendations`)
-5. **Configurable thresholds** — make routing thresholds (50%, 75%, 95%) editable in a settings panel rather than hardcoded in `rules.js`
+5. **Configurable thresholds** — make routing thresholds (50%, 75%, 95%) editable in a settings panel rather than constants in `src/routing/constants.js`
 6. **Custom task types** — add your own task types with associated routing rules, without touching the code
 
 ### UX
@@ -154,11 +150,11 @@ When proposing changes, include:
 
 ### Portability
 
-9. **Export / import JSON** — save and restore a full configuration (services, thresholds, history) — useful when switching machines or sharing a setup
+9. **Export / import JSON** — save and restore a full configuration (providers, thresholds, history) — useful when switching machines or sharing a setup
 
 ### Extensibility
 
-10. **Generic service schema** — add any service via UI (name, cost, quota type, currency, reset window) without touching the code — makes the tool truly generic
+10. ✅ **Generic provider schema** — add any provider via UI (name, cost, quota type, currency, reset window) without touching the code (`specs/007-dynamic-providers`)
 
 ### Hardening
 

@@ -3,7 +3,7 @@
 // localStorage or clock access. Corrupt or foreign data loads as empty and never throws.
 import { STATUS } from './constants.js'
 import { validateIdeaRecord } from './ideas.js'
-import { defaultPolicy, validatePolicy } from './policy.js'
+import { defaultPolicy, migratePolicy, validatePolicy } from './policy.js'
 import { parseRecordKey, validateControlPayload, validateCycleRecord, validateLeasePayload, validateRunRecord } from './records.js'
 
 export const SURPLUS_STORAGE_KEYS = Object.freeze({
@@ -70,7 +70,7 @@ export function loadIdeas(storage) {
 }
 
 export function loadPolicy(storage) {
-  const stored = readJson(storage, SURPLUS_STORAGE_KEYS.policy)
+  const stored = migratePolicy(readJson(storage, SURPLUS_STORAGE_KEYS.policy))
   return validatePolicy(stored).ok ? stored : defaultPolicy()
 }
 
@@ -191,7 +191,7 @@ function validatePayloadFor(parsed, payload) {
       return result
     }
     case 'policy': {
-      const result = validatePolicy(payload)
+      const result = validatePolicy(migratePolicy(payload))
       return { valid: result.ok, errors: result.errors.map((e) => ({ field: e.path, message: e.message })) }
     }
     case 'control':
@@ -225,7 +225,7 @@ function applyValid(state, parsed, payload) {
       return { ...state, cycles: upsertBy(state.cycles, { ...payload }, same, prefer) }
     }
     case 'policy':
-      return { ...state, policy: payload }
+      return { ...state, policy: migratePolicy(payload) }
     case 'control': {
       const current = state.control
       const newer =

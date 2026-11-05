@@ -2,8 +2,8 @@
 import { test, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { evaluateSurplus } from './evaluation.js'
-import { defaultPolicy } from './policy.js'
-import { SERVICES } from '../data/services.js'
+import { legacyPolicy as defaultPolicy } from '../providers/fixtures/legacyServices.js'
+import { LEGACY_SERVICES as SERVICES } from '../providers/fixtures/legacyServices.js'
 
 // Fixed zone, set before any Date is built at module level; restored when the file is done.
 const savedTz = process.env.TZ
@@ -35,7 +35,7 @@ function claudeState({ now = NOW, daysToReset = 2, weeklyConsumed = 40, sessionC
 
 function policyWith(claude = {}, extra = {}) {
   const p = defaultPolicy()
-  p.services.claude = { ...p.services.claude, surplusEnabled: true, ...claude }
+  p.providers.claude = { ...p.providers.claude, surplusEnabled: true, ...claude }
   return { ...p, ...extra }
 }
 
@@ -53,7 +53,7 @@ function evalClaude({ now = NOW, state = claudeState({ now }), policy = policyWi
 
 test('result shape: fixed rule order, versioned, ISO time, reason always present', () => {
   const { evaluation, svc } = evalClaude()
-  assert.equal(evaluation.rulesetVersion, 1)
+  assert.equal(evaluation.rulesetVersion, 2)
   assert.equal(evaluation.evaluatedAt, NOW.toISOString())
   assert.deepEqual(svc.rules.map((r) => r.id), ['R1', 'R2', 'R3', 'R4', 'R5', 'R6', 'R7'])
   for (const r of svc.rules) {
@@ -87,7 +87,7 @@ test('ChatGPT quotas normalise from remaining_pct (100 - consumed)', () => {
     },
   }
   const policy = defaultPolicy()
-  policy.services.chatgpt.surplusEnabled = true
+  policy.providers.chatgpt.surplusEnabled = true
   const evaluation = evaluateSurplus({ now: NOW, state, services: SERVICES, policy, ideas: [idea()], runs: [], folderChecks: null, mode: 'preview' })
   const svc = evaluation.services.find((s) => s.serviceId === 'chatgpt')
   assert.equal(svc.inputs.weeklyRemainingPct, 75)

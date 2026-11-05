@@ -4,7 +4,7 @@ import assert from 'node:assert/strict'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { cycleRecordKey, ideaKey, keyForLease, validateRunRecord } from '../src/surplus/records.js'
-import { localAt, withWorld } from './loop.testkit.js'
+import { CLAUDE_ID, localAt, withWorld } from './loop.testkit.js'
 import { prepareWorkdir } from './workdir.js'
 
 const KEY_LEASE = keyForLease()
@@ -27,7 +27,7 @@ test('exactly one run starts when every condition holds and its outcome is recor
     assert.equal(runs[0].output, 'Draft result')
     assert.equal(runs[0].truncated, false)
     assert.equal(runs[0].mode, 'auto')
-    assert.equal(runs[0].cycleKey, 'claude:2026-11-04')
+    assert.equal(runs[0].cycleKey, `${w.serviceId}:2026-11-04`)
     assert.equal(runs[0].ideaSnapshot.resolvedFolder, join(w.projectsDir, 'proj-a'))
     assert.equal(runs[0].estimatedCostPct, 8)
     assert.equal(runs[0].decisionInputs.selected.ideaId, 'idea-a')
@@ -35,7 +35,7 @@ test('exactly one run starts when every condition holds and its outcome is recor
     const idea = w.idea().payload
     assert.equal(idea.status, 'completed')
     assert.equal(idea.lastRunId, 'run-1')
-    assert.equal(idea.serviceId, 'claude')
+    assert.equal(idea.serviceId, w.serviceId)
 
     assert.equal(w.cycle('2026-11-04').payload.lastWeeklyRemainingPct, 60)
     assert.deepEqual(w.journal().map((e) => `${e.type}:${e.runId}`), ['start:run-1', 'end:run-1'])
@@ -60,7 +60,7 @@ const FAILURES = [
   { name: 'protected hours would be reached', opts: { start: localAt(22, 30) }, reason: 'not_eligible', failedRules: ['R6'] },
   { name: 'weekly quota at the reserve', opts: { quota: { weeklyRemaining: 20 } }, reason: 'not_eligible', failedRules: ['R4'] },
   { name: 'reset date not set', opts: { quota: { lastReset: null } }, reason: 'not_eligible', failedRules: ['R2'] },
-  { name: 'service surplus switched off', opts: { policy: (p) => { p.services.claude.surplusEnabled = false } }, reason: 'surplus_disabled' },
+  { name: 'service surplus switched off', opts: { policy: (p) => { p.providers[CLAUDE_ID].surplusEnabled = false } }, reason: 'surplus_disabled' },
   { name: 'idea not approved on this runner', opts: { ideas: [{ approved: false }] }, reason: 'not_approved' },
   { name: 'idea words changed after approval', opts: { ideas: [{}] }, reason: 'not_approved', edit: true },
   { name: 'working folder missing', opts: { ideas: [{ folder: 'nowhere', makeFolder: false }] }, reason: 'folder_not_found' },
@@ -72,9 +72,9 @@ const FAILURES = [
   { name: 'global stop through the control record', opts: { control: false }, reason: 'global_stop' },
   { name: 'no control record (automatic runs never enabled)', opts: { control: null }, reason: 'global_stop' },
   { name: 'STOP file', opts: { stopFile: true }, reason: 'stop_file' },
-  { name: 'service not in allowServices', opts: { configPatch: { allowServices: [] } }, reason: 'service_not_allowed' },
-  { name: 'automatic runs off for the service', opts: { policy: (p) => { p.services.claude.autoRunEnabled = false } }, reason: 'auto_run_disabled' },
-  { name: 'disclosuresAckAt missing', opts: { policy: (p) => { p.services.claude.disclosuresAckAt = null } }, reason: 'disclosures_missing' },
+  { name: 'provider not in allowProviders', opts: { configPatch: { allowProviders: [] } }, reason: 'service_not_allowed' },
+  { name: 'automatic runs off for the service', opts: { policy: (p) => { p.providers[CLAUDE_ID].autoRunEnabled = false } }, reason: 'auto_run_disabled' },
+  { name: 'disclosuresAckAt missing', opts: { policy: (p) => { p.providers[CLAUDE_ID].disclosuresAckAt = null } }, reason: 'disclosures_missing' },
   { name: 'shared mode off (no policy in the workspace)', opts: { seedPolicy: false }, reason: 'no_shared_mode' },
 ]
 
@@ -148,7 +148,7 @@ test('evaluation inputs are recorded verbatim in the skip result for the status 
   withWorld({ quota: { weeklyAgeHours: 13 } }, async (w) => {
     const loop = w.makeLoop()
     const result = await loop.tick()
-    assert.equal(result.evaluation.rulesetVersion, 1)
+    assert.equal(result.evaluation.rulesetVersion, 2)
     assert.equal(loop.status().lastTick.reason, 'not_eligible')
     const status = JSON.parse(readFileSync(w.paths.baseDir + '/status.json', 'utf8'))
     assert.equal(status.lastTick.reason, 'not_eligible')
@@ -156,18 +156,18 @@ test('evaluation inputs are recorded verbatim in the skip result for the status 
   }))
 
 test('the codex tool and the service keyed records are used for chatgpt', () =>
-  withWorld({ serviceId: 'chatgpt', configPatch: { allowServices: ['chatgpt'], allowCodexAuto: true } }, async (w) => {
+  withWorld({ serviceId: 'chatgpt', configPatch: { allowCodexAuto: true } }, async (w) => {
     const result = await w.makeLoop().tick()
     assert.equal(result.started, true)
     assert.equal(w.cli.codex.calls().length, 1)
     assert.equal(w.cli.claude.calls().length, 0)
-    assert.equal(w.run('run-1').serviceId, 'chatgpt')
+    assert.equal(w.run('run-1').serviceId, w.serviceId)
     assert.ok(w.cycle('2026-11-04'), 'cycle record keyed by the service')
-    assert.equal(cycleRecordKey('chatgpt', '2026-11-04'), 'cycle:chatgpt:2026-11-04')
+    assert.equal(cycleRecordKey(w.serviceId, '2026-11-04'), `cycle:${w.serviceId}:2026-11-04`)
   }))
 
 test('codex automatic runs are skipped by default: reads are not contained', () =>
-  withWorld({ serviceId: 'chatgpt', configPatch: { allowServices: ['chatgpt'] } }, async (w) => {
+  withWorld({ serviceId: 'chatgpt' }, async (w) => {
     const result = await w.makeLoop().tick()
     assert.equal(result.started, false)
     assert.equal(result.reason, 'codex_reads_uncontained')

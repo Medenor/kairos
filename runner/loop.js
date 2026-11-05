@@ -7,7 +7,7 @@
 // `createLoop({ config, baseDir, api, lease })`, calls `start()` and maps the result to the process exit code.
 //
 // Trust model: nothing read from the shared store can authorise a run. Authorisation comes from the local config
-// (`allowServices`), the local approvals file (hash of the idea as fetched right before the claim), the local
+// (`allowProviders`, each entry pinned to a provider id AND a tool), the local approvals file (hash of the idea as fetched right before the claim), the local
 // preflight and the designated-device lease. The shared policy, control record and ideas only restrict or select.
 
 import { spawn as nodeSpawn } from 'node:child_process'
@@ -16,8 +16,10 @@ import { existsSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import { SERVICES } from '../src/data/services.js'
-import { DEFAULTS, STATUS, SUPPORTED_SERVICE_IDS } from '../src/surplus/constants.js'
+import { DEFAULTS, STATUS } from '../src/surplus/constants.js'
+import { emptyCatalogue, applyCatalogueRecords } from '../src/providers/records.js'
+import { toRuntimeServices } from '../src/providers/runtime.js'
+import { surplusProblems } from '../src/providers/surplusProfile.js'
 import { evaluateSurplus } from '../src/surplus/evaluation.js'
 import { applyCycleReadings, deriveCycleReadings } from '../src/surplus/cycleReadings.js'
 import { validateIdeaRecord } from '../src/surplus/ideas.js'
@@ -26,7 +28,7 @@ import {
 } from '../src/surplus/records.js'
 import { applySurplusRecords, emptySurplusState } from '../src/surplus/storage.js'
 import { hardStopAt as computeHardStop, isInProtectedHours, nextProtectedStart, resetDayStart } from '../src/surplus/time.js'
-import { applyQuotaRecord, buildDefaultState } from '../src/stateTransitions.js'
+import { applyQuotaRecord } from '../src/stateTransitions.js'
 import { getConsumedPct } from '../src/utils.js'
 import * as claudeAdapter from './adapters/claude.js'
 import * as codexAdapter from './adapters/codex.js'
@@ -52,7 +54,7 @@ export const SKIP_REASONS = Object.freeze([
   'service_not_allowed', 'surplus_disabled', 'not_eligible', 'no_waiting_idea', 'not_approved', 'run_active',
   'tick_in_progress', 'claim_conflict', 'claim_lost', 'claim_failed', 'idea_invalid', 'folder_error',
   'tool_missing', 'flags_unsupported', 'not_signed_in', 'billing_guard', 'api_unavailable', 'internal_error',
-  'recovery_pending', 'codex_reads_uncontained',
+  'recovery_pending', 'codex_reads_uncontained', 'provider_not_eligible', 'tool_changed',
 ])
 
 const defaultAdapters = Object.freeze({ claude: claudeAdapter, codex: codexAdapter })
@@ -123,6 +125,18 @@ function weeklyRemainingPct(quotaState, svc) {
   return clampPct(100 - getConsumedPct(quota, value))
 }
 
+// Why the provider of an active run can no longer run, or null. Mirrors guard steps 1, 4 and 5 and the tombstone check.
+function providerStopCause(providerId, pinnedTool, policy, catalogue) {
+  const entry = catalogue.providers[providerId]
+  if (!entry || entry.status !== 'active') return 'The provider was removed.'
+  const sp = policy?.providers?.[providerId]
+  if (sp && sp.surplusEnabled === false) return 'Surplus use was turned off for this provider.'
+  if (sp && sp.autoRunEnabled === false) return 'Automatic runs were turned off for this provider.'
+  if (surplusProblems(entry).length > 0) return 'The provider is no longer eligible for surplus use.'
+  if (entry.surplus.tool !== pinnedTool) return `The tool of this provider changed (now ${entry.surplus.tool}).`
+  return null
+}
+
 function stopCauseFor(spawnAt, policy, nextResetDate) {
   const stopAt = computeHardStop(spawnAt, policy, nextResetDate)
   const t = stopAt.getTime()
@@ -142,9 +156,20 @@ function stopCauseFor(spawnAt, policy, nextResetDate) {
 }
 
 // Primary reason code and failed rules when the evaluation selected nothing.
-function explainNoSelection(evaluation) {
+function explainNoSelection(evaluation, policy, catalogue) {
   const enabled = evaluation.services.filter((s) => s.rules.find((r) => r.id === 'R1')?.pass)
-  if (enabled.length === 0) return { reason: 'surplus_disabled', failedRules: ['R1'], serviceId: null, detail: evaluation.reason }
+  if (enabled.length === 0) {
+    // Providers the policy has switched on but that are not evaluated: removed, invalid or no longer eligible.
+    const gone = Object.entries(policy?.providers ?? {})
+      .filter(([id, sp]) => sp?.surplusEnabled === true && !evaluation.services.some((s) => s.serviceId === id))
+      .map(([id]) => ({ id, entry: catalogue?.providers?.[id] }))
+    if (gone.length > 0) {
+      const { id, entry } = gone[0]
+      const why = entry?.status === 'active' ? surplusProblems(entry).join(' ') : 'The provider was removed or its record is invalid.'
+      return { reason: 'provider_not_eligible', failedRules: [], serviceId: id, detail: `${entry?.name ?? id} is switched on for surplus use but cannot run: ${why}` }
+    }
+    return { reason: 'surplus_disabled', failedRules: ['R1'], serviceId: null, detail: evaluation.reason }
+  }
   const failing = (s) => s.rules.filter((r) => !r.pass).map((r) => r.id)
   const best = enabled.map((s, i) => ({ s, i, f: failing(s) })).sort((a, b) => a.f.length - b.f.length || a.i - b.i)[0]
   if (best.f.length === 1 && best.f[0] === 'R7') {
@@ -159,7 +184,7 @@ function explainNoSelection(evaluation) {
  *
  * Required: `config` (validated runner config), `baseDir` (absolute runner directory), `api` (api-client.js client),
  * `lease` (createLease result; the loop claims it itself).
- * Optional: `services` (default SERVICES), `adapters` ({claude, codex}), `now` (() => Date), `scheduler`
+ * Optional: `adapters` ({claude, codex}), `now` (() => Date), `scheduler`
  * ({setTimeout, clearTimeout}), `spawn` (child_process.spawn compatible), `env` (default process.env; filtered by the
  * adapter and checked by preflight), `homeDir`, `newId` (run ids), `onEvent(event)` (observability and tests),
  * `deps` ({preflight, checkFolder, prepareWorkdir, diffWorkdir} overrides).
@@ -183,7 +208,6 @@ export function createLoop({
   baseDir,
   api,
   lease,
-  services = SERVICES,
   adapters = defaultAdapters,
   now = () => new Date(),
   scheduler = defaultScheduler,
@@ -217,6 +241,9 @@ export function createLoop({
   let lastApproved
   let lastSkipKey = null
   const inflight = new Set()
+  // The providers the runner learns from the shared store on every pull (untrusted data: they only ever
+  // restrict or select, never authorise). Rebuilt by derive().
+  let services = []
 
   const emit = (type, data = {}) => {
     try {
@@ -280,10 +307,14 @@ export function createLoop({
 
   function derive() {
     const items = [...cache.values()]
-    let quota = buildDefaultState(services)
+    const records = items.filter((item) => item.record_type === 'routing_config')
+    // Tombstones and invalid provider records are ignored: only active, valid definitions become services.
+    const catalogue = applyCatalogueRecords(emptyCatalogue(), records)
+    services = toRuntimeServices(catalogue)
+    let quota = {}
     for (const item of items) if (item.record_type === 'quota_state') quota = applyQuotaRecord(quota, item)
-    const surplus = applySurplusRecords(emptySurplusState(), items.filter((item) => item.record_type === 'routing_config'))
-    return { quota, surplus }
+    const surplus = applySurplusRecords(emptySurplusState(), records)
+    return { quota, surplus, catalogue, services }
   }
 
   // --- results, journal and status file ------------------------------------------------------
@@ -485,15 +516,22 @@ export function createLoop({
     return folderChecks
   }
 
-  // Local guardrails and preflight for the service of the selected idea (tick step 6).
-  async function guardService(serviceId, policy) {
-    const sp = policy.services?.[serviceId]
-    if (sp?.autoRunEnabled !== true) return { reason: 'auto_run_disabled', detail: `Automatic runs are off for ${serviceId}.` }
-    if (!sp.disclosuresAckAt) return { reason: 'disclosures_missing', detail: `The disclosures were not acknowledged for ${serviceId}.` }
-    if (!config.allowServices.includes(serviceId)) return { reason: 'service_not_allowed', detail: `${serviceId} is not in allowServices of the local config.` }
-    const svc = services.find((s) => s.id === serviceId)
-    const adapter = adapters[svc.surplus.tool]
-    if (!adapter) return { reason: 'tool_missing', detail: `No adapter for ${svc.surplus.tool}.` }
+  // Local guardrails and preflight for the provider of the selected idea (tick step 6, contracts/runner-allowance.md).
+  // Steps 1 and 2 come from the shared store and can only restrict; steps 3 and 5 are local and no store write can set them.
+  async function guardService(providerId, policy, catalogue) {
+    const sp = policy.providers?.[providerId]
+    if (sp?.autoRunEnabled !== true) return { reason: 'auto_run_disabled', detail: `Automatic runs are off for this provider (${providerId}).` }
+    if (!sp.disclosuresAckAt) return { reason: 'disclosures_missing', detail: `The disclosures were not acknowledged for this provider (${providerId}).` }
+    const allowed = (config.allowProviders ?? []).find((entry) => entry.providerId === providerId)
+    if (!allowed) return { reason: 'service_not_allowed', detail: `Provider ${providerId} is not allowed on this runner. Run "allow" to allow it.` }
+    const entry = catalogue.providers[providerId]
+    const problems = entry?.status === 'active' ? surplusProblems(entry) : ['The provider is removed or its record is invalid.']
+    if (problems.length > 0) return { reason: 'provider_not_eligible', detail: `${allowed.name} is not eligible for surplus use: ${problems.join(' ')}` }
+    if (entry.surplus.tool !== allowed.tool) {
+      return { reason: 'tool_changed', detail: `${allowed.name} was allowed with the ${allowed.tool} tool but the shared catalogue now says ${entry.surplus.tool}. Run "allow" again to confirm.` }
+    }
+    const adapter = adapters[entry.surplus.tool]
+    if (!adapter) return { reason: 'tool_missing', detail: `No adapter for ${entry.surplus.tool}.` }
     if (adapter.tool === 'codex' && config.allowCodexAuto !== true) {
       return { reason: 'codex_reads_uncontained', detail: 'Codex reads files outside the disposable copy (not contained). Set allowCodexAuto to true in config.json to run it automatically.' }
     }
@@ -530,7 +568,7 @@ export function createLoop({
       if (error instanceof ApiClientError) return skipped(at, 'api_unavailable', `The shared store could not be used: ${error.message}`, { journal: false })
       throw error
     }
-    const { quota, surplus } = derive()
+    const { quota, surplus, catalogue } = derive()
 
     if (surplus.control?.autoRunEnabled !== true) {
       return skipped(at, 'global_stop', surplus.control ? 'Automatic runs are switched off (global stop).' : 'No control record: automatic runs were never enabled.')
@@ -546,14 +584,14 @@ export function createLoop({
     const policy = surplus.policy
 
     const folderChecks = await checkFolders(surplus.ideas)
-    const { evaluation, go, blocked } = await selectRunnable({ at, quota, surplus, policy, folderChecks })
+    const { evaluation, go, blocked } = await selectRunnable({ at, quota, surplus, policy, folderChecks, catalogue })
 
     if (!go) {
       if (blocked.size > 0) {
         const [serviceId, problem] = blocked.entries().next().value
         return skipped(at, problem.reason, problem.detail, { serviceId, evaluation })
       }
-      const why = explainNoSelection(evaluation)
+      const why = explainNoSelection(evaluation, policy, catalogue)
       return skipped(at, why.reason, why.detail, { failedRules: why.failedRules, serviceId: why.serviceId, ideaId: why.ideaId, evaluation })
     }
 
@@ -561,15 +599,15 @@ export function createLoop({
   }
 
   // Evaluate, and when the selected service fails its local guard, block it and evaluate again with the next candidate.
-  async function selectRunnable({ at, quota, surplus, policy, folderChecks }) {
+  async function selectRunnable({ at, quota, surplus, policy, folderChecks, catalogue }) {
     const blocked = new Map()
     let evaluation
-    for (let attempt = 0; attempt <= SUPPORTED_SERVICE_IDS.length; attempt += 1) {
-      const effective = { ...policy, services: { ...policy.services } }
-      for (const id of blocked.keys()) effective.services[id] = { ...effective.services[id], surplusEnabled: false }
+    for (let attempt = 0; attempt <= services.length; attempt += 1) {
+      const effective = { ...policy, providers: { ...policy.providers } }
+      for (const id of blocked.keys()) effective.providers[id] = { ...effective.providers[id], surplusEnabled: false }
       evaluation = evaluateSurplus({ now: at, state: quota, services, policy: effective, ideas: surplus.ideas, runs: surplus.runs, folderChecks, mode: 'auto' })
       if (!evaluation.selected) break
-      const problem = await guardService(evaluation.selected.serviceId, policy)
+      const problem = await guardService(evaluation.selected.serviceId, policy, catalogue)
       if (!problem) return { evaluation, go: true, blocked }
       blocked.set(evaluation.selected.serviceId, problem)
     }
@@ -618,6 +656,7 @@ export function createLoop({
       id: runId,
       ideaId,
       serviceId,
+      providerName: String(svc.name).slice(0, 60),
       ideaSnapshot: {
         text: idea.text,
         context: idea.context ?? '',
@@ -657,7 +696,7 @@ export function createLoop({
   async function executeRun(ctx) {
     const { at, evaluation, svc, adapter, idea, runId, runPayload, runRef, ideaRef, costPct } = ctx
     const serviceId = svc.id
-    const run = { runId, ideaId: idea.id, serviceId, startedAt: at.toISOString(), hardStopAt: null, stopCause: null, child: null, exited: false }
+    const run = { runId, ideaId: idea.id, serviceId, startedAt: at.toISOString(), hardStopAt: null, stopCause: null, child: null, exited: false, pinnedTool: adapter.tool }
     activeRun = run
     writeStatus()
     const timers = new Set()
@@ -807,8 +846,13 @@ export function createLoop({
     const stopWork = guard(async () => {
       if (existsSync(paths.stop)) return requestStop(FAILURE_REASONS.STOPPED_BY_USER, 'The STOP file was created.')
       await refresh()
-      const control = derive().surplus.control
-      if (control && control.autoRunEnabled === false) requestStop(FAILURE_REASONS.STOPPED_BY_USER, 'Automatic runs were switched off (global stop).')
+      const { surplus, catalogue } = derive()
+      const control = surplus.control
+      if (control && control.autoRunEnabled === false) return requestStop(FAILURE_REASONS.STOPPED_BY_USER, 'Automatic runs were switched off (global stop).')
+      // The provider of the active run must still be runnable (FR-037): not removed, surplus and automatic
+      // runs still on, profile still eligible and the tool unchanged. Otherwise the run stops like a STOP file.
+      const cause = providerStopCause(run.serviceId, run.pinnedTool, surplus.policy, catalogue)
+      if (cause) requestStop(FAILURE_REASONS.STOPPED_BY_USER, cause)
     })
     armEvery(limits.stopWatcherSeconds * 1000, stopWork)
 
@@ -821,10 +865,10 @@ export function createLoop({
       }
       await refresh()
       const { quota, surplus } = derive()
-      const sp = surplus.policy?.services?.[serviceId]
-      if (sp && sp.autoRunEnabled === false) return requestStop(FAILURE_REASONS.STOPPED_BY_USER, 'Automatic runs were switched off for this service.')
+      const sp = surplus.policy?.providers?.[serviceId]
+      if (sp && sp.autoRunEnabled === false) return requestStop(FAILURE_REASONS.STOPPED_BY_USER, 'Automatic runs were switched off for this provider.')
       const remaining = weeklyRemainingPct(quota, svc)
-      const reserve = typeof sp?.reservePct === 'number' ? sp.reservePct : policy?.services?.[serviceId]?.reservePct ?? DEFAULTS.RESERVE_PCT
+      const reserve = typeof sp?.reservePct === 'number' ? sp.reservePct : policy?.providers?.[serviceId]?.reservePct ?? DEFAULTS.RESERVE_PCT
       if (remaining !== null && remaining <= reserve) {
         requestStop(FAILURE_REASONS.QUOTA_EXHAUSTED, `The weekly quota (${Math.round(remaining * 10) / 10}% left) reached the ${reserve}% reserve.`)
       }

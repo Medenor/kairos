@@ -1,4 +1,4 @@
-import { TASKS } from '../data/services'
+import { TASKS } from '../data/tasks'
 import styles from './TaskPicker.module.css'
 
 export default function TaskPicker({ selected, onSelect }) {

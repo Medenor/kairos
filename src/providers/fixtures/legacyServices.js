@@ -1,9 +1,9 @@
-// Service definitions with quota types:
-// - consumed_pct: 0–100, where 100 = fully consumed (Claude, Copilot)
-// - remaining_pct: 0–100, where 0 = fully consumed (ChatGPT Codex — matches UI display)
-// - currency: numeric balance that decreases (OpenRouter, Kilocode)
+import { defaultPolicy, defaultProviderSurplus } from '../../surplus/policy.js'
 
-export const SERVICES = [
+// REFERENCE DATA, NOT SHIPPED. Verbatim copy of the fixed service list (features 001 to 006) kept as test
+// input for the weekly-history and export suites, whose logic does not depend on which providers exist.
+// `legacyDefaultState()` rebuilds the state the former `buildDefaultState()` produced from it.
+export const LEGACY_SERVICES = [
   {
     id: 'claude',
     name: 'Claude',
@@ -80,30 +80,24 @@ export const SERVICES = [
   },
 ]
 
-export const TASKS = [
-  {
-    id: 'coding_hard',
-    name: 'Heavy coding',
-    desc: 'Architecture, complex debug, refactoring',
-  },
-  {
-    id: 'coding_light',
-    name: 'Light coding',
-    desc: 'Completion, snippets, quick fixes',
-  },
-  {
-    id: 'work_heavy',
-    name: 'Intensive work task',
-    desc: 'Writing, analysis, reports, work',
-  },
-  {
-    id: 'daily_chat',
-    name: 'Daily chat',
-    desc: 'Quick questions, brainstorming',
-  },
-  {
-    id: 'oneshot',
-    name: 'API one-shot',
-    desc: 'Punctual script, test, automation',
-  },
-]
+export function legacyDefaultState() {
+  const state = {}
+  for (const service of LEGACY_SERVICES) {
+    state[service.id] = {}
+    for (const quota of service.quotas) {
+      state[service.id][quota.id] = quota.value
+      state[service.id][`__ts_${quota.id}`] = null
+    }
+    state[service.id].__last_reset_date = null
+  }
+  return state
+}
+
+// Policy for evaluation tests that use the legacy fixture ids: a v2 policy whose per-provider map holds
+// the default (all off) entries for 'claude' and 'chatgpt'. Evaluation never validates ids, so these keys
+// are fine here; real policies only accept provider ids.
+export function legacyPolicy() {
+  const policy = defaultPolicy()
+  policy.providers = { claude: defaultProviderSurplus(), chatgpt: defaultProviderSurplus() }
+  return policy
+}

@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { SERVICES } from './data/services'
 import { useSharedQuotaState } from './hooks/useSharedQuotaState'
-import ServiceCard from './components/ServiceCard'
+import { useCatalogue } from './hooks/useCatalogue'
+import { useNow } from './hooks/useNow'
 import TaskPicker from './components/TaskPicker'
 import RecoBox from './components/RecoBox'
 import SummaryBar from './components/SummaryBar'
+import ProviderManager from './components/ProviderManager'
 import MigrationPanel from './components/MigrationPanel'
 import BackupPanel from './components/BackupPanel'
 import WeeklyHistoryPanel from './components/WeeklyHistoryPanel.jsx'
@@ -15,14 +16,20 @@ import SurplusSettings from './components/SurplusSettings'
 import RunReview from './components/RunReview'
 import CycleSummary from './components/CycleSummary'
 import { useSurplusStore } from './hooks/useSurplusStore'
-import { globalSwitchState } from './surplus/policy'
+import { globalSwitchState, pruneProvider } from './surplus/policy'
+import { surplusProblems } from './providers/surplusProfile'
 import styles from './App.module.css'
 
 export default function App() {
+  const now = useNow()
+  const catalogue = useCatalogue()
+  const providers = catalogue.runtimeProviders
+  const removed = catalogue.removedTombstones
   const {
     state,
     updateQuota,
     confirmQuotas,
+    applyStateEffects,
     resetAll,
     refreshSync,
     syncStatus,
@@ -30,10 +37,30 @@ export default function App() {
     workspaceId,
     weeklyHistory,
     refreshWeeklyHistory,
-    getServiceHistory,
-  } = useSharedQuotaState()
+    getProviderHistory,
+  } = useSharedQuotaState(providers, { catalogue: catalogue.catalogue, removed })
   const [selectedTask, setSelectedTask] = useState(null)
-  const surplus = useSurplusStore({ workspaceId, quotaState: state })
+  const surplus = useSurplusStore({ workspaceId, quotaState: state, services: providers, now })
+  // Providers that keep surplus settings but whose profile no longer holds are shown as inactive, not erased.
+  const inactiveProviders = catalogue.providers
+    .filter((p) => surplus.policy.providers?.[p.id] && surplusProblems(p).length > 0)
+    .map((p) => ({ id: p.id, name: p.name, problems: surplusProblems(p) }))
+
+  // The catalogue persists state then definition; readings entered in a form are applied to the live
+  // state right after, in the same event.
+  function afterChange(result) {
+    if (result.ok && result.effects?.stateWrites?.length) applyStateEffects(result.effects)
+    return result
+  }
+  const handleAddProvider = (input) => afterChange(catalogue.addProvider(input, { state, now }))
+  const handleUpdateProvider = (id, input) => afterChange(catalogue.updateProvider(id, input, { state, now }))
+  const handleDuplicateProvider = (id) => afterChange(catalogue.duplicateProvider(id, { state, now }))
+  const handleDeleteProvider = (id) => {
+    const result = afterChange(catalogue.removeProvider(id, { state, now }))
+    // The deleted provider's surplus settings go with it (a run in progress is stopped by the runner).
+    if (result.ok && surplus.policy.providers?.[id]) surplus.updatePolicy((cur) => pruneProvider(cur, id))
+    return result
+  }
 
   return (
     <div className={styles.app}>
@@ -46,24 +73,39 @@ export default function App() {
       </header>
 
       <section>
-        <div className={styles.sectionLabel}>Service status</div>
-        {SERVICES.map((svc) => (
-          <ServiceCard
-            key={svc.id}
-            svc={svc}
-            quotaState={state[svc.id]}
-            onUpdate={updateQuota}
-            onConfirm={confirmQuotas}
-          />
-        ))}
+        <div className={styles.sectionLabel}>Providers</div>
+        <ProviderManager
+          providers={providers}
+          stored={catalogue.catalogue.providers}
+          state={state}
+          runs={surplus.runs}
+          now={now}
+          onUpdateQuota={updateQuota}
+          onConfirmQuotas={confirmQuotas}
+          onAdd={handleAddProvider}
+          onUpdate={handleUpdateProvider}
+          onDelete={handleDeleteProvider}
+          onDuplicate={handleDuplicateProvider}
+          onReorder={catalogue.reorderProviders}
+          notices={{
+            conflicts: catalogue.conflicts,
+            invalid: catalogue.invalid,
+            nameConflicts: catalogue.nameConflicts,
+            removedElsewhere: catalogue.removedElsewhere,
+          }}
+          onResolveConflict={catalogue.resolveConflict}
+          onDismissRemoved={catalogue.dismissRemovedNotice}
+        />
       </section>
 
       <section className={styles.historySection}>
         <WeeklyHistoryPanel
-          services={SERVICES}
+          providers={providers}
+          removedProviders={removed}
+          catalogue={catalogue.catalogue}
           weeklyHistory={weeklyHistory}
           onRefresh={refreshWeeklyHistory}
-          getServiceHistory={getServiceHistory}
+          getProviderHistory={getProviderHistory}
         />
       </section>
 
@@ -74,7 +116,7 @@ export default function App() {
 
       <section>
         <div className={styles.sectionLabel}>Recommendation</div>
-        <RecoBox task={selectedTask} state={state} />
+        <RecoBox task={selectedTask} providers={providers} state={state} now={now} />
       </section>
 
       <section>
@@ -82,7 +124,8 @@ export default function App() {
         <SurplusNotice
           evaluation={surplus.evaluation}
           ideas={surplus.ideas}
-          services={SERVICES}
+          services={providers}
+          now={now}
           onMarkLaunched={surplus.markLaunchedManually}
           onConfirmQuotas={confirmQuotas}
           lease={surplus.lease}
@@ -113,8 +156,8 @@ export default function App() {
 
       <section>
         <div className={styles.sectionLabel}>Run results</div>
-        <RunReview runs={surplus.runs} ideas={surplus.ideas} onDecision={surplus.decideRun} />
-        <CycleSummary cycles={surplus.cycles} runs={surplus.runs} services={SERVICES} />
+        <RunReview runs={surplus.runs} ideas={surplus.ideas} onDecision={surplus.decideRun} services={providers} catalogue={catalogue.catalogue} />
+        <CycleSummary cycles={surplus.cycles} runs={surplus.runs} services={providers} catalogue={catalogue.catalogue} now={now} />
       </section>
 
       <section>
@@ -122,7 +165,9 @@ export default function App() {
         <SurplusSettings
           policy={surplus.policy}
           onUpdatePolicy={surplus.updatePolicy}
-          services={SERVICES}
+          services={providers}
+          inactiveProviders={inactiveProviders}
+          runs={surplus.runs}
           sharedMode={surplus.sharedMode}
           autoRunEnabled={surplus.autoRunEnabled}
           stopIssued={globalSwitchState(surplus.control) === 'stopped'}
@@ -137,6 +182,7 @@ export default function App() {
       </section>
 
       <SummaryBar
+        providers={providers}
         state={state}
         onReset={resetAll}
         onSync={refreshSync}

@@ -26,7 +26,7 @@ npm run build            # production bundle in dist/
 npm run preview          # serve dist/ locally
 ```
 
-The frontend works without the backend. To try shared mode, run `backend:migrate`, `backend:start`, then `dev`. The frontend looks for the API on ports `8888` and `8080` of the current host; override with `VITE_SHARED_API_BASE_URL` (see [DEPLOYMENT.md](DEPLOYMENT.md)).
+Kairos ships no provider list: on a clean profile the dashboard is empty and you declare your own providers (name, quotas, reset schedule, fit per task) with **Add provider**. The frontend works without the backend. To try shared mode, run `backend:migrate`, `backend:start`, then `dev`. The frontend looks for the API on ports `8888` and `8080` of the current host; override with `VITE_SHARED_API_BASE_URL` (see [DEPLOYMENT.md](DEPLOYMENT.md)).
 
 A first run seeds a demo workspace and an `owner` user (see [SECURITY.md](SECURITY.md)); use `LAN_ONLY=true` (default) on untrusted networks.
 

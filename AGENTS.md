@@ -1,20 +1,14 @@
 # kairos Development Guidelines
 
-Auto-generated from all feature plans. Last updated: 2026-04-24
+Auto-generated from all feature plans. Last updated: 2026-11-04
 
 ## Active Technologies
-- JavaScript (ES Modules), Node.js 20 LTS for backend and frontend + Existing React 18 + Vite 5 frontend; backend web framework (Express/Fastify class), auth/session middleware, schema validation library, SQLite driver (002-shared-state-backend)
-- SQLite (WAL mode) for v1 shared persistence, migration metadata, revisions, and backup manifests (002-shared-state-backend)
-- JavaScript (ES Modules), Node.js 20 LTS, React 18, Vite 5 + React DOM, existing shared quota state services, existing backend/state sync layer (002-shared-state-backend)
-- Local workspace state with shared persistence already used by the app; reset-date data stored alongside existing service state (002-shared-state-backend)
-- JavaScript (ES Modules), Node 20 LTS + React 18, Vite 5 (no new runtime dependencies) (003-reset-date-tracking)
-- localStorage — existing, via `useQuotaState.js` / `useSharedQuotaState.js`; reset dates already persisted at `state[serviceId][RESET_DATE_KEY]` (003-reset-date-tracking)
-- JavaScript (ES Modules), Node.js 20 LTS + React 18, React DOM 18, Vite 5, existing shared-state API client and backend services (no new runtime dependencies) (005-weekly-history)
-- localStorage for local-first state; optional SQLite-backed shared records through existing `record_type='snapshot'` support for workspace-scoped sync (005-weekly-history)
-- JavaScript (ES Modules), Node.js 20 LTS (frontend, backend and runner) + React 18, React DOM 18, Vite 5; new `runner/` CLI uses Node built-ins only (no new runtime dependency) (006-surplus-runner)
-- localStorage `kairos:surplus:*` for ideas, policy, runs and cycle records; shared mode syncs them as `routing_config` records (no schema change); runner-local files under `~/.kairos-runner/` (006-surplus-runner)
-
-- JavaScript (ES Modules), Node.js 20 LTS (build/runtime baseline) + React 18, React DOM 18, Vite 5, static web server in container runtime (001-docker-container)
+- Language and runtime: JavaScript (ES Modules), Node.js 26 (`engines >=26`) for frontend build, backend and runner
+- Frontend: React 18, React DOM 18, Vite 5, CSS Modules; runtime dependencies stay at React + React DOM
+- Backend (optional): Node `http` server with the `sqlite3` CLI (WAL mode), no framework and no dependencies; records in `shared_records` (`quota_state`, `routing_config`, `snapshot`), revisions, migration jobs and backups
+- Runner (optional): `runner/` CLI on Node built-ins only; local files under `~/.kairos-runner/`
+- Local storage (`localStorage`): quota state with reset dates and reading stamps, weekly history, `kairos:surplus:*` (ideas, policy, runs, cycles), and for 007 `kairos:providers` (provider catalogue); shared mode syncs them as the record types above, with no schema change
+- Container: multi-stage `Dockerfile` (build on `node:26-alpine`, serve the static bundle with `nginx:1.27-alpine`), helpers in `docker/` and `scripts/docker/`
 
 ## Project Structure
 
@@ -33,19 +27,20 @@ npm run lint && npm test && npm run build
 
 ## Code Style
 
-JavaScript (ES Modules), Node.js 20 LTS (build/runtime baseline). ESLint flat config (`eslint.config.js`); unused variables must be prefixed `_`.
+JavaScript (ES Modules), Node.js 26 (build/runtime baseline). ESLint flat config (`eslint.config.js`); unused variables must be prefixed `_`.
 
 ## Recent Changes
-- 006-surplus-runner: Added idea queue, pure surplus evaluation in `src/surplus/`, and an optional local `runner/` CLI (zero dependencies)
-- 005-weekly-history: Added JavaScript (ES Modules), Node.js 20 LTS + React 18, React DOM 18, Vite 5, existing shared-state API client and backend services (no new runtime dependencies)
-- 003-reset-date-tracking: Added JavaScript (ES Modules), Node 20 LTS + React 18, Vite 5 (no new runtime dependencies)
-- 002-shared-state-backend: Added JavaScript (ES Modules), Node.js 20 LTS, React 18, Vite 5 + React DOM, existing shared quota state services, existing backend/state sync layer
+- 007-dynamic-providers: User-declared providers replace the fixed service list; generic routing in `src/routing/`, catalogue in `src/providers/`, runner allowance pinned to provider id and tool (planned, not yet implemented)
+- 006-surplus-runner: Idea queue, pure surplus evaluation in `src/surplus/`, optional local `runner/` CLI
+- 005-weekly-history: Weekly snapshots with 52-week retention and a review panel
+- 003-reset-date-tracking: Per-service reset dates and reset-aware recommendations
+- 002-shared-state-backend: Optional shared-state API with SQLite, sync, migration and backups
 
 
 <!-- MANUAL ADDITIONS START -->
 ## Overview
 
-Kairos is a quota-aware routing dashboard: it tracks AI subscription quotas (Claude, ChatGPT, Copilot, OpenRouter, Kilocode) and recommends which service to use for a task. A static React frontend works fully offline; an optional LAN backend shares state across devices. Hosted on [Codeberg](https://codeberg.org/medenor/kairos) (Forgejo), not GitHub. Licensed AGPL-3.0-or-later.
+Kairos is a quota-aware routing dashboard: it tracks the quotas of the AI providers the user declares (no provider list is shipped) and recommends which one to use for a task. A static React frontend works fully offline; an optional LAN backend shares state across devices. Hosted on [Codeberg](https://codeberg.org/medenor/kairos) (Forgejo), not GitHub. Licensed AGPL-3.0-or-later.
 
 ## Commands
 
@@ -86,6 +81,7 @@ Also: [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md), [`docs/DEPLOYMENT.md`](docs/
 - Runtime dependencies stay at React + React DOM unless justified in writing.
 - Every recommendation needs a `reason`; routing-rule changes need a before/after scenario test.
 - Backend SQL is string-built: every dynamic value goes through `quoteSql()`.
+- Provider ids (`p_…`) and quota ids (`q_…`) are never derived from names; the persisted field `serviceId` on ideas, runs and cycles holds a provider id (old records may hold a former service id, read-only). Never name a provider in `src/providers`, `src/routing`, `src/surplus` or `runner` (guard test). The shared catalogue never authorises a run: only the runner's local `allowProviders`, pinned to provider id and tool.
 - Update `CHANGELOG.md` `[UNRELEASED]` for user-visible changes.
 - This file is partly generated by spec-kit; edit only inside this `MANUAL ADDITIONS` block.
 <!-- MANUAL ADDITIONS END -->

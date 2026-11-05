@@ -8,12 +8,13 @@ The Node version is set in `.nvmrc` (CI reads it) and pinned in `package.json` u
 
 - **Runtime dependencies stay at `react` + `react-dom`.** Adding one needs written justification (bundle and maintenance impact) per constitution principle V.
 - **Logic lives outside components.** Quota math, reset handling, weekly history and state transitions are pure functions in `src/utils.js` and `src/stateTransitions.js`. Components render; hooks wire.
-- **Routing rules are pure and deterministic** (`src/data/rules.js`): `(state, ...) -> { primary, reason, alts }`. Every recommendation must carry a human-readable `reason`. No `Date.now()` inside a rule: pass `now` in so tests are reproducible.
+- **Routing is pure and deterministic** (`src/routing/engine.js`): `recommend({ task, providers, state, now }) -> { primary, alternatives, excluded, reason, tieBreak }`. Every recommendation carries a human-readable `reason`, and no provider name appears in the engine. No `Date.now()` inside a rule: pass `now` in (one shared `now` from `useNow` per render pass) so tests are reproducible and every day count agrees near midnight.
 - **Offline first.** Anything that works locally must keep working when the backend is unreachable. Never make a recommendation depend on the network.
 - **One CSS Module per component** (`Component.jsx` + `Component.module.css`). No global class names outside `src/index.css`.
 - **Surplus logic lives in `src/surplus/` and stays pure.** It is imported by `runner/`, so no `window`, `localStorage`, `import.meta.env` or `Date.now()` there: inject `now`, ids and storage. The runner process imports it from Node.
 - **Keep both hooks in step.** `useQuotaState` and `useSharedQuotaState` share `stateTransitions.js`; a behavior change in one almost always belongs in both.
-- Adding a service or quota: edit `src/data/services.js` (and the rule that uses it), then add a test.
+- Providers and quotas are user data, not code: the UI (`ProviderForm`, `ProviderManager`) holds no rules and renders the `{ path, message }` errors that `validateProvider` and the reducers in `src/providers/` return. Add a rule to `schema.js` or a reducer with a failing test first. Never name a provider in `src/providers`, `src/routing`, `src/surplus` or `runner` (guard test `src/routing/no-provider-literals.test.js`).
+- Components read a provider only through `toRuntimeService` output; a quota with no stored value is unread (`null`/`undefined`) and must never be shown as `undefined` or `NaN`.
 - No `console.log` in committed frontend code; no hardcoded API URLs (use `VITE_SHARED_API_BASE_URL`, see [DEPLOYMENT.md](../DEPLOYMENT.md)).
 
 ## Surplus feature (006)

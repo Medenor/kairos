@@ -1,14 +1,14 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { SERVICES } from '../data/services.js'
-import { applyServerRecords, buildDefaultState, scopeHistory } from '../stateTransitions.js'
+import { LEGACY_SERVICES as SERVICES, legacyDefaultState } from '../providers/fixtures/legacyServices.js'
+import { applyServerRecords, scopeHistory } from '../stateTransitions.js'
 import { createWeeklySnapshot } from '../utils.js'
 import { buildWeeklyHistoryMigrationRecords } from './localExport.js'
 
 function snapshot(workspaceId, isoDate, claudeWeekly = 50) {
-  const state = buildDefaultState()
+  const state = legacyDefaultState()
   state.claude.weekly = claudeWeekly
-  return createWeeklySnapshot({ workspaceId, state, services: SERVICES, now: new Date(isoDate) })
+  return createWeeklySnapshot({ workspaceId, state, providers: SERVICES, now: new Date(isoDate) })
 }
 
 test('local snapshots are re-scoped to the target workspace for migration', () => {
@@ -45,7 +45,7 @@ test('one record per week: the most recently captured snapshot wins', () => {
   const records = buildWeeklyHistoryMigrationRecords([newer, older], 'ws-1')
 
   assert.equal(records.length, 1)
-  assert.equal(records[0].payload.services.claude.quotas.weekly.value, 20)
+  assert.equal(records[0].payload.providers.claude.quotas.weekly.value, 20)
 })
 
 test('no workspace means nothing is exported', () => {
@@ -57,12 +57,12 @@ test('migrated snapshots appear in the workspace-scoped history after sync', () 
   const items = records.map((record, index) => ({ ...record, id: `r${index}`, version: 1, workspace_id: 'ws-1' }))
 
   const next = applyServerRecords(
-    { state: buildDefaultState(), recordIndex: {}, weeklyHistory: [], historyIndex: {} },
+    { state: legacyDefaultState(), recordIndex: {}, weeklyHistory: [], historyIndex: {} },
     items,
     { now: new Date('2026-04-24T12:00:00') }
   )
 
   const visible = scopeHistory(next.weeklyHistory, 'ws-1')
   assert.equal(visible.length, 1)
-  assert.equal(visible[0].services.claude.quotas.weekly.value, 42)
+  assert.equal(visible[0].providers.claude.quotas.weekly.value, 42)
 })

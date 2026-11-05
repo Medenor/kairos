@@ -1,453 +1,11 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { RULES } from './data/rules.js'
-import { getResetInfo } from './utils.js'
+import { getResetInfo, getResetSignals } from './utils.js'
+import { recommend } from './routing/engine.js'
+import { MONTHLY_ID, PAYG_ID, WEEKLY_ID, WEEKLY_Q_SESSION, WEEKLY_Q_WEEK, sampleServices } from './providers/fixtures/sampleProviders.js'
 
-// ---------------------------------------------------------------------------
-// Shared state factories
-// ---------------------------------------------------------------------------
-
-function makeState({ claudeWeekly = 70, claudeSlot = 60, copilotMonthly = 60, chatgptRemaining = 40, chatgpt5h = 60 } = {}) {
-  return {
-    claude: { weekly: claudeWeekly, slot5h: claudeSlot, __last_reset_date: null },
-    copilot: { monthly: copilotMonthly, __last_reset_date: null },
-    chatgpt: { codex_remaining: chatgptRemaining, codex_5h: chatgpt5h, __last_reset_date: null },
-    openrouter: { credits: 0, __last_reset_date: null },
-    kilocode: { credits: 0, __last_reset_date: null },
-  }
-}
-
-function sig(state, daysRemaining = null) {
-  if (state === 'countdown') return { state, daysRemaining: daysRemaining ?? 10, label: `${daysRemaining}d until next reset`, nextResetDate: '2026-04-30' }
-  if (state === 'due') return { state, daysRemaining: 0, label: 'Reset due today', nextResetDate: '2026-04-20' }
-  if (state === 'overdue') return { state, daysRemaining: daysRemaining ?? -3, label: 'Overdue', nextResetDate: '2026-04-17' }
-  if (state === 'none') return { state: 'none', daysRemaining: null, label: 'No scheduled reset', nextResetDate: null }
-  if (state === 'unset') return { state: 'unset', daysRemaining: null, label: 'Last reset date not set', nextResetDate: null }
-  if (state === 'invalid') return { state: 'invalid', daysRemaining: null, label: 'Invalid reset date', nextResetDate: null }
-  return { state: 'unset', daysRemaining: null, label: 'Last reset date not set', nextResetDate: null }
-}
-
-function rs(overrides = {}) {
-  return {
-    claude: sig('unset'),
-    copilot: sig('unset'),
-    chatgpt: sig('unset'),
-    openrouter: sig('none'),
-    kilocode: sig('none'),
-    ...overrides,
-  }
-}
-
-// ---------------------------------------------------------------------------
-// T004 — US1: coding_hard reset tiebreaker
-// ---------------------------------------------------------------------------
-
-test('T004 coding_hard: comparable pressure within 15 pts → prefer sooner reset (Claude resets sooner)', () => {
-  // Claude: 70%, Copilot: 60% → gap = 10 pts ≤ 15 → tiebreaker eligible
-  // Claude resets in 1d, Copilot in 20d → Claude preferred
-  const s = makeState({ claudeWeekly: 70, claudeSlot: 50, copilotMonthly: 60 })
-  const signals = rs({ claude: sig('countdown', 1), copilot: sig('countdown', 20) })
-  const result = RULES.coding_hard(s, signals)
-  assert.equal(result.primary, 'claude', 'Claude resets sooner — should be preferred')
-  assert.ok(result.reason.includes('1d') || result.reason.includes('reset'), 'reason should mention reset timing')
-})
-
-test('T004 coding_hard: comparable pressure → prefer sooner reset (Copilot resets sooner)', () => {
-  // Copilot resets in 1d, Claude in 20d → Copilot preferred
-  const s = makeState({ claudeWeekly: 70, claudeSlot: 50, copilotMonthly: 60 })
-  const signals = rs({ claude: sig('countdown', 20), copilot: sig('countdown', 1) })
-  const result = RULES.coding_hard(s, signals)
-  assert.equal(result.primary, 'copilot', 'Copilot resets sooner — should be preferred')
-})
-
-test('T004 coding_hard: pressure gap > 15 pts → no tiebreaker, quota-only logic', () => {
-  // Claude: 65%, Copilot: 20% → gap = 45 pts > 15 → tiebreaker NOT applied
-  const s = makeState({ claudeWeekly: 65, claudeSlot: 50, copilotMonthly: 20 })
-  const signals = rs({ claude: sig('countdown', 1), copilot: sig('countdown', 20) })
-  const result = RULES.coding_hard(s, signals)
-  // quota-only: copilot < 50 so copilot is preferred via c < 85 branch
-  assert.equal(result.primary, 'copilot')
-  assert.ok(!result.reason.toLowerCase().includes('resets in'), 'reason should not mention reset timing when gap > 15')
-})
-
-test('T004 coding_hard: both signals countdown same days → no preference change', () => {
-  const s = makeState({ claudeWeekly: 70, claudeSlot: 50, copilotMonthly: 60 })
-  const signals = rs({ claude: sig('countdown', 5), copilot: sig('countdown', 5) })
-  const result = RULES.coding_hard(s, signals)
-  // When equal, implementation may pick either — just assert result is valid
-  assert.ok(result.primary, 'must return a valid primary')
-  assert.ok(result.reason, 'must return a reason')
-})
-
-// ---------------------------------------------------------------------------
-// T005 — US1: coding_light reset tiebreaker
-// ---------------------------------------------------------------------------
-
-test('T005 coding_light: Claude and Copilot at comparable pressure → prefer sooner reset (Copilot sooner)', () => {
-  // Branch: cop >= 50, c < 50 → tiebreaker between copilot and claude
-  // Copilot: 55%, Claude: 40% → gap = 15 pts ≤ 15 → tiebreaker eligible
-  // Copilot resets in 2d, Claude in 18d → Copilot preferred
-  const s = makeState({ claudeWeekly: 40, copilotMonthly: 55 })
-  const signals = rs({ copilot: sig('countdown', 2), claude: sig('countdown', 18) })
-  const result = RULES.coding_light(s, signals)
-  assert.equal(result.primary, 'copilot')
-  assert.ok(result.reason.toLowerCase().includes('reset') || result.reason.includes('2d'), 'reason should mention reset')
-})
-
-test('T005 coding_light: comparable pressure → prefer sooner reset (Claude sooner)', () => {
-  // Claude: 45%, Copilot: 55% → gap = 10 pts ≤ 15 → tiebreaker
-  // Claude resets in 2d → Claude preferred
-  const s = makeState({ claudeWeekly: 45, copilotMonthly: 55 })
-  const signals = rs({ copilot: sig('countdown', 18), claude: sig('countdown', 2) })
-  const result = RULES.coding_light(s, signals)
-  assert.equal(result.primary, 'claude')
-})
-
-test('T005 coding_light: quota-dominant path (copilot < 50) unchanged by reset signals', () => {
-  // copilot < 50 → copilot always preferred regardless of resets
-  const s = makeState({ claudeWeekly: 60, copilotMonthly: 30 })
-  const signals = rs({ copilot: sig('countdown', 25), claude: sig('countdown', 1) })
-  const result = RULES.coding_light(s, signals)
-  assert.equal(result.primary, 'copilot', 'copilot < 50 → always copilot without reset influence')
-})
-
-// ---------------------------------------------------------------------------
-// T006 — US1: work_heavy reset tiebreaker
-// ---------------------------------------------------------------------------
-
-test('T006 work_heavy: Claude and ChatGPT at comparable pressure → prefer sooner reset (Claude sooner)', () => {
-  // Claude: 80%, ChatGPT consumed: ~60% → gap = 20 > 15 → no tiebreaker
-  // Adjust: Claude 80%, ChatGPT consumed 70% → gap = 10 ≤ 15 → tiebreaker
-  const s = makeState({ claudeWeekly: 80, claudeSlot: 70, chatgptRemaining: 30 }) // chatgpt consumed = 70%
-  const signals = rs({ claude: sig('countdown', 3), chatgpt: sig('countdown', 20) })
-  const result = RULES.work_heavy(s, signals)
-  assert.equal(result.primary, 'claude', 'Claude resets sooner — preferred')
-})
-
-test('T006 work_heavy: Claude blocked → Copilot/ChatGPT returned', () => {
-  const s = makeState({ claudeWeekly: 100, claudeSlot: 80 })
-  const signals = rs({ chatgpt: sig('countdown', 5) })
-  const result = RULES.work_heavy(s, signals)
-  assert.equal(result.primary, 'chatgpt')
-})
-
-// ---------------------------------------------------------------------------
-// T011 — US2: reason strings mention reset timing when tiebreaker is decisive
-// ---------------------------------------------------------------------------
-
-test('T011 coding_hard reason: mentions both services and days when tiebreaker fires', () => {
-  const s = makeState({ claudeWeekly: 70, claudeSlot: 50, copilotMonthly: 60 })
-  const signals = rs({ claude: sig('countdown', 1), copilot: sig('countdown', 20) })
-  const result = RULES.coding_hard(s, signals)
-  // When tiebreaker fires, reason must mention days
-  assert.ok(result.reason.includes('1d') || result.reason.includes('20d'), `reason should mention days: "${result.reason}"`)
-})
-
-test('T011 coding_light reason: mentions reset timing when tiebreaker fires', () => {
-  const s = makeState({ claudeWeekly: 40, copilotMonthly: 55 })
-  const signals = rs({ copilot: sig('countdown', 2), claude: sig('countdown', 18) })
-  const result = RULES.coding_light(s, signals)
-  assert.ok(result.reason.includes('2d') || result.reason.toLowerCase().includes('reset'), `reason should mention reset: "${result.reason}"`)
-})
-
-test('T011 work_heavy reason: mentions reset timing when tiebreaker fires', () => {
-  const s = makeState({ claudeWeekly: 80, claudeSlot: 70, chatgptRemaining: 30 })
-  const signals = rs({ claude: sig('countdown', 3), chatgpt: sig('countdown', 20) })
-  const result = RULES.work_heavy(s, signals)
-  assert.ok(result.reason.includes('3d') || result.reason.toLowerCase().includes('reset'), `reason should mention reset: "${result.reason}"`)
-})
-
-// ---------------------------------------------------------------------------
-// T012 — US2: overdue/due notes appended
-// ---------------------------------------------------------------------------
-
-test('T012 coding_hard: appends due note when selected service is due', () => {
-  // Claude available and due today
-  const s = makeState({ claudeWeekly: 30, claudeSlot: 40 })
-  const signals = rs({ claude: sig('due') })
-  const result = RULES.coding_hard(s, signals)
-  assert.ok(
-    result.reason.includes('Reset due today — your quota may have already refreshed.'),
-    `reason must include due note: "${result.reason}"`
-  )
-})
-
-test('T012 coding_hard: appends overdue note when selected service is overdue', () => {
-  const s = makeState({ claudeWeekly: 30, claudeSlot: 40 })
-  const signals = rs({ claude: sig('overdue', -2) })
-  const result = RULES.coding_hard(s, signals)
-  assert.ok(
-    result.reason.includes('Reset overdue — consider logging the new reset date.'),
-    `reason must include overdue note: "${result.reason}"`
-  )
-})
-
-test('T012 coding_light: appends due note for selected service', () => {
-  const s = makeState({ claudeWeekly: 30, copilotMonthly: 70 })
-  const signals = rs({ claude: sig('due') })
-  const result = RULES.coding_light(s, signals)
-  assert.ok(
-    result.reason.includes('Reset due today — your quota may have already refreshed.'),
-    `reason must include due note: "${result.reason}"`
-  )
-})
-
-test('T012 work_heavy: appends due note for selected service', () => {
-  const s = makeState({ claudeWeekly: 30, claudeSlot: 40 })
-  const signals = rs({ claude: sig('due') })
-  const result = RULES.work_heavy(s, signals)
-  assert.ok(
-    result.reason.includes('Reset due today — your quota may have already refreshed.'),
-    `reason must include due note: "${result.reason}"`
-  )
-})
-
-// ---------------------------------------------------------------------------
-// T015 — US3: resetSignals undefined → quota-only fallback
-// ---------------------------------------------------------------------------
-
-test('T015 coding_hard: resetSignals undefined → quota-only result, no reset mention', () => {
-  const s = makeState({ claudeWeekly: 30, claudeSlot: 40 })
-  const result = RULES.coding_hard(s, undefined)
-  assert.ok(result.primary, 'must return valid primary')
-  assert.ok(!result.reason.toLowerCase().includes('reset'), `reason must not mention reset: "${result.reason}"`)
-})
-
-test('T015 coding_light: resetSignals undefined → quota-only result', () => {
-  const s = makeState({ claudeWeekly: 30, copilotMonthly: 70 })
-  const result = RULES.coding_light(s, undefined)
-  assert.ok(result.primary)
-  assert.ok(!result.reason.toLowerCase().includes('reset'), `reason must not mention reset: "${result.reason}"`)
-})
-
-test('T015 work_heavy: resetSignals undefined → quota-only result', () => {
-  const s = makeState({ claudeWeekly: 30, claudeSlot: 40 })
-  const result = RULES.work_heavy(s, undefined)
-  assert.ok(result.primary)
-  assert.ok(!result.reason.toLowerCase().includes('reset'), `reason must not mention reset: "${result.reason}"`)
-})
-
-// ---------------------------------------------------------------------------
-// T016 — US3: both services have state unset/invalid → quota-only
-// ---------------------------------------------------------------------------
-
-test('T016 coding_hard: both services unset → quota-only, no reset mention', () => {
-  const s = makeState({ claudeWeekly: 70, claudeSlot: 50, copilotMonthly: 60 })
-  const signals = rs({ claude: sig('unset'), copilot: sig('unset') })
-  const result = RULES.coding_hard(s, signals)
-  // Tiebreaker cannot fire when both unset — quota-only
-  assert.ok(!result.reason.includes('d vs'), `reason must not include tiebreaker text: "${result.reason}"`)
-})
-
-test('T016 coding_hard: both services invalid → no reset mention', () => {
-  const s = makeState({ claudeWeekly: 70, claudeSlot: 50, copilotMonthly: 60 })
-  const signals = rs({ claude: sig('invalid'), copilot: sig('invalid') })
-  const result = RULES.coding_hard(s, signals)
-  assert.ok(!result.reason.includes('d vs'), `reason must not include tiebreaker text: "${result.reason}"`)
-})
-
-test('T016 coding_light: both none → quota-only', () => {
-  const s = makeState({ claudeWeekly: 60, copilotMonthly: 55 })
-  const signals = rs({ claude: sig('none'), copilot: sig('none') })
-  const result = RULES.coding_light(s, signals)
-  assert.ok(!result.reason.toLowerCase().includes('resets sooner'), `reason should not mention resets sooner: "${result.reason}"`)
-})
-
-// ---------------------------------------------------------------------------
-// T017 — US3: edge cases
-// ---------------------------------------------------------------------------
-
-test('T017: one service countdown, one unset → tiebreaker skipped, quota-only', () => {
-  const s = makeState({ claudeWeekly: 70, claudeSlot: 50, copilotMonthly: 60 })
-  const signals = rs({ claude: sig('countdown', 3), copilot: sig('unset') })
-  const result = RULES.coding_hard(s, signals)
-  // Copilot unset → no tiebreaker possible
-  assert.ok(!result.reason.includes('3d vs'), `reason must not include tiebreaker: "${result.reason}"`)
-})
-
-test('T017: both services same daysRemaining → no preference change', () => {
-  const s = makeState({ claudeWeekly: 70, claudeSlot: 50, copilotMonthly: 60 })
-  const signals = rs({ claude: sig('countdown', 5), copilot: sig('countdown', 5) })
-  const result = RULES.coding_hard(s, signals)
-  assert.ok(result.primary, 'must return valid primary')
-  assert.ok(result.reason, 'must return reason')
-})
-
-test('T017: service state overdue → note added but overdue not used as tiebreaker', () => {
-  // Claude overdue, Copilot countdown — overdue is NOT a tiebreaker candidate
-  const s = makeState({ claudeWeekly: 70, claudeSlot: 50, copilotMonthly: 60 })
-  const signals = rs({ claude: sig('overdue', -3), copilot: sig('countdown', 2) })
-  // Copilot countdown, claude overdue → if the selected service is overdue, note appended
-  // But overdue should NOT win the tiebreaker over countdown
-  const result = RULES.coding_hard(s, signals)
-  assert.ok(result.primary, 'must return valid primary')
-  // Copilot has daysRemaining (countdown), Claude overdue → tiebreaker only eligible for countdown/due
-  // So copilot should be preferred if it would be in the tiebreaker range
-})
-
-// ---------------------------------------------------------------------------
-// T018 — Bug fix: overdue never wins tiebreaker against a countdown service
-// ---------------------------------------------------------------------------
-
-test('T018 coding_hard: overdue service does NOT win tiebreaker over countdown service', () => {
-  // Claude overdue (-3d), Copilot countdown (5d) — comparable pressure (10 pts gap)
-  // Before fix: -3 <= 5 → overdue (Claude) would incorrectly win
-  // After fix: overdue excluded from tiebreaker, quota-only path applies → Copilot (lower pressure)
-  const s = makeState({ claudeWeekly: 70, claudeSlot: 50, copilotMonthly: 60 })
-  const signals = rs({ claude: sig('overdue', -3), copilot: sig('countdown', 5) })
-  const result = RULES.coding_hard(s, signals)
-  // Tiebreaker must NOT fire — overdue is excluded
-  assert.ok(!result.reason.includes('d vs'), `reason must not include tiebreaker text: "${result.reason}"`)
-  // Quota-only path: c=70 < 85, copilotMonthly=60 → copilot preferred
-  assert.equal(result.primary, 'copilot', 'overdue Claude must not win tiebreaker')
-})
-
-test('T018 coding_light: overdue service does NOT win tiebreaker', () => {
-  // Copilot overdue, Claude countdown — quota comparable
-  const s = makeState({ claudeWeekly: 45, copilotMonthly: 55 })
-  const signals = rs({ copilot: sig('overdue', -2), claude: sig('countdown', 4) })
-  const result = RULES.coding_light(s, signals)
-  assert.ok(!result.reason.includes('d vs'), `reason must not include tiebreaker text: "${result.reason}"`)
-})
-
-// ---------------------------------------------------------------------------
-// T019 — resetNote: countdown ≤ 2 days appends urgency note
-// ---------------------------------------------------------------------------
-
-test('T019 coding_hard: countdown ≤ 2d on selected service appends spend-now note', () => {
-  // Claude selected (available, c=30), reset in 1d → note appended
-  const s = makeState({ claudeWeekly: 30, claudeSlot: 40 })
-  const signals = rs({ claude: sig('countdown', 1) })
-  const result = RULES.coding_hard(s, signals)
-  assert.equal(result.primary, 'claude')
-  assert.ok(
-    result.reason.includes('Resets in 1d — spend it now before quota refreshes.'),
-    `reason must include near-reset note: "${result.reason}"`
-  )
-})
-
-test('T019 coding_light: countdown ≤ 2d on selected service appends spend-now note', () => {
-  // Copilot selected (cop=30 < 50), reset in 2d → note appended
-  const s = makeState({ claudeWeekly: 60, copilotMonthly: 30 })
-  const signals = rs({ copilot: sig('countdown', 2) })
-  const result = RULES.coding_light(s, signals)
-  assert.equal(result.primary, 'copilot')
-  assert.ok(
-    result.reason.includes('Resets in 2d — spend it now before quota refreshes.'),
-    `reason must include near-reset note: "${result.reason}"`
-  )
-})
-
-test('T019: countdown > 2d does NOT append spend-now note', () => {
-  const s = makeState({ claudeWeekly: 30, claudeSlot: 40 })
-  const signals = rs({ claude: sig('countdown', 5) })
-  const result = RULES.coding_hard(s, signals)
-  assert.ok(
-    !result.reason.includes('spend it now before quota refreshes'),
-    `reason must NOT include near-reset note when daysRemaining > 2: "${result.reason}"`
-  )
-})
-
-// ---------------------------------------------------------------------------
-// T020/T021 — daily_chat: preserve upcoming Claude refresh
-// ---------------------------------------------------------------------------
-
-test('T020 daily_chat: Claude resets in ≤ 2d → switch to ChatGPT even when c < 40', () => {
-  // Claude quota comfortable (c=20) BUT resets in 1d → prefer ChatGPT to preserve refresh
-  const s = makeState({ claudeWeekly: 20 })
-  const signals = rs({ claude: sig('countdown', 1) })
-  const result = RULES.daily_chat(s, signals)
-  assert.equal(result.primary, 'chatgpt', 'must switch to ChatGPT to preserve upcoming reset')
-  assert.ok(result.reason.includes('1d'), `reason must mention days: "${result.reason}"`)
-  assert.ok(result.reason.toLowerCase().includes('reset'), `reason must mention reset: "${result.reason}"`)
-})
-
-test('T020 daily_chat: Claude resets in exactly 2d → still switches to ChatGPT', () => {
-  const s = makeState({ claudeWeekly: 20 })
-  const signals = rs({ claude: sig('countdown', 2) })
-  const result = RULES.daily_chat(s, signals)
-  assert.equal(result.primary, 'chatgpt')
-  assert.ok(result.reason.includes('2d'))
-})
-
-test('T021 daily_chat: Claude resets in 3d → normal quota logic applies', () => {
-  // c=20 < 40 and daysRemaining=3 > 2 → normal path: Claude preferred
-  const s = makeState({ claudeWeekly: 20 })
-  const signals = rs({ claude: sig('countdown', 3) })
-  const result = RULES.daily_chat(s, signals)
-  assert.equal(result.primary, 'claude', 'reset in 3d does not trigger preserve logic')
-})
-
-test('T021 daily_chat: no reset signals → normal quota logic unchanged', () => {
-  const s = makeState({ claudeWeekly: 20 })
-  const result = RULES.daily_chat(s, undefined)
-  assert.equal(result.primary, 'claude')
-})
-
-// ---------------------------------------------------------------------------
-// T022 — work_heavy: Claude blocked includes reset ETA when available
-// ---------------------------------------------------------------------------
-
-test('T022 work_heavy: Claude blocked + reset ETA known → reason includes ETA', () => {
-  const s = makeState({ claudeWeekly: 100, claudeSlot: 80 })
-  const signals = rs({ claude: sig('countdown', 3) })
-  const result = RULES.work_heavy(s, signals)
-  assert.equal(result.primary, 'chatgpt')
-  assert.ok(result.reason.includes('3d'), `reason must include ETA: "${result.reason}"`)
-})
-
-test('T022 work_heavy: Claude blocked + reset unset → no ETA in reason', () => {
-  const s = makeState({ claudeWeekly: 100, claudeSlot: 80 })
-  const signals = rs({ claude: sig('unset') })
-  const result = RULES.work_heavy(s, signals)
-  assert.equal(result.primary, 'chatgpt')
-  // No ETA should appear
-  assert.ok(!result.reason.match(/resets in \d+d/i), `reason must not include ETA: "${result.reason}"`)
-})
-
-// ---------------------------------------------------------------------------
-// T023 — coding_hard / work_heavy: Claude near-exhausted + imminent reset
-// ---------------------------------------------------------------------------
-
-test('T023 coding_hard: Claude ≥ 95% + reset in ≤ 2d → reason suggests waiting', () => {
-  // Claude nearly exhausted but resets in 1d → nudge to wait for critical tasks
-  const s = makeState({ claudeWeekly: 96, claudeSlot: 90 })
-  const signals = rs({ claude: sig('countdown', 1) })
-  const result = RULES.coding_hard(s, signals)
-  assert.equal(result.primary, 'chatgpt', 'must still recommend ChatGPT (not block the user)')
-  assert.ok(result.reason.includes('1d'), `reason must mention days: "${result.reason}"`)
-  assert.ok(
-    result.reason.toLowerCase().includes('consider waiting') || result.reason.toLowerCase().includes('critical'),
-    `reason must suggest waiting for critical tasks: "${result.reason}"`
-  )
-})
-
-test('T023 work_heavy: Claude ≥ 95% + reset in ≤ 2d → reason suggests waiting', () => {
-  const s = makeState({ claudeWeekly: 96, claudeSlot: 95 })
-  const signals = rs({ claude: sig('countdown', 2) })
-  const result = RULES.work_heavy(s, signals)
-  assert.equal(result.primary, 'chatgpt')
-  assert.ok(result.reason.includes('2d'), `reason must mention days: "${result.reason}"`)
-  assert.ok(
-    result.reason.toLowerCase().includes('consider waiting') || result.reason.toLowerCase().includes('critical'),
-    `reason must suggest waiting: "${result.reason}"`
-  )
-})
-
-test('T023 coding_hard: Claude ≥ 95% but reset in 5d → no waiting nudge', () => {
-  const s = makeState({ claudeWeekly: 96, claudeSlot: 90 })
-  const signals = rs({ claude: sig('countdown', 5) })
-  const result = RULES.coding_hard(s, signals)
-  assert.equal(result.primary, 'chatgpt')
-  assert.ok(
-    !result.reason.toLowerCase().includes('consider waiting'),
-    `reason must not suggest waiting when reset is not imminent: "${result.reason}"`
-  )
-})
-
-// ---------------------------------------------------------------------------
-// 006 T006 — local calendar day basis near midnight (before/after scenario)
-// ---------------------------------------------------------------------------
+// The rule assertions of the former fixed-provider table moved to src/routing (engine, reset, determinism
+// and reference tests). What stays here: the reset arithmetic every path shares, per schedule kind.
 
 function withTimeZone(tz, fn) {
   const previous = process.env.TZ
@@ -460,16 +18,76 @@ function withTimeZone(tz, fn) {
   }
 }
 
+test('weekly cycle (7 days): countdown, due today and overdue', () => {
+  const now = new Date(2026, 3, 20, 12, 0)
+  assert.deepEqual(
+    ['2026-04-18', '2026-04-13', '2026-04-10'].map((d) => getResetInfo(d, 7, now).state),
+    ['countdown', 'due', 'overdue']
+  )
+  assert.equal(getResetInfo('2026-04-18', 7, now).daysRemaining, 5)
+  assert.equal(getResetInfo('2026-04-13', 7, now).daysRemaining, 0)
+  assert.equal(getResetInfo('2026-04-10', 7, now).daysRemaining, -3)
+})
+
+test('monthly cycle (30 days): countdown, due today and overdue (FR-008)', () => {
+  const now = new Date(2026, 3, 20, 12, 0)
+  const countdown = getResetInfo('2026-04-05', 30, now)
+  assert.equal(countdown.state, 'countdown')
+  assert.equal(countdown.daysRemaining, 15)
+  assert.equal(countdown.nextResetDate, '2026-05-05')
+  assert.equal(getResetInfo('2026-03-21', 30, now).state, 'due')
+  const overdue = getResetInfo('2026-03-10', 30, now)
+  assert.equal(overdue.state, 'overdue')
+  assert.equal(overdue.daysRemaining, -11)
+})
+
+test('custom cycle (10 days): countdown, due today and overdue (FR-008)', () => {
+  const now = new Date(2026, 3, 20, 12, 0)
+  assert.equal(getResetInfo('2026-04-15', 10, now).daysRemaining, 5)
+  assert.equal(getResetInfo('2026-04-10', 10, now).state, 'due')
+  assert.equal(getResetInfo('2026-04-01', 10, now).state, 'overdue')
+  assert.equal(getResetInfo('2026-03-01', 10, now).daysRemaining, -40)
+})
+
+test('no schedule: never overdue, whatever the recorded date', () => {
+  const now = new Date(2026, 3, 20, 12, 0)
+  for (const date of [null, '2020-01-01', '2026-04-20']) {
+    const info = getResetInfo(date, null, now)
+    assert.equal(info.state, 'none')
+    assert.equal(info.daysRemaining, null)
+  }
+})
+
+test('unset and invalid dates are reported, a future last-reset date is invalid', () => {
+  const now = new Date(2026, 3, 20, 12, 0)
+  assert.equal(getResetInfo(null, 7, now).state, 'unset')
+  assert.equal(getResetInfo('2026-02-31', 7, now).state, 'invalid')
+  assert.equal(getResetInfo('2026-04-25', 7, now).label, 'Reset date cannot be in the future')
+})
+
+test('getResetSignals maps every provider through its own cycle and the shared now', () => {
+  const services = sampleServices()
+  const now = new Date(2026, 3, 20, 12, 0)
+  const state = {
+    [WEEKLY_ID]: { __last_reset_date: '2026-04-18' },
+    [MONTHLY_ID]: { __last_reset_date: '2026-04-05' },
+    [PAYG_ID]: { __last_reset_date: '2026-04-01' },
+  }
+  const signals = getResetSignals(state, services, now)
+  assert.equal(signals[WEEKLY_ID].daysRemaining, 5)
+  assert.equal(signals[MONTHLY_ID].daysRemaining, 15)
+  assert.equal(signals[PAYG_ID].state, 'none')
+})
+
 test('006 D3 scenario: at 00:30 local (UTC+12) a reset on local day D+2 says "Resets in 2d" (UTC basis gave 3d)', () => {
   withTimeZone('Pacific/Auckland', () => {
     assert.equal(new Date(2026, 3, 21, 12, 0).getTimezoneOffset(), -720)
     const now = new Date(2026, 3, 21, 0, 30) // local 2026-04-21, UTC 2026-04-20T12:30Z
-    // Last reset 04-16 + 7d = 04-23 = local D+2.
-    const claude = getResetInfo('2026-04-16', 7, now)
-    assert.equal(claude.daysRemaining, 2)
-    const s = makeState({ claudeWeekly: 30, claudeSlot: 40 })
-    const result = RULES.coding_hard(s, rs({ claude: claude }))
-    assert.equal(result.primary, 'claude')
+    const [weekly] = sampleServices()
+    assert.equal(getResetInfo('2026-04-16', 7, now).daysRemaining, 2) // last reset 04-16 + 7d = 04-23 = local D+2
+    const state = { [WEEKLY_ID]: { [WEEKLY_Q_WEEK]: 30, [WEEKLY_Q_SESSION]: 40, __last_reset_date: '2026-04-16' } }
+    const result = recommend({ task: 'coding_hard', providers: [weekly], state, now })
+    assert.equal(result.primary.providerId, WEEKLY_ID)
     assert.ok(
       result.reason.includes('Resets in 2d — spend it now before quota refreshes.'),
       `note must use the local day count (2d), not the UTC one (3d): "${result.reason}"`
@@ -478,17 +96,13 @@ test('006 D3 scenario: at 00:30 local (UTC+12) a reset on local day D+2 says "Re
   })
 })
 
-test('006 D3 scenario: reason text for coding_hard at 23:30 local is unchanged', () => {
+test('006 D3 scenario: the reset note at 23:30 local is unchanged', () => {
   withTimeZone('Pacific/Auckland', () => {
     const now = new Date(2026, 3, 20, 23, 30) // UTC day and local day agree
-    const claude = getResetInfo('2026-04-15', 7, now) // next reset 04-22 -> 2d
-    assert.equal(claude.daysRemaining, 2)
-    const s = makeState({ claudeWeekly: 30, claudeSlot: 40 })
-    const result = RULES.coding_hard(s, rs({ claude: claude }))
-    assert.equal(result.primary, 'claude')
-    assert.equal(
-      result.reason,
-      'Claude available — best choice for complex coding. Resets in 2d — spend it now before quota refreshes.'
-    )
+    const [weekly] = sampleServices()
+    const state = { [WEEKLY_ID]: { [WEEKLY_Q_WEEK]: 30, [WEEKLY_Q_SESSION]: 40, __last_reset_date: '2026-04-15' } } // next reset 04-22 -> 2d
+    const result = recommend({ task: 'coding_hard', providers: [weekly], state, now })
+    assert.equal(result.primary.daysToReset, 2)
+    assert.ok(result.reason.endsWith('Resets in 2d — spend it now before quota refreshes.'), result.reason)
   })
 })

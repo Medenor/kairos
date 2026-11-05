@@ -126,14 +126,15 @@ describe('config', () => {
     const baseDir = join(dir, 'runner')
     const h = harness({
       baseDir, homeDir: dir,
-      answers: ['My laptop', 'http://127.0.0.1:9/api/v1', 'ws-1', join(dir, 'projects'), 'claude', 'add *.secret', 'remove 1', 'done'],
+      answers: ['My laptop', 'http://127.0.0.1:9/api/v1', 'ws-1', join(dir, 'projects'), 'add *.secret', 'remove 1', 'done'],
     })
     assert.equal(await main(['config'], h.io), 0)
     const file = join(baseDir, 'config.json')
     const saved = JSON.parse(readFileSync(file, 'utf8'))
     assert.equal(saved.deviceName, 'My laptop')
     assert.equal(saved.workspaceId, 'ws-1')
-    assert.deepEqual(saved.allowServices, ['claude'])
+    assert.deepEqual(saved.allowProviders, [])
+    assert.equal(saved.schemaVersion, 2)
     assert.ok(saved.exclusions.includes('*.secret'))
     assert.ok(!saved.exclusions.includes('.env*'), 'remove 1 dropped the first default entry')
     assert.equal(statSync(file).mode & 0o777, 0o600)
@@ -546,10 +547,10 @@ describe('start', () => {
       assert.match(none.stderr, /No runner config found/)
       assert.doesNotMatch(none.stdout, /disclosure|sent to the provider/i)
 
-      saveConfig(world.baseDir, { ...world.config, allowServices: [] })
+      saveConfig(world.baseDir, { ...world.config, allowProviders: [] })
       const empty = await runCli(world, ['start'])
       assert.equal(empty.code, 1)
-      assert.match(empty.stderr, /No service is allowed/)
+      assert.match(empty.stderr, /No provider is allowed/)
     })
   })
 
