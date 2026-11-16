@@ -9,6 +9,7 @@ build/
 .claude
 .kilocode
 backend/data/
+backend/backend/data/
 backend/backups/
 coverage/
 *.tmp
