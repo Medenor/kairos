@@ -40,7 +40,7 @@ JavaScript (ES Modules), Node.js 26 (build/runtime baseline). ESLint flat config
 <!-- MANUAL ADDITIONS START -->
 ## Overview
 
-Kairos is a quota-aware routing dashboard: it tracks the quotas of the AI providers the user declares (no provider list is shipped) and recommends which one to use for a task. A static React frontend works fully offline; an optional LAN backend shares state across devices. Hosted on [Codeberg](https://codeberg.org/medenor/kairos) (Forgejo), not GitHub. Licensed AGPL-3.0-or-later.
+Kairos is a quota-aware routing dashboard: it tracks the quotas of the AI providers the user declares (no provider list is shipped) and recommends which one to use for a task. A static React frontend works fully offline; an optional LAN backend shares state across devices. Hosted on [GitHub](https://github.com/Medenor/kairos). Licensed AGPL-3.0-or-later.
 
 ## Commands
 

@@ -38,7 +38,7 @@ Kairos does not know any provider in advance. On a clean profile the dashboard i
 Requires Node.js 26 or newer.
 
 ```bash
-git clone https://codeberg.org/medenor/kairos.git
+git clone https://github.com/Medenor/kairos.git
 cd kairos
 npm ci
 npm run dev

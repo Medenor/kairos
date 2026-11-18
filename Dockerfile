@@ -16,8 +16,8 @@ ARG VERSION=dev
 
 LABEL org.opencontainers.image.title="kairos-ai-quota-router" \
       org.opencontainers.image.description="Kairos static frontend container image" \
-      org.opencontainers.image.source="https://codeberg.org/medenor/kairos" \
-      org.opencontainers.image.url="https://codeberg.org/medenor/kairos" \
+      org.opencontainers.image.source="https://github.com/Medenor/kairos" \
+      org.opencontainers.image.url="https://github.com/Medenor/kairos" \
       org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.revision="${VCS_REF}" \
       org.opencontainers.image.created="${BUILD_DATE}" \

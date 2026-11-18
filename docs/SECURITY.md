@@ -2,7 +2,7 @@
 
 ## Reporting a vulnerability
 
-Do **not** open a public issue. Contact the maintainer privately through the Codeberg profile of [@medenor](https://codeberg.org/medenor) and include the version or commit, reproduction steps and impact. Only the latest `main` is supported.
+Do **not** open a public issue. Report it privately with [GitHub private vulnerability reporting](https://github.com/Medenor/kairos/security/advisories/new) and include the version or commit, reproduction steps and impact. Only the latest `main` is supported.
 
 ## Threat model
 
