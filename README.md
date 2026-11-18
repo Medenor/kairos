@@ -2,6 +2,16 @@
 
 <h1 align="center"><img src="public/logo.webp" width="250" alt="Kairos Logo"></h1>
 
+<p align="center">
+  <a href="https://github.com/Medenor/kairos/actions/workflows/ci.yml"><img src="https://github.com/Medenor/kairos/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/Medenor/kairos/actions/workflows/security-audit.yml"><img src="https://github.com/Medenor/kairos/actions/workflows/security-audit.yml/badge.svg" alt="Security Audit"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-AGPL%20v3-blue.svg" alt="License: AGPL v3"></a>
+  <img src="https://img.shields.io/badge/Node.js-26+-339933?logo=nodedotjs&logoColor=white" alt="Node.js 26+">
+  <img src="https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black" alt="React 18">
+  <img src="https://img.shields.io/badge/Vite-5-646CFF?logo=vite&logoColor=white" alt="Vite 5">
+  <img src="https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white" alt="Docker">
+</p>
+
 Quota-aware routing across the AI providers you declare: subscriptions with percentage quotas and pay-as-you-go balances. A lightweight dashboard to track your quotas and get instant routing recommendations based on what you're about to do.
 
 ## Why
