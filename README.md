@@ -36,6 +36,7 @@ This tool tracks your quotas in one place and tells you which provider to use ri
 - Dark mode support
 - Idea queue: capture ideas with optional context and working folder, prioritise and archive them
 - Surplus suggestions: flags a provider whose quota will expire unused at its reset, with the rules that led to the suggestion
+- Reading age: a quota reading older than 12 h makes its provider ineligible for surplus until you update it or confirm it is still current
 - Reset-cycle history: quota left at each reset and the part consumed by runs
 - Optional surplus runner (local CLI, shared mode only), see [Optional: surplus runner](#optional-surplus-runner)
 
@@ -84,9 +85,13 @@ The command surface is specified in [`specs/006-surplus-runner/contracts/runner-
 ```bash
 npm run runner -- config     # device id and name, API base, workspace, projects base folder
 npm run runner -- allow      # allow a provider to run on this device (pinned to its tool)
+npm run runner -- disallow   # remove a provider from this device's allowed list
 npm run runner -- approve    # approve ideas on this device (required before any run)
+npm run runner -- approvals  # list and revoke local approvals
+npm run runner -- status     # lease state, allowed providers, last evaluation, active run
 npm run runner -- start      # begin the lease and evaluation loop
 npm run runner -- stop       # create the STOP file and disable automatic runs
+npm run runner -- clean      # remove disposable copies and local outputs
 ```
 
 Runs are off by default for each provider. You enable them per provider in the dashboard, after acknowledging the disclosures, and allow the provider on the runner device with `allow`. Provider rules on automated usage of subscriptions can change; you can switch any provider back to suggestion-only at any time.
