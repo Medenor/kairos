@@ -32,7 +32,7 @@ A first run seeds a demo workspace and an `owner` user (see [SECURITY.md](SECURI
 
 ## Quality gates
 
-CI (`.forgejo/workflows/ci.yml`) runs on every push to `main` and every PR: `npm ci`, `npm run lint`, `npm test`, `npm run build`. A weekly job (`security-audit.yml`) runs `npm audit --omit=dev --audit-level=high`. Make `CI / verify` a required status check on `main` in the Codeberg repository settings so it blocks merges.
+CI (`.github/workflows/ci.yml`) runs on every push to `main` and every PR: `npm ci`, `npm run lint`, `npm test`, `npm run build`. A weekly job (`security-audit.yml`) runs `npm audit --omit=dev --audit-level=high`. Make the `verify` job of the `CI` workflow a required status check on `main` (branch protection in the GitHub repository settings) so it blocks merges.
 
 ## Linting
 

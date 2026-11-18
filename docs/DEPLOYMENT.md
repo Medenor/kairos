@@ -14,7 +14,7 @@ Three ways to run Kairos, from simplest to most complete.
 npm ci && npm run build
 ```
 
-Output goes to `dist/` (relative base, so it can be hosted in a subfolder): Codeberg Pages, Netlify, Nginx, etc.
+Output goes to `dist/` (relative base, so it can be hosted in a subfolder): GitHub Pages, Netlify, Nginx, etc.
 
 To point the build at a shared backend, set the API URL at build time:
 

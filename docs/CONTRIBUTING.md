@@ -1,6 +1,6 @@
 # Contributing
 
-Issues and pull requests are welcome on [Codeberg](https://codeberg.org/medenor/kairos). For anything larger than a small fix, open an issue first so the approach can be discussed.
+Issues and pull requests are welcome on [GitHub](https://github.com/Medenor/kairos). For anything larger than a small fix, open an issue first so the approach can be discussed.
 
 ## Ground rules
 
@@ -15,7 +15,7 @@ Kairos is governed by its [constitution](../.specify/memory/constitution.md). In
 ## Setup
 
 ```bash
-git clone https://codeberg.org/medenor/kairos.git
+git clone https://github.com/Medenor/kairos.git
 cd kairos
 npm ci
 npm run dev

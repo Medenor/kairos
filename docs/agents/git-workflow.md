@@ -1,8 +1,8 @@
 # Git Workflow
 
-Hosted on [Codeberg](https://codeberg.org/medenor/kairos) (Forgejo), not GitHub. CI runs from `.forgejo/workflows/`.
+Hosted on [GitHub](https://github.com/Medenor/kairos). CI runs from `.github/workflows/`.
 
-- **Always work on a branch.** Do not commit non-trivial changes straight to `main`. Branch, push, open a PR using `.forgejo/PULL_REQUEST_TEMPLATE.md`, even for solo work, so CI runs.
+- **Always work on a branch.** Do not commit non-trivial changes straight to `main`. Branch, push, open a PR using `.github/PULL_REQUEST_TEMPLATE.md`, even for solo work, so CI runs.
 - **Branch names:** spec-kit features use `NNN-short-name` (sequential numbering, e.g. `005-weekly-history`); everything else uses `type/short-name` (`chore/…`, `fix/…`, `docs/…`).
 - **Commits:** [Conventional Commits](https://www.conventionalcommits.org) (`feat:`, `fix:`, `docs:`, `chore:`, `refactor:`, `test:`; optional scope, e.g. `fix(rules): …`).
 - **Docs-only exception:** a tiny documentation-only change may go to `main` directly only when the maintainer says so for that change.
