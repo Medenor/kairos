@@ -1,5 +1,9 @@
 import { existsSync, readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+export const backendDir = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
+export const envFilePath = resolve(backendDir, '.env')
 
 function parseDotEnv(content) {
   const out = {}
@@ -15,10 +19,15 @@ function parseDotEnv(content) {
   return out
 }
 
-function loadEnvFile() {
-  const local = resolve(process.cwd(), 'backend/.env')
-  if (!existsSync(local)) return {}
-  return parseDotEnv(readFileSync(local, 'utf8'))
+function loadEnvFile(path = envFilePath) {
+  if (!existsSync(path)) return {}
+  return parseDotEnv(readFileSync(path, 'utf8'))
+}
+
+export function resolveDbPath(configuredPath, cwd = process.cwd()) {
+  return configuredPath
+    ? resolve(cwd, configuredPath)
+    : resolve(backendDir, 'data/kairos.db')
 }
 
 const fileEnv = loadEnvFile()
@@ -36,7 +45,7 @@ export const config = {
   host: env.HOST || '0.0.0.0',
   port: Number(env.PORT || 8080),
   apiPrefix: env.API_PREFIX || '/api/v1',
-  dbPath: env.DB_PATH || './backend/data/kairos.db',
+  dbPath: resolveDbPath(env.DB_PATH),
   sessionTtlSeconds: Number(env.AUTH_SESSION_TTL_SECONDS || 43200),
   lanOnly: String(env.LAN_ONLY || 'true').toLowerCase() !== 'false',
   allowedSubnets: (env.ALLOWED_SUBNETS || DEFAULT_SUBNETS.join(','))

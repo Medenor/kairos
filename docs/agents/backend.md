@@ -32,7 +32,7 @@ SQL files in `backend/src/migrations/`, numbered (`001_initial_schema.sql`), app
 | --- | --- | --- |
 | `HOST` / `PORT` | `0.0.0.0` / `8080` | Listen address |
 | `API_PREFIX` | `/api/v1` | Route prefix |
-| `DB_PATH` | `./backend/data/kairos.db` | SQLite file |
+| `DB_PATH` | `backend/data/kairos.db` | SQLite file; relative overrides resolve from the launch directory |
 | `LAN_ONLY` | `true` | Reject clients outside `ALLOWED_SUBNETS` |
 | `ALLOWED_SUBNETS` | loopback + RFC1918 | Comma-separated CIDRs (IPv4) |
 | `AUTH_SESSION_TTL_SECONDS` | `43200` | Session lifetime |
