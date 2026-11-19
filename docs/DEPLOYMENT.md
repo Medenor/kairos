@@ -83,6 +83,8 @@ npm run dev                                        # :5173
 
 See the variable table in [agents/backend.md](agents/backend.md#configuration). Data lives in `DB_PATH` (default `backend/data/kairos.db`); back it up with the in-app Backup panel or by copying the file while the server is stopped.
 
+Older checkouts could create a second database at `backend/backend/data/kairos.db` when the backend was launched through a root npm script. Before removing it, stop the backend and compare both files (size, modification time, and the data visible after starting with an explicit absolute `DB_PATH`). Back up both files, choose the database that contains the records you want to keep, then copy it to `backend/data/kairos.db`. Kairos does not overwrite or merge either database automatically.
+
 ## Surplus runner (optional)
 
 The runner starts approved ideas with your subscription-signed-in `claude` or `codex` CLI when a provider you declared has quota that would expire unused at its reset. It runs on one device, is optional, and is not needed by the dashboard: without it, the dashboard only suggests ideas.

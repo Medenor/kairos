@@ -70,6 +70,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Backend startup and migration now find `backend/.env` and the default `backend/data/kairos.db` independently of the launch directory, preventing root npm scripts from creating a second database under `backend/backend/data/`.
 - Enabling automatic runs for a service no longer switches the global switch back on after "Stop all automatic runs". Only a switch that was never set is turned on automatically; after a stop, use "Switch back on".
 - Shared-state bootstrap no longer throws "Assignment to constant variable" when the server returns quota records.
 - Weekly history view no longer lags one render behind the stored history.
