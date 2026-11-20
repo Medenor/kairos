@@ -84,7 +84,6 @@ Tracked here until they become issues:
 - Restrict CORS to a configurable origin list.
 - Run the runner's tool process under an OS-level sandbox (see [Surplus runner](#surplus-runner)).
 - Replace the `sqlite3` CLI shell-out with a driver using prepared statements.
-- Upgrade Vite 5 (dev-server advisory GHSA-67mh-4wv8-2f99 via esbuild, development only; production dependencies report 0 vulnerabilities).
 
 ## Dependencies
 

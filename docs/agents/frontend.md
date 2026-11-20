@@ -1,6 +1,6 @@
 # Frontend Conventions
 
-React 18 + Vite 5, plain JavaScript (ES modules, Node 26 LTS baseline), CSS Modules. No UI library, no state library, no TypeScript.
+React 18 + Vite 8, plain JavaScript (ES modules, Node 26 LTS baseline), CSS Modules. No UI library, no state library, no TypeScript.
 
 The Node version is set in `.nvmrc` (CI reads it) and pinned in `package.json` under `volta`, so Volta users get the right Node automatically inside the repo.
 

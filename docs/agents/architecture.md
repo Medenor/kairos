@@ -3,7 +3,7 @@
 Kairos has three deliverables: a **static React frontend** that works fully offline, an **optional LAN-scoped backend** that shares state between devices, and an **optional local runner** (`runner/`) that executes approved ideas on one machine. The constitution ([`.specify/memory/constitution.md`](../../.specify/memory/constitution.md)) requires the frontend to keep working with no backend at all.
 
 ```text
-src/                      Frontend (React 18 + Vite 5, CSS Modules)
+src/                      Frontend (React 18 + Vite 8, CSS Modules)
   data/tasks.js           The five fixed task types a recommendation is computed for
   providers/              User-declared providers (feature 007): ids, schema, catalogue reducers, runtime mapping, records, engine
   routing/                Generic deterministic recommendation engine (replaces the former per-provider rule table)

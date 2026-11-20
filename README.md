@@ -8,7 +8,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-AGPL%20v3-blue.svg" alt="License: AGPL v3"></a>
   <img src="https://img.shields.io/badge/Node.js-26+-339933?logo=nodedotjs&logoColor=white" alt="Node.js 26+">
   <img src="https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black" alt="React 18">
-  <img src="https://img.shields.io/badge/Vite-5-646CFF?logo=vite&logoColor=white" alt="Vite 5">
+  <img src="https://img.shields.io/badge/Vite-8-646CFF?logo=vite&logoColor=white" alt="Vite 8">
   <img src="https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white" alt="Docker">
 </p>
 
@@ -124,7 +124,7 @@ The recommendation is computed only from what you declared (fit, quota pressure,
 
 ## Stack
 
-- Frontend: React 18 + Vite 5, CSS Modules. Only `react` and `react-dom` at runtime
+- Frontend: React 18 + Vite 8, CSS Modules. Only `react` and `react-dom` at runtime
 - Backend (optional): Node.js `http` server, SQLite via the `sqlite3` CLI, no npm dependencies
 - Tests: built-in `node:test`. Lint: ESLint
 - Delivery: static build or Nginx container
