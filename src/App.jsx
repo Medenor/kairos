@@ -133,7 +133,7 @@ export default function App() {
       </section>
 
       <section>
-        <div className={styles.sectionLabel}>Idea queue</div>
+        <h2 className={styles.sectionLabel}>Idea queue</h2>
         {!surplus.sharedMode && (
           <p className={styles.subtitle}>
             The queue works on this device. Automatic runs need shared mode and are unavailable until a workspace is set.
@@ -154,31 +154,45 @@ export default function App() {
         />
       </section>
 
-      <section>
-        <div className={styles.sectionLabel}>Run results</div>
-        <RunReview runs={surplus.runs} ideas={surplus.ideas} onDecision={surplus.decideRun} services={providers} catalogue={catalogue.catalogue} />
-        <CycleSummary cycles={surplus.cycles} runs={surplus.runs} services={providers} catalogue={catalogue.catalogue} now={now} />
-      </section>
+      {/* Run results only exist once a run or a reset cycle was recorded: no empty panel before then. */}
+      {(surplus.runs?.length > 0 || surplus.cycles?.length > 0) && (
+        <section>
+          <h2 className={styles.sectionLabel}>Run results</h2>
+          <RunReview runs={surplus.runs} ideas={surplus.ideas} onDecision={surplus.decideRun} services={providers} catalogue={catalogue.catalogue} />
+          <CycleSummary cycles={surplus.cycles} runs={surplus.runs} services={providers} catalogue={catalogue.catalogue} now={now} />
+        </section>
+      )}
 
+      {/* Set-and-forget controls live behind one disclosure so they never compete with the recommendation. */}
       <section>
-        <div className={styles.sectionLabel}>Surplus settings</div>
-        <SurplusSettings
-          policy={surplus.policy}
-          onUpdatePolicy={surplus.updatePolicy}
-          services={providers}
-          inactiveProviders={inactiveProviders}
-          runs={surplus.runs}
-          sharedMode={surplus.sharedMode}
-          autoRunEnabled={surplus.autoRunEnabled}
-          stopIssued={globalSwitchState(surplus.control) === 'stopped'}
-          onStopAutoRuns={surplus.stopAutoRuns}
-          onSetAutoRunEnabled={surplus.setAutoRunEnabled}
-        />
-      </section>
-
-      <section>
-        <MigrationPanel workspaceId={workspaceId} />
-        <BackupPanel workspaceId={workspaceId} />
+        <details className={styles.automation}>
+          <summary className={styles.automationSummary}>
+            <span className={styles.automationTitle}>Automation and data</span>
+            <span className={styles.automationHint}>Surplus settings{workspaceId ? ', migration, backups' : ''}</span>
+          </summary>
+          <div className={styles.automationBody}>
+            <SurplusSettings
+              policy={surplus.policy}
+              onUpdatePolicy={surplus.updatePolicy}
+              services={providers}
+              inactiveProviders={inactiveProviders}
+              runs={surplus.runs}
+              sharedMode={surplus.sharedMode}
+              autoRunEnabled={surplus.autoRunEnabled}
+              stopIssued={globalSwitchState(surplus.control) === 'stopped'}
+              onStopAutoRuns={surplus.stopAutoRuns}
+              onSetAutoRunEnabled={surplus.setAutoRunEnabled}
+            />
+            {workspaceId ? (
+              <>
+                <MigrationPanel workspaceId={workspaceId} />
+                <BackupPanel workspaceId={workspaceId} />
+              </>
+            ) : (
+              <p className={styles.subtitle}>Migration and backups appear once a shared workspace is set.</p>
+            )}
+          </div>
+        </details>
       </section>
 
       <SummaryBar
