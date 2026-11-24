@@ -1,13 +1,30 @@
+import { useEffect, useRef } from 'react'
 import { describeDeletion } from '../providers/activeRun.js'
 import styles from './DeleteProviderDialog.module.css'
 
 // Confirmation before a provider is deleted (FR-004): names it, lists what is removed and what is kept,
 // warns about a run in progress, and removes nothing until the explicit Delete.
+// Esc cancels, and focus starts on Cancel so a stray Enter never deletes.
 // Props: provider (stored), runs, onConfirm(), onCancel().
 export default function DeleteProviderDialog({ provider, runs = [], onConfirm, onCancel }) {
   const { willRemove, willKeep, runWarning } = describeDeletion(provider, runs)
+  const cancelRef = useRef(null)
+  useEffect(() => {
+    cancelRef.current?.focus()
+  }, [])
   return (
-    <div className={styles.dialog} role="alertdialog" aria-labelledby="delete-provider-title" aria-describedby="delete-provider-body">
+    <div
+      className={styles.dialog}
+      role="alertdialog"
+      aria-labelledby="delete-provider-title"
+      aria-describedby="delete-provider-body"
+      onKeyDown={(event) => {
+        if (event.key === 'Escape') {
+          event.stopPropagation()
+          onCancel()
+        }
+      }}
+    >
       <h3 id="delete-provider-title" className={styles.title}>Delete {provider.name}?</h3>
       <div id="delete-provider-body" className={styles.body}>
         {runWarning && <p className={styles.warning} role="alert">{runWarning}</p>}
@@ -24,7 +41,7 @@ export default function DeleteProviderDialog({ provider, runs = [], onConfirm, o
       </div>
       <div className={styles.actions}>
         <button type="button" className={styles.danger} onClick={onConfirm}>Delete</button>
-        <button type="button" className={styles.cancel} onClick={onCancel}>Cancel</button>
+        <button type="button" className={styles.cancel} onClick={onCancel} ref={cancelRef}>Cancel</button>
       </div>
     </div>
   )
