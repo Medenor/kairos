@@ -2,15 +2,127 @@
   background: var(--color-bg);
   border: 0.5px solid var(--color-border);
   border-radius: var(--radius-lg);
-  padding: 1rem 1.25rem;
   margin-bottom: 10px;
+}
+
+/* The summary is the glance: always visible, and the control that opens the card. */
+.summary {
+  display: block;
+  list-style: none;
+  cursor: pointer;
+  padding: 1rem 1.25rem;
+  border-radius: var(--radius-lg);
+}
+
+.summary::-webkit-details-marker {
+  display: none;
+}
+
+.summary:focus-visible {
+  outline: 2px solid var(--color-text);
+  outline-offset: 2px;
+}
+
+.body {
+  padding: 0 1.25rem 1rem;
 }
 
 .header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 10px;
+  gap: 8px;
+}
+
+.headerEnd {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.toggle {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  min-width: 44px;
+  text-align: right;
+}
+
+.toggleOpen,
+.card[open] .toggleClosed {
+  display: none;
+}
+
+.card[open] .toggleOpen {
+  display: inline;
+}
+
+/* Collapsed: one read-only line per quota. Opened: the steppers below replace it. */
+.glance {
+  margin-top: 8px;
+}
+
+.card[open] .glance {
+  display: none;
+}
+
+.card[open] .summary {
+  padding-bottom: 10px;
+}
+
+.glanceRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 12px;
+  row-gap: 4px;
+  align-items: baseline;
+  margin-bottom: 8px;
+}
+
+.glanceRow:last-child {
+  margin-bottom: 0;
+}
+
+.glanceLabel {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.glanceValue {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text);
+  text-align: right;
+}
+
+.glanceRow .barRow {
+  grid-column: 1 / -1;
+  margin-bottom: 0;
+}
+
+.glanceAge {
+  grid-column: 1 / -1;
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+}
+
+.actionRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.balanceNote {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  margin-bottom: 8px;
+}
+
+.quotaValDetail {
+  display: block;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--color-text-tertiary);
 }
 
 .identity {
@@ -89,7 +201,7 @@
 .quotaValDisplay {
   font-size: 14px;
   font-weight: 600;
-  min-width: 44px;
+  min-width: 72px;
   text-align: center;
   color: var(--color-text);
 }
@@ -268,6 +380,13 @@
   .confirmBtn {
     width: 100%;
     min-height: 40px;
+  }
+
+  /* Card actions share a row instead of stacking five full-width buttons. */
+  .actionRow .confirmBtn {
+    width: auto;
+    flex: 1 1 auto;
+    white-space: nowrap;
   }
 
   .stepperRow, .creditRow {

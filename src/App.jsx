@@ -73,7 +73,17 @@ export default function App() {
       </header>
 
       <section>
-        <div className={styles.sectionLabel}>Providers</div>
+        <h2 className={styles.sectionLabel}>What are you about to do?</h2>
+        <TaskPicker selected={selectedTask} onSelect={setSelectedTask} />
+      </section>
+
+      <section aria-live="polite">
+        <h2 className={styles.sectionLabel}>Recommendation</h2>
+        <RecoBox task={selectedTask} providers={providers} state={state} now={now} />
+      </section>
+
+      <section>
+        <h2 className={styles.sectionLabel}>Providers</h2>
         <ProviderManager
           providers={providers}
           stored={catalogue.catalogue.providers}
@@ -109,18 +119,8 @@ export default function App() {
         />
       </section>
 
-      <section style={{ marginTop: '20px' }}>
-        <div className={styles.sectionLabel}>What are you about to do?</div>
-        <TaskPicker selected={selectedTask} onSelect={setSelectedTask} />
-      </section>
-
       <section>
-        <div className={styles.sectionLabel}>Recommendation</div>
-        <RecoBox task={selectedTask} providers={providers} state={state} now={now} />
-      </section>
-
-      <section>
-        <div className={styles.sectionLabel}>Expiring surplus</div>
+        <h2 className={styles.sectionLabel}>Expiring surplus</h2>
         <SurplusNotice
           evaluation={surplus.evaluation}
           ideas={surplus.ideas}
