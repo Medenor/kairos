@@ -20,8 +20,22 @@
   --color-green-text: #0b6b4c;
   --color-amber-text: #7a4a00;
   --color-red-text: #b3261e;
+  /* Pale status surfaces for badges: each pairs with its *-text colour at >= 4.5:1 */
+  --color-green-bg: #eaf3de;
+  --color-amber-bg: #faeeda;
+  --color-red-bg: #fcebeb;
+  --color-off-bg: #f1efe8;
+  /* Solid action fills with their text colour: the raw signal green only reaches 3.4:1 under white text */
+  --color-action: #0b6b4c;
+  --color-on-action: #ffffff;
+  --color-danger: #c62f2d; /* white text 5.46:1 */
+  --color-on-danger: #ffffff;
+  /* Selected tile */
+  --color-select-border: #185fa5;
+  --color-select-bg: #e6f1fb;
   --radius-md: 8px;
   --radius-lg: 12px;
+  color-scheme: light dark;
   font-family: system-ui, -apple-system, sans-serif;
   font-size: 16px;
   line-height: 1.5;
@@ -42,6 +56,32 @@
     --color-green-text: #3fc79b;
     --color-amber-text: #EF9F27;
     --color-red-text: #f0807f;
+    --color-green-bg: #16352b;
+    --color-amber-bg: #3a2c12;
+    --color-red-bg: #3d1f1e;
+    --color-off-bg: #34342f;
+    --color-action: #3fc79b;
+    --color-on-action: #0a2a1f;
+    --color-select-border: #6aa8e6;
+    --color-select-bg: #1d2e42;
+  }
+}
+
+/* Browser surfaces the components do not draw: one visible focus ring, readable placeholders, calm motion. */
+:focus-visible {
+  outline: 2px solid var(--color-text);
+  outline-offset: 2px;
+}
+
+::placeholder {
+  color: var(--color-text-tertiary);
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
   }
 }
 
@@ -88,6 +128,5 @@ input[type="number"] {
 }
 
 input[type="number"]:focus {
-  outline: none;
-  border-color: #378ADD;
+  border-color: var(--color-text);
 }

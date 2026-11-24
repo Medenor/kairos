@@ -260,10 +260,10 @@
 }
 
 .stopBtn {
-  border: 1px solid #c62f2d;
+  border: 1px solid var(--color-danger);
   border-radius: var(--radius-md);
-  background: #c62f2d; /* white text 5.46:1 (was --color-red, 3.93:1) */
-  color: #ffffff;
+  background: var(--color-danger); /* white text 5.46:1 (was --color-red, 3.93:1) */
+  color: var(--color-on-danger);
   font-size: 14px;
   font-weight: 600;
   padding: 8px 14px;

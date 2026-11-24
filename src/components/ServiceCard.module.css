@@ -120,7 +120,7 @@
 
 .quotaValDetail {
   display: block;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 400;
   color: var(--color-text-tertiary);
 }
@@ -151,7 +151,7 @@
 }
 
 .badge {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
   padding: 3px 8px;
   border-radius: var(--radius-md);
@@ -243,7 +243,7 @@
 }
 
 .subnote {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--color-text-tertiary);
 }
 
@@ -274,7 +274,7 @@
 }
 
 .resetState {
-  font-size: 11px;
+  font-size: 12px;
   padding: 2px 6px;
   border-radius: var(--radius-md);
   background: var(--color-bg-tertiary);
@@ -282,19 +282,40 @@
 }
 
 .resetState_countdown {
-  background: #eaf3de;
-  color: #3b6d11;
+  background: var(--color-green-bg);
+  color: var(--color-green-text);
 }
 
 .resetState_due {
-  background: #faeeda;
-  color: #854f0b;
+  background: var(--color-amber-bg);
+  color: var(--color-amber-text);
 }
 
 .resetState_overdue,
 .resetState_invalid {
-  background: #fcebeb;
-  color: #a32d2d;
+  background: var(--color-red-bg);
+  color: var(--color-red-text);
+}
+
+/* Status badge in the card header, one class per level. */
+.badge_ok {
+  background: var(--color-green-bg);
+  color: var(--color-green-text);
+}
+
+.badge_warn {
+  background: var(--color-amber-bg);
+  color: var(--color-amber-text);
+}
+
+.badge_crit {
+  background: var(--color-red-bg);
+  color: var(--color-red-text);
+}
+
+.badge_off {
+  background: var(--color-off-bg);
+  color: var(--color-text-secondary);
 }
 
 .resetState_unset,
@@ -335,12 +356,12 @@
 
 .resetMeta {
   margin-top: 6px;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--color-text-tertiary);
 }
 
 .quotaAge {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--color-text-tertiary);
   margin: -8px 0 10px;
 }
@@ -427,7 +448,7 @@
 }
 
 .footer {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--color-text-tertiary);
   margin-top: 4px;
   margin-bottom: 8px;
@@ -440,7 +461,7 @@
 }
 
 .flag {
-  font-size: 11px;
+  font-size: 12px;
   padding: 2px 6px;
   border: 0.5px solid var(--color-border);
   border-radius: var(--radius-md);

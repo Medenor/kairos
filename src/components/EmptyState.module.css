@@ -24,8 +24,8 @@
   padding: 8px 16px;
   border: none;
   border-radius: var(--radius-md);
-  background: var(--color-green);
-  color: #fff;
+  background: var(--color-action);
+  color: var(--color-on-action);
   font: inherit;
   font-size: 14px;
   font-weight: 500;

@@ -161,13 +161,6 @@ function QuotaRow({ quota, value, onChange, stamp, now }) {
   )
 }
 
-const BADGE_STYLES = {
-  ok: { background: '#EAF3DE', color: '#3B6D11' },
-  warn: { background: '#FAEEDA', color: '#854F0B' },
-  crit: { background: '#FCEBEB', color: '#A32D2D' },
-  off: { background: '#F1EFE8', color: '#5F5E5A' },
-}
-
 export function resetLabel(svc) {
   switch (svc.resetType) {
     case 'weekly': return 'Weekly reset'
@@ -243,7 +236,7 @@ export default function ServiceCard({ svc, quotaState = {}, onUpdate, onConfirm,
           </div>
           <div className={styles.headerEnd}>
             {anyReading && (
-              <span className={styles.badge} style={BADGE_STYLES[badge.level]}>
+              <span className={`${styles.badge} ${styles[`badge_${badge.level}`]}`}>
                 {badge.label}
               </span>
             )}

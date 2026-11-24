@@ -1,0 +1,327 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-24T18:00:00Z",
+  "title": "Design System: Kairos",
+  "extensions": {
+    "colorMeta": {
+      "paper": {
+        "role": "neutral",
+        "displayName": "Paper",
+        "canonical": "#ffffff",
+        "tonalRamp": [
+          "#1a1a18",
+          "#3a3a37",
+          "#5f5e5a",
+          "#8c8b86",
+          "#b9b7b0",
+          "#d8d6ce",
+          "#eeece6",
+          "#ffffff"
+        ]
+      },
+      "paper-warm": {
+        "role": "neutral",
+        "displayName": "Warm Paper",
+        "canonical": "#f5f5f3",
+        "tonalRamp": [
+          "#1a1a18",
+          "#3a3a37",
+          "#5f5e5a",
+          "#8c8b86",
+          "#b9b7b0",
+          "#d8d6ce",
+          "#eeece6",
+          "#f5f5f3"
+        ]
+      },
+      "paper-sunk": {
+        "role": "neutral",
+        "displayName": "Sunk Paper",
+        "canonical": "#eeece6",
+        "tonalRamp": [
+          "#1a1a18",
+          "#3a3a37",
+          "#5f5e5a",
+          "#8c8b86",
+          "#b9b7b0",
+          "#d8d6ce",
+          "#e4e2db",
+          "#eeece6"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "#1a1a18",
+        "tonalRamp": [
+          "#1a1a18",
+          "#2c2c2a",
+          "#3a3a37",
+          "#5f5e5a",
+          "#6b6a65",
+          "#8c8b86",
+          "#b9b7b0",
+          "#d8d6ce"
+        ]
+      },
+      "signal-green": {
+        "role": "primary",
+        "displayName": "Signal Green",
+        "canonical": "#1D9E75",
+        "tonalRamp": [
+          "#0b3d2d",
+          "#0b6b4c",
+          "#12875f",
+          "#1D9E75",
+          "#3fc79b",
+          "#7fdcbb",
+          "#b9ecd9",
+          "#e3f7ef"
+        ]
+      },
+      "signal-amber": {
+        "role": "secondary",
+        "displayName": "Signal Amber",
+        "canonical": "#EF9F27",
+        "tonalRamp": [
+          "#4a2c00",
+          "#7a4a00",
+          "#a86a0c",
+          "#EF9F27",
+          "#f4b95a",
+          "#f8d08e",
+          "#fbe5bf",
+          "#fdf4e3"
+        ]
+      },
+      "signal-red": {
+        "role": "secondary",
+        "displayName": "Signal Red",
+        "canonical": "#E24B4A",
+        "tonalRamp": [
+          "#4a0f0e",
+          "#7d1f1e",
+          "#b3261e",
+          "#E24B4A",
+          "#f0807f",
+          "#f6aeae",
+          "#fad3d3",
+          "#fdecec"
+        ]
+      },
+      "select-blue": {
+        "role": "tertiary",
+        "displayName": "Selection Blue",
+        "canonical": "#185FA5",
+        "tonalRamp": [
+          "#0a2a4a",
+          "#0f4378",
+          "#185FA5",
+          "#378ADD",
+          "#6aa8e6",
+          "#9cc4ee",
+          "#c9defa",
+          "#E6F1FB"
+        ]
+      },
+      "action": {
+        "role": "primary",
+        "displayName": "Action Green",
+        "canonical": "#0b6b4c",
+        "tonalRamp": [
+          "#06281d",
+          "#094c37",
+          "#0b6b4c",
+          "#12875f",
+          "#3fc79b",
+          "#8fdcbd",
+          "#c4eddc",
+          "#e8f7f0"
+        ]
+      },
+      "danger": {
+        "role": "secondary",
+        "displayName": "Danger",
+        "canonical": "#c62f2d",
+        "tonalRamp": [
+          "#3a0c0b",
+          "#6d1a19",
+          "#c62f2d",
+          "#d9605e",
+          "#e58a89",
+          "#f0b3b2",
+          "#f8d8d7",
+          "#fcefee"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "title": {
+        "displayName": "Title",
+        "purpose": "App name beside the logo."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Recommended provider name."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Subtitles, empty states, inputs."
+      },
+      "reason": {
+        "displayName": "Reason",
+        "purpose": "The explanation under a recommendation."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Uppercase section labels."
+      },
+      "mono": {
+        "displayName": "Mono",
+        "purpose": "Identifiers and run output."
+      }
+    },
+    "shadows": [],
+    "motion": [
+      {
+        "name": "gauge-fill",
+        "value": "width 0.2s, background 0.2s",
+        "purpose": "Quota bar width and colour change."
+      },
+      {
+        "name": "tile-border",
+        "value": "border-color 0.15s",
+        "purpose": "Task tile hover."
+      },
+      {
+        "name": "press",
+        "value": "translateY(1px)",
+        "purpose": "Step and confirm buttons on :active."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "phone",
+        "value": "480px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Provider and recommendation container.",
+      "html": "<div class=\"ds-card\"><strong>Provider</strong><p>Reason text sits here.</p></div>",
+      "css": ".ds-card { background: #fff; border: 0.5px solid rgba(0,0,0,0.12); border-radius: 12px; padding: 1rem 1.25rem; font: 14px/1.5 system-ui, sans-serif; color: #1a1a18; } .ds-card p { font-size: 13px; line-height: 1.6; color: #5f5e5a; margin: 6px 0 0; }"
+    },
+    {
+      "name": "Step Button",
+      "kind": "button",
+      "refersTo": "button-step",
+      "description": "32px square +/- control for quota readings.",
+      "html": "<button class=\"ds-step\">+</button>",
+      "css": ".ds-step { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; background: #eeece6; border: 0.5px solid rgba(0,0,0,0.12); border-radius: 8px; color: #1a1a18; font-size: 13px; cursor: pointer; padding: 0; touch-action: manipulation; } .ds-step:active { background: #f5f5f3; transform: translateY(1px); } .ds-step:focus-visible { outline: 2px solid #1a1a18; outline-offset: 2px; }"
+    },
+    {
+      "name": "Action Button",
+      "kind": "button",
+      "refersTo": "button-action",
+      "description": "Empty-state call to action.",
+      "html": "<button class=\"ds-action\">Add provider</button>",
+      "css": ".ds-action { padding: 8px 16px; border: none; border-radius: 8px; background: #0b6b4c; color: #fff; font: 500 14px system-ui, sans-serif; cursor: pointer; } .ds-action:focus-visible { outline: 2px solid #1a1a18; outline-offset: 2px; }"
+    },
+    {
+      "name": "Task Tile",
+      "kind": "chip",
+      "refersTo": "task-tile",
+      "description": "Selectable task type; selected state uses Selection Blue.",
+      "html": "<button class=\"ds-tile ds-tile-selected\"><span class=\"n\">Coding</span><span class=\"d\">Write or edit code</span></button>",
+      "css": ".ds-tile { background: #f5f5f3; border: 0.5px solid rgba(0,0,0,0.12); border-radius: 8px; padding: 10px 12px; text-align: left; display: flex; flex-direction: column; gap: 2px; cursor: pointer; transition: border-color 0.15s; } .ds-tile:hover { border-color: rgba(0,0,0,0.22); } .ds-tile-selected { border: 1.5px solid #185FA5; background: #E6F1FB; } .ds-tile .n { font-size: 13px; font-weight: 500; color: #1a1a18; } .ds-tile .d { font-size: 11px; color: #5f5e5a; }"
+    },
+    {
+      "name": "Number Input",
+      "kind": "input",
+      "refersTo": "input-number",
+      "description": "Quota value entry.",
+      "html": "<input class=\"ds-num\" type=\"number\" value=\"42\">",
+      "css": ".ds-num { font-size: 13px; padding: 4px 8px; border: 0.5px solid rgba(0,0,0,0.22); border-radius: 8px; background: #f5f5f3; color: #1a1a18; width: 80px; } .ds-num:focus { outline: none; border-color: #1a1a18; }"
+    },
+    {
+      "name": "Reset Badge",
+      "kind": "chip",
+      "refersTo": "badge",
+      "description": "Reset state (countdown, due, overdue).",
+      "html": "<span class=\"ds-badge ds-badge-overdue\">Overdue</span>",
+      "css": ".ds-badge { font-size: 11px; padding: 2px 6px; border-radius: 8px; background: #eeece6; color: #5f5e5a; } .ds-badge-overdue { background: #fcebeb; color: #a32d2d; }"
+    },
+    {
+      "name": "Gauge",
+      "kind": "custom",
+      "refersTo": "card",
+      "description": "4px quota bar on a sunk track.",
+      "html": "<div class=\"ds-track\"><div class=\"ds-bar\"></div></div>",
+      "css": ".ds-track { height: 4px; background: #eeece6; border-radius: 2px; overflow: hidden; } .ds-bar { width: 62%; height: 4px; border-radius: 2px; background: #1D9E75; transition: width 0.2s, background 0.2s; }"
+    },
+    {
+      "name": "Provider Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Collapsible provider: a glance line per quota, controls when opened.",
+      "html": "<details class=\"ds-pcard\"><summary class=\"ds-psum\"><span class=\"ds-pname\">Claude Pro</span><span class=\"ds-pbadge\">Watch out</span><span class=\"ds-pread\">62% used</span></summary><p class=\"ds-pbody\">Steppers and actions</p></details>",
+      "css": ".ds-pcard { background:#fff; border:0.5px solid rgba(0,0,0,0.12); border-radius:12px; font:14px/1.5 system-ui,sans-serif; color:#1a1a18; } .ds-psum { display:flex; gap:12px; align-items:center; padding:1rem 1.25rem; cursor:pointer; list-style:none; } .ds-psum:focus-visible { outline:2px solid #1a1a18; outline-offset:2px; } .ds-pname { font-size:15px; font-weight:500; flex:1; } .ds-pbadge { font-size:12px; padding:3px 8px; border-radius:8px; background:#faeeda; color:#7a4a00; } .ds-pread { font-size:13px; font-weight:600; } .ds-pbody { padding:0 1.25rem 1rem; color:#5f5e5a; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Dispatch Board",
+    "overview": "Kairos is a board you glance at before sending the next task somewhere. The surfaces are quiet, warm-neutral and flat; the only loud thing on screen is a status colour, and the loudest sentence is the recommendation with its reason. Nothing decorates.",
+    "keyCharacteristics": [
+      "Flat: no shadows, depth from surface steps and 0.5px hairlines.",
+      "One lane: a 720px column centred on a sunk page background.",
+      "Status colour is the only chroma; everything else is warm grey.",
+      "System font, small sizes, weight 500 for emphasis.",
+      "Every state is legible without colour."
+    ],
+    "rules": [
+      {
+        "name": "The Chroma-Is-Meaning Rule",
+        "body": "Colour appears only to say something about a quota or a selection. Decorative colour is off limits.",
+        "section": "colors"
+      },
+      {
+        "name": "The Text-Safe Rule",
+        "body": "Status colour on text always uses the *-text variant; the raw signal colours are for fills, dots and bars.",
+        "section": "colors"
+      },
+      {
+        "name": "The Tokenise-The-Status Rule",
+        "body": "New status surfaces must use tokens, not literals.",
+        "section": "colors"
+      },
+      {
+        "name": "The One Family Rule",
+        "body": "One sans family, one mono. Hierarchy is size plus weight 500, not new fonts.",
+        "section": "typography"
+      },
+      {
+        "name": "The Flat-By-Default Rule",
+        "body": "No shadows. If something must lift, change its surface step or its border.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do use the --color-* and --radius-md / --radius-lg tokens for every new surface, border and radius.",
+      "Do pair every status colour with a text label or badge so meaning survives without colour.",
+      "Do use the *-text colour variants for any coloured text.",
+      "Do keep controls at least 32px (36-40px on phones) and add touch-action: manipulation.",
+      "Do give every interactive control a visible :focus-visible treatment."
+    ],
+    "donts": [
+      "Don't add box-shadows, gradients or glass effects; depth is tonal.",
+      "Don't introduce a second font family or weights above 600.",
+      "Don't hardcode hex values in a component.",
+      "Don't use raw signal colours for text on pale backgrounds.",
+      "Don't add decorative colour, illustration or iconography with no quota meaning."
+    ]
+  }
+}
