@@ -16,13 +16,30 @@
 }
 
 .label {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--color-text-tertiary);
 }
 
 .value {
   font-size: 18px;
   font-weight: 500;
+  color: var(--color-text);
+}
+
+/* Text-safe red: the raw signal red is for fills, never for text. */
+.valueAlert {
+  color: var(--color-red-text);
+}
+
+.confirm {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.confirmText {
+  font-size: 12px;
   color: var(--color-text);
 }
 
@@ -73,12 +90,12 @@
 }
 
 .syncValue[data-status='ready'] {
-  color: #2e7d32;
+  color: var(--color-green-text);
 }
 
 .syncValue[data-status='conflict'],
 .syncValue[data-status='error'] {
-  color: #c62828;
+  color: var(--color-red-text);
 }
 
 .syncMessage {

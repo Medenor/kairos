@@ -33,7 +33,7 @@
 }
 
 .sectionLabel {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
   color: var(--color-text-secondary);
   letter-spacing: 0.08em;
@@ -41,6 +41,42 @@
   margin-bottom: 12px;
 }
 
-.historySection {
-  margin-top: 20px;
+.automation {
+  border: 0.5px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-secondary);
+}
+
+.automationSummary {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 12px 1.25rem;
+  cursor: pointer;
+  border-radius: var(--radius-lg);
+}
+
+.automationSummary:focus-visible {
+  outline: 2px solid var(--color-text);
+  outline-offset: 2px;
+}
+
+.automationTitle {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.automationHint {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.automationBody {
+  padding: 0 1rem 1rem;
+}
+
+/* Sections breathe more above than below their label, so each label reads as the head of what follows. */
+.app > section + section {
+  margin-top: 28px;
 }

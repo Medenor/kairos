@@ -65,6 +65,27 @@ function resetNote(candidate) {
 
 const FIT_WORD = { strong: 'Strong', acceptable: 'Acceptable', weak: 'Weak' }
 
+// A balance has no declared maximum, so its load is a band (see getConsumedPct), not a measured
+// percentage: it is described in words, never as "20% consumed". Percentage quotas keep their number.
+function balanceWord(pressure) {
+  if (pressure >= 85) return 'nearly out'
+  if (pressure >= 60) return 'running low'
+  return 'above its low-balance level'
+}
+
+// How loaded a candidate is, for a reason or a role: "30%" for a percentage quota, a phrase for a balance.
+function loadText(candidate) {
+  return candidate.gatingType === 'currency' ? balanceWord(candidate.pressure) : `${round(candidate.pressure)}%`
+}
+
+// Better-fitting providers that are still eligible but lost on load: named so a weaker pick is never unexplained.
+function betterFitNote(primary, eligible) {
+  const better = eligible.filter((c) => c.providerId !== primary.providerId && FIT_SCORE[c.fit] > FIT_SCORE[primary.fit])
+  if (better.length === 0) return ''
+  const listed = better.slice(0, 2).map((c) => `${c.name} (${FIT_WORD[c.fit].toLowerCase()} fit, ${c.gatingType === 'currency' ? balanceWord(c.pressure) : `${round(c.pressure)}% used`})`)
+  return ` Better-fitting but more loaded: ${listed.join(', ')}.`
+}
+
 function describeReset(candidate) {
   if (candidate.resetState === 'countdown') return `resets in ${candidate.daysToReset}d`
   if (candidate.resetState === 'due') return 'reset due today'
@@ -77,7 +98,7 @@ function decisiveText(criterion, a, b) {
     case 'score':
       return `scores higher than ${b.name} (${a.score} vs ${b.score})`
     case 'pressure_bucket':
-      return `same score but less loaded than ${b.name} (${round(a.pressure)}% vs ${round(b.pressure)}%)`
+      return `same score but less loaded than ${b.name} (${loadText(a)} vs ${loadText(b)})`
     case 'reset': {
       const da = knownDays(a)
       const db = knownDays(b)
@@ -86,7 +107,7 @@ function decisiveText(criterion, a, b) {
         : `same score and load; resets sooner than ${b.name} (${da}d vs ${db}d)`
     }
     case 'pressure':
-      return `same score, bucket and reset; slightly less loaded than ${b.name} (${round(a.pressure)}% vs ${round(b.pressure)}%)`
+      return `same score, bucket and reset; slightly less loaded than ${b.name} (${loadText(a)} vs ${loadText(b)})`
     case 'fit':
       return `same score and load; better declared fit than ${b.name}`
     default:
@@ -104,7 +125,7 @@ function publicResult(c) {
     gatingQuotaId: c.gatingQuotaId,
     daysToReset: c.daysToReset,
     resetState: c.resetState,
-    role: `${FIT_WORD[c.fit]} fit, ${round(c.pressure)}% used`,
+    role: `${FIT_WORD[c.fit]} fit, ${c.gatingType === 'currency' ? `balance ${balanceWord(c.pressure)}` : `${round(c.pressure)}% used`}`,
   }
 }
 
@@ -146,6 +167,7 @@ function classify(provider, task, state, now) {
     pressure,
     gatingQuotaId,
     gatingLabel: gatingQuota ? gatingQuota.label : null,
+    gatingType: gatingQuota ? gatingQuota.type : null,
     score: FIT_SCORE[fit] - penaltyFor(pressure),
     resetState: reset.state,
     daysToReset: reset.daysRemaining,
@@ -195,11 +217,14 @@ export function recommend({ task, providers, state, now }) {
   const tieBreak = runnerUp ? { criterion: firstDifference(primary, runnerUp), between: [primary.providerId, runnerUp.providerId] } : null
 
   const facts = [`${primary.name}: ${FIT_WORD[primary.fit].toLowerCase()} fit for "${taskName}"`]
-  if (primary.gatingLabel) facts.push(`${primary.gatingLabel} at ${round(primary.pressure)}% consumed`)
+  if (primary.gatingLabel) {
+    facts.push(primary.gatingType === 'currency' ? `${primary.gatingLabel} ${balanceWord(primary.pressure)}` : `${primary.gatingLabel} at ${round(primary.pressure)}% consumed`)
+  }
   const resetText = describeReset(primary)
   if (resetText) facts.push(resetText)
   let reason = `${facts.join(', ')}.`
   reason += runnerUp ? ` Chosen because ${decisiveText(tieBreak.criterion, primary, runnerUp)}.` : ' Only provider currently available for this task.'
+  reason += betterFitNote(primary, eligible)
   reason += resetNote(primary)
   if (excluded.length > 0) {
     reason += ` Not used: ${excluded.map((e) => `${e.name} (${e.cause === 'not_suitable' ? 'not suitable' : e.cause === 'blocked' ? 'blocked' : 'no reading'})`).join(', ')}.`

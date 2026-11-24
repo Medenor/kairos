@@ -408,6 +408,9 @@ export default function SurplusSettings({
         provider on their own, and you can switch every provider back to suggestion-only below at any time.
       </p>
 
+      {/* The red stop control only appears once a run is possible (shared mode) or a switch was already set:
+          with nothing able to run it is noise next to the recommendation. */}
+      {(sharedMode || globalState !== 'unset') && (
       <div className={styles.stopBar}>
         <button
           type="button"
@@ -433,6 +436,7 @@ export default function SurplusSettings({
           )}
         </p>
       </div>
+      )}
 
       {pendingOff && (
         <div className={styles.errors} role="alertdialog" aria-label="Confirm stopping the run">

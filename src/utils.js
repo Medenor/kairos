@@ -24,6 +24,32 @@ export function getConsumedPct(quota, value) {
   }
 }
 
+// Says what a reading means, in the unit the user entered it in, so a number is never shown without its
+// direction ("18% left", "82% used") and a balance is never turned into an invented percentage.
+// Returns { text, detail, consumedPct, balanceState }:
+//   consumedPct   0-100 for percentage quotas (what a gauge draws), null for balances and unread quotas
+//   balanceState  'exhausted' | 'low' | 'ok' for a currency quota, null otherwise
+export function describeReading(quota, value) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return { text: 'No reading yet', detail: '', consumedPct: null, balanceState: null }
+  }
+  const clamp = (n) => Math.min(100, Math.max(0, n))
+  switch (quota.type) {
+    case 'consumed_pct':
+      return { text: `${value}% used`, detail: '', consumedPct: clamp(value), balanceState: null }
+    case 'remaining_pct':
+      return { text: `${value}% left`, detail: `${clamp(100 - value)}% used`, consumedPct: clamp(100 - value), balanceState: null }
+    case 'currency': {
+      const low = typeof quota.lowBalance === 'number' && quota.lowBalance > 0 ? quota.lowBalance : DEFAULT_LOW_BALANCE
+      const balanceState = value <= 0 ? 'exhausted' : value < low ? 'low' : 'ok'
+      const unit = quota.currency ? ` ${quota.currency}` : ''
+      return { text: `${value.toFixed(2)}${unit}`, detail: '', consumedPct: null, balanceState }
+    }
+    default:
+      return { text: String(value), detail: '', consumedPct: null, balanceState: null }
+  }
+}
+
 // Returns the highest consumed % across the quotas of a service that have a reading.
 // A quota with no stored value yet is unread: it is ignored, never turned into NaN.
 export function getServicePressure(svc, state) {

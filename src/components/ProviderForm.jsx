@@ -30,6 +30,13 @@ export default function ProviderForm({ initial, mode = 'create', onSubmit, onCan
   useEffect(() => {
     if (focusName) nameRef.current?.focus()
   }, [focusName])
+  const formRef = useRef(null)
+  const [attention, setAttention] = useState(0)
+  // After a failed submit, focus moves to the first invalid field so the keyboard and screen-reader user
+  // lands on what to fix instead of staying on the submit button.
+  useEffect(() => {
+    if (attention > 0) formRef.current?.querySelector('[aria-invalid="true"]')?.focus()
+  }, [attention])
   const [draft, setDraft] = useState(() => initial ?? emptyDraft())
   const [errors, setErrors] = useState({})
   const [notice, setNotice] = useState('')
@@ -70,6 +77,7 @@ export default function ProviderForm({ initial, mode = 'create', onSubmit, onCan
     if (Object.keys(pending).length > 0) {
       setErrors(pending)
       setNotice('Some fields need attention.')
+      setAttention((n) => n + 1)
       return
     }
     const result = onSubmit({ ...draftToInput(draft), ...extra })
@@ -85,6 +93,7 @@ export default function ProviderForm({ initial, mode = 'create', onSubmit, onCan
       setConfirm(null)
       setErrors(errorMap(result?.errors))
       setNotice(result?.errors?.length ? 'Some fields need attention.' : 'The provider could not be saved.')
+      setAttention((n) => n + 1)
     }
   }
 
@@ -115,7 +124,7 @@ export default function ProviderForm({ initial, mode = 'create', onSubmit, onCan
   const id = (name) => `${uid}-${name}`
 
   return (
-    <form className={styles.form} onSubmit={submit} noValidate aria-label={mode === 'edit' ? 'Edit provider' : 'Add provider'}>
+    <form ref={formRef} className={styles.form} onSubmit={submit} noValidate aria-label={mode === 'edit' ? 'Edit provider' : 'Add provider'}>
       <h3 className={styles.title}>{mode === 'edit' ? 'Edit provider' : 'Add provider'}</h3>
       {notice && <p className={styles.notice} role="alert">{notice}</p>}
 

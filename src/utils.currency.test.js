@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { getBarColor, getConsumedPct, getServicePressure, getStatusBadge } from './utils.js'
+import { describeReading, getBarColor, getConsumedPct, getServicePressure, getStatusBadge } from './utils.js'
 
 const currency = (lowBalance) => ({ id: 'c', type: 'currency', ...(lowBalance === undefined ? {} : { lowBalance }) })
 
@@ -26,6 +26,17 @@ test('percentage types, status badges and bar colours are unchanged', () => {
   assert.deepEqual(getStatusBadge(100), { label: 'Exhausted', level: 'off' })
   assert.equal(getBarColor(10), '#1D9E75')
   assert.equal(getBarColor(90), '#E24B4A')
+})
+
+test('describeReading states the direction of a percentage and never turns a balance into a percentage', () => {
+  assert.deepEqual(describeReading({ type: 'consumed_pct' }, 62), { text: '62% used', detail: '', consumedPct: 62, balanceState: null })
+  assert.deepEqual(describeReading({ type: 'remaining_pct' }, 18), { text: '18% left', detail: '82% used', consumedPct: 82, balanceState: null })
+  assert.equal(describeReading({ type: 'consumed_pct' }, 140).consumedPct, 100)
+  assert.deepEqual(describeReading({ type: 'currency', currency: '$', lowBalance: 10 }, 12.4), { text: '12.40 $', detail: '', consumedPct: null, balanceState: 'ok' })
+  assert.equal(describeReading({ type: 'currency', lowBalance: 10 }, 9.99).balanceState, 'low')
+  assert.equal(describeReading({ type: 'currency' }, 0).balanceState, 'exhausted')
+  assert.equal(describeReading({ type: 'currency' }, undefined).text, 'No reading yet')
+  assert.equal(describeReading({ type: 'consumed_pct' }, NaN).consumedPct, null)
 })
 
 test('getServicePressure ignores unread quotas instead of returning NaN', () => {

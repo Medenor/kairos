@@ -147,3 +147,41 @@ test('inputs are not mutated and the result is JSON-serialisable', () => {
   assert.equal(JSON.stringify([a, state]), before)
   assert.deepEqual(JSON.parse(JSON.stringify(result)), result)
 })
+
+// Scenario (before/after): a pay-as-you-go balance wins over a loaded subscription. Before, the reason
+// said "Credit at 20% consumed", a number the user never entered and a balance has no maximum for.
+test('a balance is described in words, not as an invented percentage', () => {
+  const credit = service('c', { name: 'Credits', fits: { coding_hard: 'weak' }, resetType: 'none', resetCycleDays: null, quotas: [quota('c_q', { label: 'Credit', type: 'currency', currency: '$', lowBalance: 5 })] })
+  const sub = service('s', { name: 'Sub', fits: { coding_hard: 'strong' }, quotas: [quota('s_q', { label: 'Weekly' })] })
+  const result = run('coding_hard', [credit, sub], { c: { c_q: 12.4 }, s: { s_q: 85 } })
+  assert.equal(result.primary.providerId, 'c')
+  assert.doesNotMatch(result.reason, /consumed/)
+  assert.match(result.reason, /Credit above its low-balance level/)
+  assert.match(result.reason, /less loaded than Sub \(above its low-balance level vs 85%\)/)
+  assert.equal(result.primary.role, 'Weak fit, balance above its low-balance level')
+  assert.equal(result.alternatives[0].role, 'Strong fit, 85% used')
+})
+
+test('a balance that is running low or nearly out says so', () => {
+  const credit = (id) => service(id, { fits: { daily_chat: 'strong' }, resetType: 'none', resetCycleDays: null, quotas: [quota(`${id}_q`, { label: 'Credit', type: 'currency', currency: '$', lowBalance: 10 })] })
+  assert.match(run('daily_chat', [credit('a')], { a: { a_q: 7 } }).reason, /Credit running low/)
+  assert.match(run('daily_chat', [credit('a')], { a: { a_q: 2 } }).reason, /Credit nearly out/)
+})
+
+// Scenario (before/after): a weaker-fit provider is chosen because the better-fitting ones are loaded.
+// Before, the reason never said so and the user saw a weak pick with no explanation.
+test('a pick that is not the best declared fit names the better-fitting providers it passed over', () => {
+  const weak = service('w', { name: 'Weak One', fits: { coding_hard: 'weak' }, quotas: [quota('w_q')] })
+  const strong = service('s', { name: 'Strong One', fits: { coding_hard: 'strong' }, quotas: [quota('s_q')] })
+  const result = run('coding_hard', [weak, strong], { w: { w_q: 10 }, s: { s_q: 90 } })
+  assert.equal(result.primary.providerId, 'w')
+  assert.match(result.reason, /Better-fitting but more loaded: Strong One \(strong fit, 90% used\)\./)
+})
+
+test('no better-fit note when the pick already has the best declared fit', () => {
+  const a = service('a', { name: 'A', fits: { coding_hard: 'strong' }, quotas: [quota('a_q')] })
+  const b = service('b', { name: 'B', fits: { coding_hard: 'acceptable' }, quotas: [quota('b_q')] })
+  const result = run('coding_hard', [a, b], { a: { a_q: 20 }, b: { b_q: 10 } })
+  assert.equal(result.primary.providerId, 'a')
+  assert.doesNotMatch(result.reason, /Better-fitting/)
+})

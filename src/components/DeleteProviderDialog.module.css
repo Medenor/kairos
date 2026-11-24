@@ -58,8 +58,8 @@
 
 .danger {
   border: none;
-  background: var(--color-red);
-  color: #fff;
+  background: var(--color-danger);
+  color: var(--color-on-danger);
   font-weight: 500;
 }
 
